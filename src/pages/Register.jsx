@@ -33,40 +33,27 @@ export default function Register() {
   }
 
   return (
-    <div className="container">
-      <form className="card" onSubmit={handleRegister}>
+    <div className="auth-container">
+      <form className="auth-card" onSubmit={handleRegister}>
+        <div className="auth-logo">🏠</div>
         <h2>Criar Conta</h2>
-        {error && <div className="error">{error}</div>}
-        <label>
-          Email
-          <input 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-            type="email" 
-            required 
-          />
-        </label>
-        <label>
-          Senha
-          <input 
-            value={password} 
-            onChange={(e) => setPassword(e.target.value)} 
-            type="password" 
-            required 
-          />
-        </label>
-        <label>
-          Confirmar Senha
-          <input 
-            value={confirmPassword} 
-            onChange={(e) => setConfirmPassword(e.target.value)} 
-            type="password" 
-            required 
-          />
-        </label>
-        <button type="submit">Registrar</button>
-        <button type="button" className="secondary" onClick={() => navigate('/')}>
-          Voltar
+        <p className="auth-sub">Preencha os dados para criar sua conta</p>
+        {error && <div className="error-msg">{error}</div>}
+        <div className="form-group">
+          <label>Email</label>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="seu@email.com" />
+        </div>
+        <div className="form-group">
+          <label>Senha</label>
+          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required placeholder="Mínimo 6 caracteres" />
+        </div>
+        <div className="form-group">
+          <label>Confirmar Senha</label>
+          <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" required placeholder="Repita a senha" />
+        </div>
+        <button type="submit" className="btn btn-primary btn-block">Criar Conta</button>
+        <button type="button" className="btn btn-secondary btn-block" onClick={() => navigate('/')}>
+          ← Voltar ao Login
         </button>
       </form>
     </div>

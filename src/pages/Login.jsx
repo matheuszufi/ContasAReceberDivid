@@ -21,20 +21,22 @@ export default function Login() {
   }
 
   return (
-    <div className="container">
-      <form className="card" onSubmit={handleLogin}>
-        <h2>Entrar</h2>
-        {error && <div className="error">{error}</div>}
-        <label>
-          Email
-          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required />
-        </label>
-        <label>
-          Senha
-          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
-        </label>
-        <button type="submit">Entrar</button>
-        <button type="button" className="secondary" onClick={() => navigate('/register')}>
+    <div className="auth-container">
+      <form className="auth-card" onSubmit={handleLogin}>
+        <div className="auth-logo">🏠</div>
+        <h2>ContasReceber</h2>
+        <p className="auth-sub">Entre com sua conta para continuar</p>
+        {error && <div className="error-msg">{error}</div>}
+        <div className="form-group">
+          <label>Email</label>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="seu@email.com" />
+        </div>
+        <div className="form-group">
+          <label>Senha</label>
+          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required placeholder="••••••••" />
+        </div>
+        <button type="submit" className="btn btn-primary btn-block">Entrar</button>
+        <button type="button" className="btn btn-secondary btn-block" onClick={() => navigate('/register')}>
           Criar conta
         </button>
       </form>
