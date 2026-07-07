@@ -6,7 +6,7 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState(null)
-  const { login, register } = useAuth()
+  const { login } = useAuth()
   const navigate = useNavigate()
 
   const handleLogin = async (e) => {
@@ -14,16 +14,6 @@ export default function Login() {
     setError(null)
     try {
       await login(email, password)
-      navigate('/dashboard')
-    } catch (err) {
-      setError(err.message)
-    }
-  }
-
-  const handleRegister = async () => {
-    setError(null)
-    try {
-      await register(email, password)
       navigate('/dashboard')
     } catch (err) {
       setError(err.message)
@@ -44,7 +34,7 @@ export default function Login() {
           <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required />
         </label>
         <button type="submit">Entrar</button>
-        <button type="button" className="secondary" onClick={handleRegister}>
+        <button type="button" className="secondary" onClick={() => navigate('/register')}>
           Criar conta
         </button>
       </form>
