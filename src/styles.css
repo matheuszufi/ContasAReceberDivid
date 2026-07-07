@@ -590,3 +590,71 @@ tbody tr:last-child td { border-bottom: none; }
   line-height: 1.5;
 }
 
+/* ===================== Month Group Cards ===================== */
+.month-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.month-card {
+  background: var(--card);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.18s;
+  width: 100%;
+}
+.month-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(59,130,246,0.1);
+  transform: translateY(-2px);
+}
+.month-card.active {
+  border-color: var(--accent);
+  background: #eff6ff;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+.mc-month {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.month-card.active .mc-month { color: var(--accent); }
+.mc-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.mc-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mc-stat-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+.mc-stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+.mc-stat-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-weight: 600;
+}
+.mc-total {
+  font-size: 11px;
+  color: var(--text-secondary);
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  text-align: right;
+}
+

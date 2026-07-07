@@ -12,11 +12,48 @@ const statusBadge = {
   'Acordo':        'badge-blue',
 }
 
+const fmtMoney = (v) =>
+  'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+
+const getMonth = (d) =>
+  d.mesReferencia || (d.dataVencimento ? d.dataVencimento.substring(0, 7) : null)
+
+const formatMonthLabel = (ym) => {
+  if (!ym) return 'Sem mês'
+  const [y, m] = ym.split('-')
+  return new Date(+y, +m - 1, 1)
+    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    .replace(/^./, c => c.toUpperCase())
+}
+
+function buildMonthGroups(debitos) {
+  const map = {}
+  debitos.forEach(d => {
+    const key = getMonth(d) || 'sem-mes'
+    if (!map[key]) map[key] = []
+    map[key].push(d)
+  })
+  return Object.entries(map).sort(([a], [b]) => b.localeCompare(a))
+}
+
+function monthStats(list) {
+  const pending = list.filter(d => d.status !== 'Pago')
+  const paid    = list.filter(d => d.status === 'Pago')
+  const uniqueInq = new Set(pending.map(d => d.inquilinoId).filter(Boolean))
+  return {
+    totalInadimplentes: uniqueInq.size || pending.length,
+    valorAberto:    pending.reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0),
+    valorRecuperado: paid.reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0),
+    totalDebitos: list.length,
+  }
+}
+
 export default function Inadimplentes() {
   const navigate = useNavigate()
   const [debitos, setDebitos] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [mesSelecionado, setMesSelecionado] = useState(null)
 
   useEffect(() => {
     const r = ref(db, 'inadimplencias')
@@ -33,22 +70,28 @@ export default function Inadimplentes() {
     await remove(ref(db, `inadimplencias/${id}`))
   }
 
-  const pendentes   = debitos.filter(d => d.status !== 'Pago')
-  const totalAberto = pendentes.reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
-  const vencidos30  = pendentes.filter(d => {
+  const pendentes    = debitos.filter(d => d.status !== 'Pago')
+  const totalAberto  = pendentes.reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
+  const totalRecup   = debitos.filter(d => d.status === 'Pago').reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
+  const vencidos30   = pendentes.filter(d => {
     if (!d.dataVencimento) return false
-    const diff = (Date.now() - new Date(d.dataVencimento).getTime()) / 86400000
-    return diff > 30
+    return (Date.now() - new Date(d.dataVencimento).getTime()) / 86400000 > 30
   }).length
 
-  const filtered = debitos.filter(d =>
+  const monthGroups = buildMonthGroups(debitos)
+
+  const baseList = mesSelecionado
+    ? debitos.filter(d => (getMonth(d) || 'sem-mes') === mesSelecionado)
+    : debitos
+
+  const filtered = baseList.filter(d =>
     d.inquilinoNome?.toLowerCase().includes(search.toLowerCase()) ||
     d.codigoImovel?.toLowerCase().includes(search.toLowerCase()) ||
     d.tipoDebito?.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
-    <Layout title="⚠️ Inadimplentes" subtitle="Controle de cláientes com débitos pendentes">
+    <Layout title="⚠️ Inadimplentes" subtitle="Controle de clientes com débitos pendentes">
       <div className="actions-bar">
         <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => navigate('/inadimplentes/cadastrar')}>
           ➕ Registrar Débito
@@ -62,6 +105,7 @@ export default function Inadimplentes() {
         />
       </div>
 
+      {/* ── Resumo Geral ── */}
       <div className="stats-grid" style={{ marginBottom: '24px' }}>
         <div className="stat-card">
           <div className="stat-icon">⚠️</div>
@@ -69,27 +113,86 @@ export default function Inadimplentes() {
           <div className="stat-label">Débitos em Aberto</div>
         </div>
         <div className="stat-card">
-          <div className="stat-icon">💰</div>
-          <div className="stat-value" style={{ fontSize: '18px' }}>
-            R$ {totalAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-          </div>
-          <div className="stat-label">Valor Total em Aberto</div>
+          <div className="stat-icon">💸</div>
+          <div className="stat-value" style={{ fontSize: '16px' }}>{fmtMoney(totalAberto)}</div>
+          <div className="stat-label">Total em Aberto</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-icon">✅</div>
+          <div className="stat-value" style={{ fontSize: '16px' }}>{fmtMoney(totalRecup)}</div>
+          <div className="stat-label">Total Recuperado</div>
         </div>
         <div className="stat-card">
           <div className="stat-icon">📅</div>
           <div className="stat-value">{vencidos30}</div>
           <div className="stat-label">Vencidos há +30 dias</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon">✅</div>
-          <div className="stat-value">{debitos.filter(d => d.status === 'Pago').length}</div>
-          <div className="stat-label">Pagos</div>
-        </div>
       </div>
 
+      {/* ── Resumo por Mês ── */}
+      {monthGroups.length > 0 && (
+        <div className="card" style={{ marginBottom: '24px' }}>
+          <div className="card-header">
+            <h3>📆 Inadimplência por Mês</h3>
+            {mesSelecionado && (
+              <button className="btn btn-sm btn-secondary" onClick={() => setMesSelecionado(null)}>
+                Limpar filtro
+              </button>
+            )}
+          </div>
+          <div className="card-body" style={{ paddingTop: '12px' }}>
+            <div className="month-group-grid">
+              {monthGroups.map(([ym, list]) => {
+                const s = monthStats(list)
+                const active = mesSelecionado === ym
+                return (
+                  <button
+                    key={ym}
+                    className={`month-card${active ? ' active' : ''}`}
+                    onClick={() => setMesSelecionado(active ? null : ym)}
+                    type="button"
+                  >
+                    <div className="mc-month">{formatMonthLabel(ym)}</div>
+                    <div className="mc-stats">
+                      <div className="mc-stat">
+                        <span className="mc-stat-icon">👤</span>
+                        <div>
+                          <div className="mc-stat-value">{s.totalInadimplentes}</div>
+                          <div className="mc-stat-label">Inadimplentes</div>
+                        </div>
+                      </div>
+                      <div className="mc-stat">
+                        <span className="mc-stat-icon">💸</span>
+                        <div>
+                          <div className="mc-stat-value" style={{ fontSize: '12px' }}>{fmtMoney(s.valorAberto)}</div>
+                          <div className="mc-stat-label">Em Aberto</div>
+                        </div>
+                      </div>
+                      <div className="mc-stat">
+                        <span className="mc-stat-icon">✅</span>
+                        <div>
+                          <div className="mc-stat-value" style={{ fontSize: '12px' }}>{fmtMoney(s.valorRecuperado)}</div>
+                          <div className="mc-stat-label">Recuperado</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mc-total">{s.totalDebitos} débito{s.totalDebitos !== 1 ? 's' : ''}</div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Tabela ── */}
       <div className="card">
         <div className="card-header">
-          <h3>Todos os Débitos ({filtered.length})</h3>
+          <h3>
+            {mesSelecionado
+              ? `Débitos — ${formatMonthLabel(mesSelecionado)} (${filtered.length})`
+              : `Todos os Débitos (${filtered.length})`}
+          </h3>
         </div>
         <div className="table-container">
           {loading ? (
@@ -125,10 +228,10 @@ export default function Inadimplentes() {
                     <td><strong>{d.inquilinoNome || '—'}</strong></td>
                     <td>{d.codigoImovel || '—'}</td>
                     <td>{d.tipoDebito || '—'}</td>
-                    <td>{d.mesReferencia ? new Date(d.mesReferencia + '-01').toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }) : '—'}</td>
+                    <td>{d.mesReferencia ? formatMonthLabel(d.mesReferencia) : '—'}</td>
                     <td>{d.dataVencimento ? new Date(d.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                    <td>R$ {Number(d.valorOriginal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                    <td><strong>R$ {Number(d.valorTotal || d.valorOriginal || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></td>
+                    <td>{fmtMoney(d.valorOriginal)}</td>
+                    <td><strong>{fmtMoney(d.valorTotal)}</strong></td>
                     <td>
                       <span className={`badge ${statusBadge[d.status] || 'badge-gray'}`}>{d.status || 'Pendente'}</span>
                     </td>
@@ -149,3 +252,4 @@ export default function Inadimplentes() {
     </Layout>
   )
 }
+
