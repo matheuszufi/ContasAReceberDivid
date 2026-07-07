@@ -1,7 +1,7 @@
 import React from 'react'
 import { useNavigate } from 'react-router-dom'
 
-export default function ImoveisMe() {
+export default function Inadimplentes() {
   const navigate = useNavigate()
 
   const buttonStyle = {
@@ -33,10 +33,10 @@ export default function ImoveisMe() {
         }}>
           <div>
             <h1 style={{ margin: '0 0 8px 0', color: '#2c3e50', fontSize: '24px' }}>
-              🏠 Imóveis ME
+              ⚠️ Inadimplentes
             </h1>
             <p style={{ margin: '0', color: '#7f8c8d', fontSize: '14px' }}>
-              Microempresa - Controle de Imóveis
+              Controle de Clientes Inadimplentes
             </p>
           </div>
           <button 
@@ -107,11 +107,11 @@ export default function ImoveisMe() {
             padding: '20px', 
             backgroundColor: '#ecf0f1', 
             borderRadius: '6px',
-            borderLeft: '4px solid #3498db'
+            borderLeft: '4px solid #e74c3c'
           }}>
             <h3 style={{ marginTop: '0', color: '#2c3e50' }}>Planilha de Controle</h3>
             <p style={{ color: '#7f8c8d', marginBottom: '0' }}>
-              Nesta seção você gerencia todos os imóveis da categoria ME (Microempresa) e seus respectivos inquilinos.
+              Nesta seção você gerencia todos os clientes e imóveis com débitos pendentes e histórico de inadimplência.
             </p>
           </div>
         </div>

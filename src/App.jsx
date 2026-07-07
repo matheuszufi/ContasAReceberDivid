@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import ImoveisMe from './pages/ImoveisMe'
 import ImoveisMa from './pages/ImoveisMa'
 import ImoveisMl from './pages/ImoveisMl'
+import Inadimplentes from './pages/Inadimplentes'
 import { useAuth } from './auth'
 
 function PrivateRoute({ children }) {
@@ -48,6 +49,14 @@ export default function App() {
         element={
           <PrivateRoute>
             <ImoveisMl />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/inadimplentes"
+        element={
+          <PrivateRoute>
+            <Inadimplentes />
           </PrivateRoute>
         }
       />
