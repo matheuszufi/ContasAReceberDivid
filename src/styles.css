@@ -485,5 +485,108 @@ tbody tr:last-child td { border-bottom: none; }
 }
 .link-btn:hover { color: var(--accent-hover); }
 
+/* ===================== Valor Total Display ===================== */
+.valor-total-display {
+  padding: 9px 12px;
+  background: #eff6ff;
+  border: 1.5px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+}
 
+/* ===================== Debt Info Grid ===================== */
+.debito-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.debito-info-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.dii-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.dii-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* ===================== Timeline ===================== */
+.timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  position: relative;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+  border-radius: 2px;
+}
+.timeline-item {
+  position: relative;
+  padding-left: 54px;
+  padding-bottom: 22px;
+}
+.timeline-item:last-child { padding-bottom: 0; }
+.timeline-icon {
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 2px var(--border);
+  z-index: 1;
+}
+.timeline-content {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 11px 14px;
+}
+.timeline-content:hover { border-color: #cbd5e1; }
+.timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.timeline-tipo {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.timeline-date {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.timeline-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
 

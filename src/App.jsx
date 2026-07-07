@@ -13,6 +13,8 @@ import CadastrarProprietario from './pages/CadastrarProprietario'
 import Inquilinos from './pages/Inquilinos'
 import CadastrarInquilino from './pages/CadastrarInquilino'
 import Inadimplentes from './pages/Inadimplentes'
+import CadastrarInadimplencia from './pages/CadastrarInadimplencia'
+import TimelineInadimplencia from './pages/TimelineInadimplencia'
 import { useAuth } from './auth'
 
 function PrivateRoute({ children }) {
@@ -40,6 +42,9 @@ export default function App() {
       <Route path="/inquilinos/cadastrar"       element={<PrivateRoute><CadastrarInquilino /></PrivateRoute>} />
       <Route path="/inquilinos/editar/:id"      element={<PrivateRoute><CadastrarInquilino /></PrivateRoute>} />
       <Route path="/inadimplentes"              element={<PrivateRoute><Inadimplentes /></PrivateRoute>} />
+      <Route path="/inadimplentes/cadastrar"    element={<PrivateRoute><CadastrarInadimplencia /></PrivateRoute>} />
+      <Route path="/inadimplentes/editar/:id"   element={<PrivateRoute><CadastrarInadimplencia /></PrivateRoute>} />
+      <Route path="/inadimplentes/timeline/:id" element={<PrivateRoute><TimelineInadimplencia /></PrivateRoute>} />
     </Routes>
   )
 }
