@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
@@ -43,9 +43,11 @@ function calcTotal(original, multa, juros) {
 export default function CadastrarInadimplencia() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const location = useLocation()
   const isEdit = Boolean(id)
 
-  const [form, setForm] = useState(initialForm)
+  const prefill = (!isEdit && location.state) ? location.state : {}
+  const [form, setForm] = useState({ ...initialForm, ...prefill })
   const [inquilinos, setInquilinos] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
