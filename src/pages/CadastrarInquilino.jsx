@@ -52,6 +52,8 @@ const initialForm = {
   codigoImovel: '',
   contasInclusas: [],
   contasValores: {},
+  contasVariavel: {},
+  contasOrigem: {},
   garantia: '',
   seguro: '',
   valorSeguro: '',
@@ -79,7 +81,13 @@ export default function CadastrarInquilino() {
     get(ref(db, `inquilinos/${id}`)).then(snap => {
       if (snap.exists()) {
         const data = snap.val()
-        setForm({ ...initialForm, ...data, contasInclusas: data.contasInclusas || [], contasValores: data.contasValores || {} })
+        setForm({
+          ...initialForm, ...data,
+          contasInclusas: data.contasInclusas || [],
+          contasValores:  data.contasValores  || {},
+          contasVariavel: data.contasVariavel || {},
+          contasOrigem:   data.contasOrigem   || {},
+        })
       }
     })
   }, [id, isEdit])
@@ -113,14 +121,32 @@ export default function CadastrarInquilino() {
       const newContasInclusas = isActive
         ? prev.contasInclusas.filter(v => v !== value)
         : [...prev.contasInclusas, value]
-      const newContasValores = { ...prev.contasValores }
-      if (isActive) delete newContasValores[value]
-      return { ...prev, contasInclusas: newContasInclusas, contasValores: newContasValores }
+      const newContasValores  = { ...prev.contasValores }
+      const newContasVariavel = { ...prev.contasVariavel }
+      const newContasOrigem   = { ...prev.contasOrigem }
+      if (isActive) {
+        delete newContasValores[value]
+        delete newContasVariavel[value]
+        delete newContasOrigem[value]
+      }
+      return { ...prev, contasInclusas: newContasInclusas, contasValores: newContasValores, contasVariavel: newContasVariavel, contasOrigem: newContasOrigem }
     })
   }
 
   const handleContaValor = (key, value) => {
     setForm(prev => ({ ...prev, contasValores: { ...prev.contasValores, [key]: value } }))
+  }
+
+  const handleContaVariavel = (key, checked) => {
+    setForm(prev => ({
+      ...prev,
+      contasVariavel: { ...prev.contasVariavel, [key]: checked },
+      contasValores:  checked ? { ...prev.contasValores, [key]: '' } : prev.contasValores,
+    }))
+  }
+
+  const handleContaOrigem = (key, value) => {
+    setForm(prev => ({ ...prev, contasOrigem: { ...prev.contasOrigem, [key]: value } }))
   }
 
   const handleSubmit = async (e) => {
@@ -254,9 +280,10 @@ export default function CadastrarInquilino() {
               <label>Contas Inclusas</label>
               <div className="checkbox-grid">
                 {CONTAS_OPCOES.map(opt => {
-                  const isActive = form.contasInclusas.includes(opt.value)
+                  const isActive   = form.contasInclusas.includes(opt.value)
+                  const isVariavel = !!form.contasVariavel[opt.value]
                   return (
-                    <div key={opt.value} className={`conta-card${isActive ? ' active' : ''}`}>
+                    <div key={opt.value} className={`conta-card${isActive ? ' active' : ''}${isVariavel ? ' variavel' : ''}`}>
                       <label className="conta-card-header">
                         <input
                           type="checkbox"
@@ -264,15 +291,37 @@ export default function CadastrarInquilino() {
                           onChange={() => handleCheckbox(opt.value)}
                         />
                         <span>{opt.label}</span>
+                        {isVariavel && <span className="conta-variavel-badge">variável</span>}
                       </label>
                       {isActive && (
-                        <div className="conta-card-valor">
-                          <input
-                            type="number" step="0.01" min="0"
-                            placeholder="R$ 0,00"
-                            value={form.contasValores[opt.value] || ''}
-                            onChange={e => handleContaValor(opt.value, e.target.value)}
-                          />
+                        <div className="conta-card-body">
+                          <label className="conta-variavel-toggle">
+                            <input
+                              type="checkbox"
+                              checked={isVariavel}
+                              onChange={e => handleContaVariavel(opt.value, e.target.checked)}
+                            />
+                            <span>Conta variável</span>
+                          </label>
+                          {!isVariavel ? (
+                            <div className="conta-card-valor">
+                              <input
+                                type="number" step="0.01" min="0"
+                                placeholder="R$ 0,00"
+                                value={form.contasValores[opt.value] || ''}
+                                onChange={e => handleContaValor(opt.value, e.target.value)}
+                              />
+                            </div>
+                          ) : (
+                            <div className="conta-card-origem">
+                              <input
+                                type="text"
+                                placeholder="Onde encontrar o valor..."
+                                value={form.contasOrigem[opt.value] || ''}
+                                onChange={e => handleContaOrigem(opt.value, e.target.value)}
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

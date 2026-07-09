@@ -367,10 +367,48 @@ tbody tr:last-child td { border-bottom: none; }
   cursor: pointer;
   flex-shrink: 0;
 }
-.conta-card-valor {
-  padding: 8px 10px;
+.conta-card-body {
   border-top: 1px solid #dbeafe;
   background: #f0f7ff;
+}
+.conta-card.variavel {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+}
+.conta-card.variavel .conta-card-header {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+.conta-variavel-badge {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  background: #ede9fe;
+  color: #7c3aed;
+  border-radius: 10px;
+  padding: 1px 7px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.conta-variavel-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+}
+.conta-variavel-toggle input[type="checkbox"] {
+  accent-color: #7c3aed;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+.conta-card-valor {
+  padding: 5px 10px 8px;
 }
 .conta-card-valor input {
   width: 100%;
@@ -384,6 +422,22 @@ tbody tr:last-child td { border-bottom: none; }
   transition: border-color 0.18s;
 }
 .conta-card-valor input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59,130,246,0.12); }
+.conta-card-origem {
+  padding: 5px 10px 8px;
+}
+.conta-card-origem input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1.5px solid #c4b5fd;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-primary);
+  outline: none;
+  background: #fff;
+  transition: border-color 0.18s;
+}
+.conta-card-origem input:focus { border-color: #7c3aed; box-shadow: 0 0 0 2px rgba(124,58,237,0.12); }
+.conta-card-origem input::placeholder { color: #a78bfa; }
 
 /* legacy checkbox-item kept for other uses */
 .checkbox-item {
