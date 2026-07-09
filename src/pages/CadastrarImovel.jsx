@@ -5,14 +5,6 @@ import { db } from '../firebase'
 import Layout from '../components/Layout'
 
 const STATUS_IMOVEL = ['Disponível', 'Ocupado', 'Em Manutenção', 'Indisponível']
-const CONTAS_OPCOES = [
-  { value: 'agua',       label: 'Água' },
-  { value: 'energia',    label: 'Energia' },
-  { value: 'condominio', label: 'Condomínio' },
-  { value: 'gas',        label: 'Gás' },
-  { value: 'iptu',       label: 'IPTU' },
-  { value: 'lixo',       label: 'Lixo' },
-]
 
 const formatCEP = (v) =>
   v.replace(/\D/g, '').replace(/(\d{5})(\d{1,3})/, '$1-$2').substring(0, 9)
@@ -22,8 +14,7 @@ const initialForm = {
   proprietarioId: '',
   endereco: { cep: '', rua: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '' },
   vagas: '',
-  valorAluguel: '', valorCondominio: '', valorIPTU: '', valorGaragem: '',
-  contasInclusas: [], contasValores: {},
+  valorAluguel: '',
   observacao: '',
 }
 
@@ -52,8 +43,6 @@ export default function CadastrarImovel() {
         setForm({
           ...initialForm, ...data,
           endereco: { ...initialForm.endereco, ...(data.endereco || {}) },
-          contasInclusas: data.contasInclusas || [],
-          contasValores: data.contasValores || {},
         })
       }
     })
@@ -96,39 +85,17 @@ export default function CadastrarImovel() {
     finally { setCepLoading(false) }
   }
 
-  const handleCheckbox = (value) => {
-    setForm(prev => {
-      const isActive = prev.contasInclusas.includes(value)
-      const newContasInclusas = isActive
-        ? prev.contasInclusas.filter(v => v !== value)
-        : [...prev.contasInclusas, value]
-      const newContasValores = { ...prev.contasValores }
-      if (isActive) delete newContasValores[value]
-      return { ...prev, contasInclusas: newContasInclusas, contasValores: newContasValores }
-    })
-  }
-
-  const handleContaValor = (key, value) =>
-    setForm(prev => ({ ...prev, contasValores: { ...prev.contasValores, [key]: value } }))
-
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
-      const contasValoresParsed = Object.fromEntries(
-        Object.entries(form.contasValores).map(([k, v]) => [k, parseFloat(v) || 0])
-      )
       const proprietario = proprietarios.find(p => p.id === form.proprietarioId)
       const payload = {
         ...form,
-        contasValores:    contasValoresParsed,
         proprietarioNome: proprietario?.nome || '',
         vagas:            parseInt(form.vagas) || 0,
         valorAluguel:     parseFloat(form.valorAluguel) || 0,
-        valorCondominio:  parseFloat(form.valorCondominio) || 0,
-        valorIPTU:        parseFloat(form.valorIPTU) || 0,
-        valorGaragem:     parseFloat(form.valorGaragem) || 0,
       }
       if (isEdit) {
         await update(ref(db, `imoveis/${id}`), { ...payload, atualizadoEm: new Date().toISOString() })
@@ -263,54 +230,8 @@ export default function CadastrarImovel() {
                 <input name="valorAluguel" type="number" step="0.01" min="0" required value={form.valorAluguel} onChange={handleChange} placeholder="0,00" />
               </div>
               <div className="form-group">
-                <label>Valor do Condomínio (R$)</label>
-                <input name="valorCondominio" type="number" step="0.01" min="0" value={form.valorCondominio} onChange={handleChange} placeholder="0,00" />
-              </div>
-              <div className="form-group">
-                <label>Valor IPTU mensal (R$)</label>
-                <input name="valorIPTU" type="number" step="0.01" min="0" value={form.valorIPTU} onChange={handleChange} placeholder="0,00" />
-              </div>
-              <div className="form-group">
-                <label>Valor Garagem (R$)</label>
-                <input name="valorGaragem" type="number" step="0.01" min="0" value={form.valorGaragem} onChange={handleChange} placeholder="0,00" />
-              </div>
-              <div className="form-group">
                 <label>Vagas de Garagem</label>
                 <input name="vagas" type="number" min="0" value={form.vagas} onChange={handleChange} placeholder="0" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Contas Inclusas ── */}
-        <div className="form-section">
-          <div className="form-section-header">
-            <span className="form-section-icon">💡</span>
-            <h3>Contas Inclusas no Aluguel</h3>
-          </div>
-          <div className="form-section-body">
-            <div className="form-group">
-              <label>Selecione as contas e informe os valores estimados</label>
-              <div className="checkbox-grid">
-                {CONTAS_OPCOES.map(opt => {
-                  const isActive = form.contasInclusas.includes(opt.value)
-                  return (
-                    <div key={opt.value} className={`conta-card${isActive ? ' active' : ''}`}>
-                      <label className="conta-card-header">
-                        <input type="checkbox" checked={isActive} onChange={() => handleCheckbox(opt.value)} />
-                        <span>{opt.label}</span>
-                      </label>
-                      {isActive && (
-                        <div className="conta-card-valor">
-                          <input type="number" step="0.01" min="0" placeholder="R$ 0,00"
-                            value={form.contasValores[opt.value] || ''}
-                            onChange={e => handleContaValor(opt.value, e.target.value)}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
               </div>
             </div>
           </div>

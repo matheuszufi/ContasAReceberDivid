@@ -27,9 +27,9 @@ const fmtBRL = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', 
 const padM   = n => String(n).padStart(2, '0')
 
 const thL = { padding: '10px 12px', textAlign: 'left',   fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }
-const thC = { padding: '10px 6px',  textAlign: 'center', fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0', minWidth: 52, background: '#f8fafc' }
+const thC = { padding: '10px 6px',  textAlign: 'center', fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0', minWidth: 88, background: '#f8fafc' }
 const tdL = { padding: '10px 12px', textAlign: 'left',   verticalAlign: 'middle', borderBottom: '1px solid #f1f5f9' }
-const tdC = { padding: '6px 4px',   textAlign: 'center', verticalAlign: 'middle', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }
+const tdC = { padding: '5px 4px',   textAlign: 'center', verticalAlign: 'middle', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }
 
 export default function ImoveisMe() {
   const navigate = useNavigate()
@@ -199,10 +199,15 @@ export default function ImoveisMe() {
                         {fmtBRL(imovel.valorAluguel)}
                       </td>
                       {MESES.map((_, mi) => {
-                        const items   = getItems(imovel.id, mi)
-                        const summary = getCellSummary(items)
-                        const st      = summary ? STATUS_STYLE[summary] : null
-                        const isCur   = isCurrentYear && mi === currentMonthIdx
+                        const items    = getItems(imovel.id, mi)
+                        const summary  = getCellSummary(items)
+                        const st       = summary ? STATUS_STYLE[summary] : null
+                        const isCur    = isCurrentYear && mi === currentMonthIdx
+                        const aluguel  = Number(imovel.valorAluguel) || 0
+                        const despesas = Object.values(inquilino.contasValores || {})
+                          .reduce((s, v) => s + (Number(v) || 0), 0)
+                        const totalMes = aluguel + despesas
+
                         return (
                           <td
                             key={mi}
@@ -212,19 +217,31 @@ export default function ImoveisMe() {
                               ? `${items.length} registro(s) — clique para ver detalhes`
                               : 'Clique para registrar conta'}
                           >
-                            {summary ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                              {/* Aluguel com cor de status */}
                               <div style={{
-                                background: st.bg, border: `1px solid ${st.border}`,
-                                borderRadius: 6, padding: '3px 5px', color: st.color,
-                                fontWeight: 700, fontSize: 11,
-                                display: 'inline-flex', alignItems: 'center', gap: 2,
+                                display: 'inline-flex', alignItems: 'center', gap: 3,
+                                background: st ? st.bg : '#f1f5f9',
+                                border: `1px solid ${st ? st.border : '#e2e8f0'}`,
+                                borderRadius: 5, padding: '2px 6px',
+                                color: st ? st.color : '#94a3b8',
                               }}>
-                                {st.icon}
-                                {items.length > 1 && <span>{items.length}</span>}
+                                {st && <span style={{ fontSize: 9 }}>{st.icon}</span>}
+                                <span style={{ fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                  {fmtBRL(aluguel)}
+                                </span>
                               </div>
-                            ) : (
-                              <span style={{ color: '#cbd5e1', fontSize: 18, lineHeight: 1 }}>+</span>
-                            )}
+                              {/* Total: aluguel + contas do inquilino */}
+                              {despesas > 0 && (
+                                <div style={{ fontSize: 10, color: '#334155', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                  = {fmtBRL(totalMes)}
+                                </div>
+                              )}
+                              {/* Sem registro: hint para adicionar */}
+                              {!summary && (
+                                <span style={{ color: '#cbd5e1', fontSize: 11, lineHeight: 1 }}>+ conta</span>
+                              )}
+                            </div>
                           </td>
                         )
                       })}
