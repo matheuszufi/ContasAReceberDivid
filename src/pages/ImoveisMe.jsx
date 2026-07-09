@@ -276,9 +276,28 @@ export default function ImoveisMe() {
                         const summary  = getCellSummary(items)
                         const st       = summary ? STATUS_STYLE[summary] : null
                         const isCur    = isCurrentYear && mi === currentMonthIdx
+                        const cellKey  = monthKey(mi)
+                        const mesInicio = inquilino.dataEntrada?.substring(0, 7)
+                        const mesFim    = inquilino.dataSaida?.substring(0, 7)
+                        const foraDoContrato =
+                          (mesInicio && cellKey < mesInicio) ||
+                          (mesFim    && cellKey > mesFim)
+
+                        if (foraDoContrato) {
+                          return (
+                            <td
+                              key={mi}
+                              style={{ ...tdC, background: '#f8fafc', cursor: 'default' }}
+                              title="Fora do período do contrato"
+                            >
+                              <span style={{ color: '#e2e8f0', fontSize: 16, lineHeight: 1 }}>—</span>
+                            </td>
+                          )
+                        }
+
                         const aluguel     = Number(imovel.valorAluguel) || 0
                         const valorSeguro = inquilino.garantia === 'seguro' ? Number(inquilino.valorSeguro) || 0 : 0
-                        const vv          = valoresVariaveis[inquilino.id]?.[monthKey(mi)] || {}
+                        const vv          = valoresVariaveis[inquilino.id]?.[cellKey] || {}
                         const { extras: cellExtras, ...cellVarVals } = vv
                         const despesas    = (inquilino.contasInclusas || []).reduce((s, k) => {
                           if (inquilino.contasVariavel?.[k]) return s + (Number(cellVarVals[k]) || 0)
