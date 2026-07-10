@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ref, onValue, push } from 'firebase/database'
+import { ref, onValue, push, get } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 
@@ -39,6 +39,7 @@ export default function TimelineInadimplencia() {
   const { id } = useParams()
 
   const [debito, setDebito] = useState(null)
+  const [inquilino, setInquilino] = useState(null)
   const [timeline, setTimeline] = useState([])
   const [tipo, setTipo] = useState('Observação')
   const [descricao, setDescricao] = useState('')
@@ -51,6 +52,11 @@ export default function TimelineInadimplencia() {
         // Separate timeline from the rest
         const { timeline: tl, ...rest } = data
         setDebito(rest)
+        if (rest.inquilinoId) {
+          get(ref(db, `inquilinos/${rest.inquilinoId}`)).then(s => {
+            if (s.exists()) setInquilino(s.val())
+          })
+        }
         if (tl) {
           const sorted = Object.entries(tl)
             .map(([key, v]) => ({ key, ...v }))
@@ -142,6 +148,23 @@ export default function TimelineInadimplencia() {
                 <span className={`badge ${statusBadge[debito.status] || 'badge-gray'}`}>{debito.status || 'Pendente'}</span>
               </span>
             </div>
+            {(() => {
+              const GARANTIA_LABELS = { seguro: 'Seguro Fiança', caucao: 'Caução', adiantamento: 'Adiantamento', sem_garantia: 'Sem Garantia' }
+              const SEGURO_LABELS   = { credaluga: 'Credaluga', credpago: 'Credpago', lado_bom: 'Lado Bom Seguros' }
+              const g = debito.garantia || inquilino?.garantia
+              const s = debito.seguro   || inquilino?.seguro
+              if (!g) return null
+              const label = GARANTIA_LABELS[g] || g
+              const full  = g === 'seguro' && s ? `${label} — ${SEGURO_LABELS[s] || s}` : label
+              return (
+                <div className="debito-info-item">
+                  <span className="dii-label">Garantia</span>
+                  <span className="dii-value" style={{ fontWeight: 600, color: g === 'seguro' ? '#7c3aed' : '#166534' }}>
+                    {g === 'seguro' ? '🛡️' : '💰'} {full}
+                  </span>
+                </div>
+              )
+            })()}
           </div>
           {debito.observacao && (
             <div className="info-banner" style={{ marginTop: '12px' }}>

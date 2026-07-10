@@ -12,6 +12,19 @@ const statusBadge = {
   'Acordo':        'badge-blue',
 }
 
+const GARANTIA_LABELS = {
+  seguro:       'Seguro Fiança',
+  caucao:       'Caução',
+  adiantamento: 'Adiantamento',
+  sem_garantia: 'Sem Garantia',
+}
+
+const SEGURO_LABELS = {
+  credaluga: 'Credaluga',
+  credpago:  'Credpago',
+  lado_bom:  'Lado Bom Seguros',
+}
+
 const fmtMoney = (v) =>
   'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
@@ -51,19 +64,34 @@ function monthStats(list) {
 export default function Inadimplentes() {
   const navigate = useNavigate()
   const [debitos, setDebitos] = useState([])
+  const [inquilinos, setInquilinos] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [mesSelecionado, setMesSelecionado] = useState(null)
 
   useEffect(() => {
-    const r = ref(db, 'inadimplencias')
-    const unsub = onValue(r, snap => {
+    const r1 = ref(db, 'inadimplencias')
+    const unsub1 = onValue(r1, snap => {
       const data = snap.val()
       setDebitos(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
       setLoading(false)
     })
-    return () => unsub()
+    const r2 = ref(db, 'inquilinos')
+    const unsub2 = onValue(r2, snap => {
+      const data = snap.val()
+      setInquilinos(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+    return () => { unsub1(); unsub2() }
   }, [])
+
+  const getGarantia = (d) => {
+    const g = d.garantia || inquilinos.find(i => i.id === d.inquilinoId)?.garantia
+    const s = d.seguro   || inquilinos.find(i => i.id === d.inquilinoId)?.seguro
+    if (!g) return null
+    const label = GARANTIA_LABELS[g] || g
+    if (g === 'seguro' && s) return `${label} — ${SEGURO_LABELS[s] || s}`
+    return label
+  }
 
   const handleDelete = async (id) => {
     if (!window.confirm('Deseja excluir este débito?')) return
@@ -201,8 +229,7 @@ export default function Inadimplentes() {
             <table>
               <thead>
                 <tr>
-                  <th>Inquilino</th>
-                  <th>Imóvel</th>
+                  <th>Inquilino</th>                  <th>Garantia</th>                  <th>Imóvel</th>
                   <th>Tipo</th>
                   <th>Mês Ref.</th>
                   <th>Vencimento</th>
@@ -215,7 +242,7 @@ export default function Inadimplentes() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={9}>
+                    <td colSpan={10}>
                       <div className="empty-state">
                         <div className="es-icon">✅</div>
                         <h3>Nenhum débito encontrado</h3>
@@ -226,6 +253,23 @@ export default function Inadimplentes() {
                 ) : filtered.map(d => (
                   <tr key={d.id}>
                     <td><strong>{d.inquilinoNome || '—'}</strong></td>
+                    <td>
+                      {(() => {
+                        const g = getGarantia(d)
+                        if (!g) return <span style={{ color: '#cbd5e1' }}>—</span>
+                        const isSeguro = (d.garantia || inquilinos.find(i => i.id === d.inquilinoId)?.garantia) === 'seguro'
+                        return (
+                          <span style={{
+                            fontSize: 11, fontWeight: 600, borderRadius: 10, padding: '2px 8px',
+                            background: isSeguro ? '#ede9fe' : '#f0fdf4',
+                            color: isSeguro ? '#7c3aed' : '#166534',
+                            border: `1px solid ${isSeguro ? '#c4b5fd' : '#86efac'}`,
+                          }}>
+                            {isSeguro ? '🛡️' : '💰'} {g}
+                          </span>
+                        )
+                      })()}
+                    </td>
                     <td>{d.codigoImovel || '—'}</td>
                     <td>{d.tipoDebito || '—'}</td>
                     <td>{d.mesReferencia ? formatMonthLabel(d.mesReferencia) : '—'}</td>

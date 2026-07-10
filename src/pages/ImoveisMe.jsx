@@ -173,6 +173,8 @@ export default function ImoveisMe() {
         tipoDebito:     regForm.tipoDebito,
         mesReferencia:  modal.key,
         dataVencimento: regForm.dataVencimento,
+        garantia:       modal.inquilino.garantia || '',
+        seguro:         modal.inquilino.seguro   || '',
         valorOriginal:  numVal,
         multa,
         juros,
