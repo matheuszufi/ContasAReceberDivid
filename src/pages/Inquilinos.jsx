@@ -89,6 +89,7 @@ export default function Inquilinos() {
                   <th>CPF</th>
                   <th>Telefone</th>
                   <th>Imóvel</th>
+                  <th>Quarto</th>
                   <th>Modelo</th>
                   <th>Valor</th>
                   <th>Status</th>
@@ -112,6 +113,7 @@ export default function Inquilinos() {
                     <td>{inq.cpf || '—'}</td>
                     <td>{inq.telefone || '—'}</td>
                     <td>{inq.codigoImovel || '—'}</td>
+                    <td>{inq.numeroQuarto || '—'}</td>
                     <td>
                       {inq.modelo
                         ? <span className={`badge ${modeloBadge[inq.modelo] || 'badge-gray'}`}>{inq.modelo}</span>

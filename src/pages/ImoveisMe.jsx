@@ -22,6 +22,11 @@ const SEGURO_LABELS = {
   lado_bom:  'Lado Bom Seguros',
 }
 
+const TIPOS_DEBITO = [
+  'Aluguel', 'Condomínio', 'Água', 'Energia', 'Gás',
+  'IPTU', 'Lixo', 'Seguro Incêndio', 'Seguro Fiança', 'Outro',
+]
+
 const STATUS_STYLE = {
   'Pago':          { bg: '#dcfce7', border: '#86efac', color: '#166534', icon: '✅' },
   'Pendente':      { bg: '#fef9c3', border: '#fde047', color: '#854d0e', icon: '⚠️' },
@@ -62,8 +67,10 @@ export default function ImoveisMe() {
   const [modal, setModal]           = useState(null)
   const [varValues, setVarValues]   = useState({})
   const [extraContas, setExtraContas] = useState([])
+  const [regForm, setRegForm]         = useState(null)
+  const [regSaving, setRegSaving]     = useState(false)
 
-  const closeModal = () => { setModal(null); setVarValues({}); setExtraContas([]) }
+  const closeModal = () => { setModal(null); setVarValues({}); setExtraContas([]); setRegForm(null) }
 
   const loading = !loadedIm || !loadedInq || !loadedInad || !loadedVV
 
@@ -148,6 +155,37 @@ export default function ImoveisMe() {
       await remove(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/extras/${extra.id}`))
     }
     setExtraContas(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const handleRegSubmit = async () => {
+    if (!regForm || !modal || regSaving) return
+    setRegSaving(true)
+    try {
+      const numVal     = parseFloat(regForm.valorOriginal) || 0
+      const multa      = parseFloat(regForm.multa) || 0
+      const juros      = parseFloat(regForm.juros) || 0
+      const valorTotal = numVal + (numVal * multa / 100) + (numVal * juros / 100)
+      await push(ref(db, 'inadimplencias'), {
+        inquilinoId:    modal.inquilino.id,
+        inquilinoNome:  modal.inquilino.nome,
+        imovelId:       modal.imovel.id,
+        codigoImovel:   modal.imovel.codigo,
+        tipoDebito:     regForm.tipoDebito,
+        mesReferencia:  modal.key,
+        dataVencimento: regForm.dataVencimento,
+        valorOriginal:  numVal,
+        multa,
+        juros,
+        valorTotal,
+        status:         regForm.status,
+        dataPagamento:  regForm.status === 'Pago' ? (regForm.dataPagamento || '') : '',
+        observacao:     regForm.observacao,
+        criadoEm:       new Date().toISOString(),
+      })
+      setRegForm(null)
+    } finally {
+      setRegSaving(false)
+    }
   }
 
   const goRegister = (imovel, inquilino, mesReferencia, valorOriginal) =>
@@ -269,7 +307,7 @@ export default function ImoveisMe() {
                       </td>
                       <td style={tdL}>{inquilino.nome || '—'}</td>
                       <td style={{ ...tdL, textAlign: 'right', fontWeight: 600 }}>
-                        {fmtBRL(imovel.valorAluguel)}
+                        {fmtBRL(inquilino.valorAluguel || imovel.valorAluguel)}
                       </td>
                       {MESES.map((_, mi) => {
                         const items    = getItems(imovel.id, mi)
@@ -295,8 +333,9 @@ export default function ImoveisMe() {
                           )
                         }
 
-                        const aluguel     = Number(imovel.valorAluguel) || 0
+                        const aluguel     = Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
                         const valorSeguro = inquilino.garantia === 'seguro' ? Number(inquilino.valorSeguro) || 0 : 0
+                        const valorGaragem = (Number(inquilino.vagas) || 0) * (Number(inquilino.valorVaga) || 0)
                         const vv          = valoresVariaveis[inquilino.id]?.[cellKey] || {}
                         const { extras: cellExtras, ...cellVarVals } = vv
                         const despesas    = (inquilino.contasInclusas || []).reduce((s, k) => {
@@ -306,16 +345,30 @@ export default function ImoveisMe() {
                         const extrasTotal = cellExtras
                           ? Object.values(cellExtras).reduce((s, e) => s + (Number(e.valor) || 0), 0)
                           : 0
-                        const totalMes    = aluguel + despesas + valorSeguro + extrasTotal
+                        const totalMes    = aluguel + despesas + valorSeguro + valorGaragem + extrasTotal
+
+                        // 12º aluguel = mês de reajuste
+                        let isReajuste = false
+                        if (mesInicio) {
+                          const [eY, eM] = mesInicio.split('-').map(Number)
+                          const elapsed = (year - eY) * 12 + ((mi + 1) - eM)
+                          isReajuste = elapsed >= 0 && elapsed % 12 === 11
+                        }
 
                         return (
                           <td
                             key={mi}
-                            style={{ ...tdC, ...(isCur ? { background: '#eff6ff' } : {}) }}
+                            style={{
+                              ...tdC,
+                              ...(isCur ? { background: '#eff6ff' } : {}),
+                              ...(isReajuste ? { borderBottom: '2.5px solid #f59e0b', background: isCur ? '#eff6ff' : '#fffbeb' } : {}),
+                            }}
                             onClick={() => openModal({ imovel, inquilino }, mi)}
-                            title={summary
-                              ? `${items.length} registro(s) — clique para ver detalhes`
-                              : 'Clique para registrar conta'}
+                            title={isReajuste
+                              ? '12º aluguel — mês de reajuste'
+                              : summary
+                                ? `${items.length} registro(s) — clique para ver detalhes`
+                                : 'Clique para registrar conta'}
                           >
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                               {/* Aluguel com cor de status */}
@@ -340,6 +393,12 @@ export default function ImoveisMe() {
                               {/* Sem registro: hint para adicionar */}
                               {!summary && (
                                 <span style={{ color: '#cbd5e1', fontSize: 11, lineHeight: 1 }}>+ conta</span>
+                              )}
+                              {/* Badge de reajuste */}
+                              {isReajuste && (
+                                <span style={{ fontSize: 9, fontWeight: 700, color: '#b45309', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 4px', whiteSpace: 'nowrap' }}>
+                                  📅 reajuste
+                                </span>
                               )}
                             </div>
                           </td>
@@ -369,6 +428,10 @@ export default function ImoveisMe() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8' }}>
           <span style={{ color: '#cbd5e1', fontSize: 16 }}>+</span> Não registrado
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#b45309' }}>
+          <span style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>📅</span>
+          12º aluguel (reajuste)
+        </div>
       </div>
 
       {/* ── Modal detalhe do mês ── */}
@@ -386,8 +449,23 @@ export default function ImoveisMe() {
               <div>
                 <h3 style={{ margin: 0 }}>{modal.imovel.codigo} — {MESES[modal.mi]}/{year}</h3>
                 <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 13 }}>
-                  👤 {modal.inquilino.nome}
+                  👤 {modal.inquilino.nome}{modal.inquilino.numeroQuarto ? <span style={{ marginLeft: 8, background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 5, padding: '1px 7px', fontSize: 12, fontWeight: 600, color: '#475569' }}>Quarto {modal.inquilino.numeroQuarto}</span> : ''}
                 </p>
+                {(() => {
+                  const mi = modal.mi
+                  const mesIni = modal.inquilino.dataEntrada?.substring(0, 7)
+                  if (!mesIni) return null
+                  const [eY, eM] = mesIni.split('-').map(Number)
+                  const elapsed = (year - eY) * 12 + ((mi + 1) - eM)
+                  if (elapsed >= 0 && elapsed % 12 === 11) {
+                    return (
+                      <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5, background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 6, padding: '3px 10px', fontSize: 12, fontWeight: 700, color: '#b45309' }}>
+                        📅 12º aluguel — mês de reajuste
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
               </div>
               <button className="btn btn-secondary" style={{ width: 'auto', padding: '4px 10px', flexShrink: 0 }} onClick={closeModal}>✕</button>
             </div>
@@ -402,12 +480,13 @@ export default function ImoveisMe() {
                 isVariavel: !!modal.inquilino.contasVariavel?.[k],
                 origem:     modal.inquilino.contasOrigem?.[k] || '',
               }))
-              const aluguel     = Number(modal.imovel.valorAluguel) || 0
-              const valorSeguro = modal.inquilino.garantia === 'seguro' ? Number(modal.inquilino.valorSeguro) || 0 : 0
+              const aluguel     = Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
+              const valorSeguro  = modal.inquilino.garantia === 'seguro' ? Number(modal.inquilino.valorSeguro) || 0 : 0
+              const valorGaragem = (Number(modal.inquilino.vagas) || 0) * (Number(modal.inquilino.valorVaga) || 0)
               const despesas    = allContas.reduce((s, { key, value, isVariavel }) =>
                 s + (isVariavel ? Number(varValues[key]) || 0 : value), 0)
               const extrasTotal = extraContas.reduce((s, e) => s + (parseFloat(e.valor) || 0), 0)
-              const totalMes    = aluguel + despesas + valorSeguro + extrasTotal
+              const totalMes    = aluguel + despesas + valorSeguro + valorGaragem + extrasTotal
               const temVariavel = allContas.some(c => c.isVariavel)
               const varPreenchido = allContas.filter(c => c.isVariavel).every(c => Number(varValues[c.key]) > 0)
               return (
@@ -459,6 +538,12 @@ export default function ImoveisMe() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#475569' }}>
                         <span>🛡️ Seguro Fiança{modal.inquilino.seguro ? ` — ${SEGURO_LABELS[modal.inquilino.seguro] || modal.inquilino.seguro}` : ''}</span>
                         <span style={{ fontWeight: 600 }}>{fmtBRL(valorSeguro)}</span>
+                      </div>
+                    )}
+                    {valorGaragem > 0 && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#475569' }}>
+                        <span>🚗 Garagem ({modal.inquilino.vagas} vaga{Number(modal.inquilino.vagas) > 1 ? 's' : ''})</span>
+                        <span style={{ fontWeight: 600 }}>{fmtBRL(valorGaragem)}</span>
                       </div>
                     )}
                     {/* contas extras */}
@@ -523,85 +608,128 @@ export default function ImoveisMe() {
               )
             })()}
 
-            {/* registros do mês */}
-            {modal.items.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: '#94a3b8' }}>
-                <div style={{ fontSize: 36 }}>📋</div>
-                <p>Nenhuma conta registrada para {MESES[modal.mi]}/{year}.</p>
+            {/* ── Registrar Inadimplência ── */}
+            {regForm && (
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '14px 16px', marginBottom: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: '#334155', marginBottom: 12 }}>📋 Registrar Inadimplência</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Tipo de Débito *</div>
+                    <select
+                      value={regForm.tipoDebito}
+                      onChange={e => setRegForm(p => ({ ...p, tipoDebito: e.target.value }))}
+                      style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}
+                    >
+                      {TIPOS_DEBITO.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Vencimento</div>
+                    <input
+                      type="date"
+                      value={regForm.dataVencimento}
+                      onChange={e => setRegForm(p => ({ ...p, dataVencimento: e.target.value }))}
+                      style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Valor Original (R$) *</div>
+                    <input
+                      type="number" step="0.01" min="0"
+                      value={regForm.valorOriginal}
+                      onChange={e => setRegForm(p => ({ ...p, valorOriginal: e.target.value }))}
+                      style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Status</div>
+                    <select
+                      value={regForm.status}
+                      onChange={e => setRegForm(p => ({ ...p, status: e.target.value }))}
+                      style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}
+                    >
+                      {['Pendente','Pago','Em Negociação','Protestado','Acordo'].map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Multa (%)</div>
+                    <input
+                      type="number" step="0.01" min="0"
+                      value={regForm.multa}
+                      onChange={e => setRegForm(p => ({ ...p, multa: e.target.value }))}
+                      style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Juros (%)</div>
+                    <input
+                      type="number" step="0.01" min="0"
+                      value={regForm.juros}
+                      onChange={e => setRegForm(p => ({ ...p, juros: e.target.value }))}
+                      style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}
+                    />
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Observação</div>
+                    <textarea
+                      value={regForm.observacao}
+                      onChange={e => setRegForm(p => ({ ...p, observacao: e.target.value }))}
+                      rows={2} placeholder="Opcional..."
+                      style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, resize: 'vertical', fontFamily: 'inherit', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                </div>
+                {(() => {
+                  const v = parseFloat(regForm.valorOriginal) || 0
+                  const vt = v + (v * (parseFloat(regForm.multa) || 0) / 100) + (v * (parseFloat(regForm.juros) || 0) / 100)
+                  return (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, background: '#eff6ff', borderRadius: 6, padding: '6px 10px', marginBottom: 10 }}>
+                      <span>Total a registrar</span>
+                      <span style={{ color: '#1e40af' }}>{fmtBRL(vt)}</span>
+                    </div>
+                  )
+                })()}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={() => setRegForm(null)}>Cancelar</button>
+                  <button className="btn btn-primary" style={{ width: 'auto' }} onClick={handleRegSubmit} disabled={regSaving}>
+                    {regSaving ? 'Salvando...' : '💾 Salvar Inadimplência'}
+                  </button>
+                </div>
               </div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 16 }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc' }}>
-                    <th style={thL}>Tipo</th>
-                    <th style={thL}>Status</th>
-                    <th style={thL}>Vencimento</th>
-                    <th style={{ ...thL, textAlign: 'right' }}>Valor Total</th>
-                    <th style={thL}>Ação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {modal.items.map(item => {
-                    const s = STATUS_STYLE[item.status] || STATUS_STYLE['Pendente']
-                    return (
-                      <tr key={item.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={tdL}><strong>{item.tipoDebito || '—'}</strong></td>
-                        <td style={tdL}>
-                          <span style={{
-                            display: 'inline-flex', alignItems: 'center', gap: 4,
-                            background: s.bg, border: `1px solid ${s.border}`,
-                            color: s.color, borderRadius: 10, padding: '2px 8px',
-                            fontSize: 11, fontWeight: 600,
-                          }}>
-                            {s.icon} {item.status}
-                          </span>
-                        </td>
-                        <td style={tdL}>{item.dataVencimento || '—'}</td>
-                        <td style={{ ...tdL, textAlign: 'right', fontWeight: 600 }}>{fmtBRL(item.valorTotal)}</td>
-                        <td style={tdL}>
-                          <button
-                            className="btn btn-sm"
-                            onClick={() => { closeModal(); navigate(`/inadimplentes/editar/${item.id}`) }}
-                          >
-                            Editar
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  <tr style={{ background: '#f8fafc', fontWeight: 700 }}>
-                    <td style={tdL} colSpan={3}>Total do mês</td>
-                    <td style={{ ...tdL, textAlign: 'right' }}>
-                      {fmtBRL(modal.items.reduce((s, i) => s + (i.valorTotal || 0), 0))}
-                    </td>
-                    <td style={tdL} />
-                  </tr>
-                </tbody>
-              </table>
             )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={closeModal}>Fechar</button>
-              <button
-                className="btn btn-primary"
-                style={{ width: 'auto' }}
-                onClick={() => {
-                  const _aluguel     = Number(modal.imovel.valorAluguel) || 0
-                  const _allContas   = (modal.inquilino.contasInclusas || []).map(k => ({
-                    key: k, isVariavel: !!modal.inquilino.contasVariavel?.[k],
-                    value: Number(modal.inquilino.contasValores?.[k]) || 0,
-                  }))
-                  const _despesas    = _allContas.reduce((s, { key, value, isVariavel }) =>
-                    s + (isVariavel ? Number(varValues[key]) || 0 : value), 0)
-                  const _seguro      = modal.inquilino.garantia === 'seguro' ? Number(modal.inquilino.valorSeguro) || 0 : 0
-                  const _extrasTotal = extraContas.reduce((s, e) => s + (parseFloat(e.valor) || 0), 0)
-                  const _totalMes    = _aluguel + _despesas + _seguro + _extrasTotal
-                  closeModal()
-                  goRegister(modal.imovel, modal.inquilino, modal.key, _totalMes || undefined)
-                }}
-              >
-                ➕ Registrar Conta
-              </button>
+              {!regForm && (
+                <button
+                  className="btn btn-primary"
+                  style={{ width: 'auto' }}
+                  onClick={() => {
+                    const _aluguel     = Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
+                    const _allContas   = (modal.inquilino.contasInclusas || []).map(k => ({
+                      key: k, isVariavel: !!modal.inquilino.contasVariavel?.[k],
+                      value: Number(modal.inquilino.contasValores?.[k]) || 0,
+                    }))
+                    const _despesas    = _allContas.reduce((s, { key, value, isVariavel }) =>
+                      s + (isVariavel ? Number(varValues[key]) || 0 : value), 0)
+                    const _seguro      = modal.inquilino.garantia === 'seguro' ? Number(modal.inquilino.valorSeguro) || 0 : 0
+                    const _garagem     = (Number(modal.inquilino.vagas) || 0) * (Number(modal.inquilino.valorVaga) || 0)
+                    const _extrasTotal = extraContas.reduce((s, e) => s + (parseFloat(e.valor) || 0), 0)
+                    const _totalMes    = _aluguel + _despesas + _seguro + _garagem + _extrasTotal
+                    setRegForm({
+                      tipoDebito:     'Aluguel',
+                      dataVencimento: '',
+                      valorOriginal:  String(_totalMes || ''),
+                      multa:          '0',
+                      juros:          '0',
+                      status:         'Pendente',
+                      observacao:     '',
+                    })
+                  }}
+                >
+                  ➕ Registrar Inadimplência
+                </button>
+              )}
             </div>
           </div>
         </div>

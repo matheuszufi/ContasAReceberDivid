@@ -93,10 +93,9 @@ export default function Imoveis() {
                 <th>Tipo</th>
                 <th>Endereço</th>
                 <th>Proprietário</th>
-                <th>Modelo</th>
-                <th>Aluguel</th>
-                <th>Status</th>
-                <th>Ações</th>
+                  <th>Modelo</th>
+                  <th>Status</th>
+                  <th>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -122,11 +121,6 @@ export default function Imoveis() {
                   <td>{im.proprietarioNome || '—'}</td>
                   <td>
                     {im.modelo ? <span className={`badge ${modeloBadge[im.modelo] || 'badge-gray'}`}>{im.modelo}</span> : '—'}
-                  </td>
-                  <td>
-                    {im.valorAluguel
-                      ? `R$ ${Number(im.valorAluguel).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                      : '—'}
                   </td>
                   <td>
                     <span className={`badge ${statusBadge[im.status] || 'badge-gray'}`}>{im.status || '—'}</span>

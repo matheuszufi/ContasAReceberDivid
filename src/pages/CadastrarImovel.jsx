@@ -13,8 +13,6 @@ const initialForm = {
   codigo: '', status: 'Disponível', modelo: '',
   proprietarioId: '',
   endereco: { cep: '', rua: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '' },
-  vagas: '',
-  valorAluguel: '',
   observacao: '',
 }
 
@@ -94,8 +92,6 @@ export default function CadastrarImovel() {
       const payload = {
         ...form,
         proprietarioNome: proprietario?.nome || '',
-        vagas:            parseInt(form.vagas) || 0,
-        valorAluguel:     parseFloat(form.valorAluguel) || 0,
       }
       if (isEdit) {
         await update(ref(db, `imoveis/${id}`), { ...payload, atualizadoEm: new Date().toISOString() })
@@ -212,26 +208,6 @@ export default function CadastrarImovel() {
               <div className="form-group">
                 <label>Estado (UF)</label>
                 <input name="estado" value={form.endereco.estado} onChange={handleEndereco} placeholder="SP" maxLength={2} style={{ textTransform: 'uppercase' }} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Valores ── */}
-        <div className="form-section">
-          <div className="form-section-header">
-            <span className="form-section-icon">💰</span>
-            <h3>Valores</h3>
-          </div>
-          <div className="form-section-body">
-            <div className="form-grid-2">
-              <div className="form-group">
-                <label>Valor do Aluguel (R$) *</label>
-                <input name="valorAluguel" type="number" step="0.01" min="0" required value={form.valorAluguel} onChange={handleChange} placeholder="0,00" />
-              </div>
-              <div className="form-group">
-                <label>Vagas de Garagem</label>
-                <input name="vagas" type="number" min="0" value={form.vagas} onChange={handleChange} placeholder="0" />
               </div>
             </div>
           </div>

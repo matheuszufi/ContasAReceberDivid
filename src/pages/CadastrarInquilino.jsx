@@ -50,10 +50,14 @@ const initialForm = {
   dataSaida: '',
   imovelId: '',
   codigoImovel: '',
+  numeroQuarto: '',
   contasInclusas: [],
   contasValores: {},
   contasVariavel: {},
   contasOrigem: {},
+  valorAluguel: '',
+  vagas: '',
+  valorVaga: '',
   garantia: '',
   seguro: '',
   valorSeguro: '',
@@ -161,6 +165,9 @@ export default function CadastrarInquilino() {
       const payload = {
         ...form,
         contasValores: contasValoresParsed,
+        valorAluguel:  parseFloat(form.valorAluguel) || 0,
+        vagas:         parseInt(form.vagas) || 0,
+        valorVaga:     parseFloat(form.valorVaga) || 0,
         valorSeguro:   parseFloat(form.valorSeguro) || 0,
       }
       if (isEdit) {
@@ -264,6 +271,13 @@ export default function CadastrarInquilino() {
                   </select>
                 )}
               </div>
+              <div className="form-group">
+                <label>Número do Quarto</label>
+                <input
+                  name="numeroQuarto" value={form.numeroQuarto} onChange={handleChange}
+                  placeholder="Ex: 101, A, 2B..."
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -275,6 +289,32 @@ export default function CadastrarInquilino() {
             <h3>Financeiro</h3>
           </div>
           <div className="form-section-body">
+
+            <div className="form-grid-2" style={{ marginBottom: '20px' }}>
+              <div className="form-group">
+                <label>Valor do Aluguel (R$) *</label>
+                <input
+                  name="valorAluguel" type="number" step="0.01" min="0" required
+                  value={form.valorAluguel} onChange={handleChange} placeholder="0,00"
+                />
+              </div>
+              <div className="form-group">
+                <label>Vagas de Garagem</label>
+                <input
+                  name="vagas" type="number" min="0"
+                  value={form.vagas} onChange={handleChange} placeholder="0"
+                />
+              </div>
+              {Number(form.vagas) > 0 && (
+                <div className="form-group">
+                  <label>Valor por Vaga (R$)</label>
+                  <input
+                    name="valorVaga" type="number" step="0.01" min="0"
+                    value={form.valorVaga} onChange={handleChange} placeholder="0,00"
+                  />
+                </div>
+              )}
+            </div>
 
             <div className="form-group">
               <label>Contas Inclusas</label>
