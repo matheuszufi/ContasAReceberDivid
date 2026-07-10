@@ -3,7 +3,7 @@ import Layout from '../components/Layout'
 
 export default function ImoveisMl() {
   return (
-    <Layout title="🏗️ Imóveis ML" subtitle="Médio/Longo Prazo — Controle de Imóveis">
+    <Layout title="🏗️ Imóveis ML" subtitle="Omie — Controle de Imóveis">
       <div className="actions-bar">
         <button className="btn btn-primary" style={{ width: 'auto' }}>➕ Cadastrar Imóvel</button>
         <button className="btn btn-success" style={{ width: 'auto' }}>👤 Cadastrar Inquilino</button>

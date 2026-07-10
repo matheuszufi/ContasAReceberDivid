@@ -69,8 +69,9 @@ export default function ImoveisMe() {
   const [extraContas, setExtraContas] = useState([])
   const [regForm, setRegForm]         = useState(null)
   const [regSaving, setRegSaving]     = useState(false)
+  const [obsModal, setObsModal]       = useState('')
 
-  const closeModal = () => { setModal(null); setVarValues({}); setExtraContas([]); setRegForm(null) }
+  const closeModal = () => { setModal(null); setVarValues({}); setExtraContas([]); setRegForm(null); setObsModal('') }
 
   const loading = !loadedIm || !loadedInq || !loadedInad || !loadedVV
 
@@ -112,9 +113,10 @@ export default function ImoveisMe() {
     const key = monthKey(mi)
     setModal({ ...row, mi, key, items: getItems(row.imovel.id, mi) })
     const saved = valoresVariaveis[row.inquilino.id]?.[key] || {}
-    const { extras, ...vals } = saved
+    const { extras, _obs, ...vals } = saved
     setVarValues(vals || {})
     setExtraContas(extras ? Object.entries(extras).map(([id, v]) => ({ id, ...v })) : [])
+    setObsModal(_obs || '')
   }
 
   const handleVarValue = (contaKey, rawValue) => {
@@ -123,6 +125,13 @@ export default function ImoveisMe() {
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), {
         [contaKey]: parseFloat(rawValue) || 0,
       })
+    }
+  }
+
+  const handleRemoveVarValue = (contaKey) => {
+    setVarValues(prev => { const n = { ...prev }; delete n[contaKey]; return n })
+    if (modal?.inquilino?.id && modal?.key) {
+      update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), { [contaKey]: null })
     }
   }
 
@@ -222,7 +231,7 @@ export default function ImoveisMe() {
   , 0)
 
   return (
-    <Layout title="🏠 Imóveis ME" subtitle="Microempresa — Planilha de Pagamentos Mensais">
+    <Layout title="🏠 Imóveis ME" subtitle="Properfy — Planilha de Pagamentos Mensais">
 
       {/* ── Toolbar ── */}
       <div className="actions-bar" style={{ flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' }}>
@@ -335,13 +344,13 @@ export default function ImoveisMe() {
                           )
                         }
 
-                        const aluguel     = Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
-                        const valorSeguro = inquilino.garantia === 'seguro' ? Number(inquilino.valorSeguro) || 0 : 0
-                        const valorGaragem = (Number(inquilino.vagas) || 0) * (Number(inquilino.valorVaga) || 0)
                         const vv          = valoresVariaveis[inquilino.id]?.[cellKey] || {}
                         const { extras: cellExtras, ...cellVarVals } = vv
+                        const aluguel      = '_aluguel' in cellVarVals ? Number(cellVarVals._aluguel) || 0 : Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
+                        const valorSeguro  = '_seguro'  in cellVarVals ? Number(cellVarVals._seguro)  || 0 : (inquilino.garantia === 'seguro' ? Number(inquilino.valorSeguro) || 0 : 0)
+                        const valorGaragem = '_garagem' in cellVarVals ? Number(cellVarVals._garagem) || 0 : (Number(inquilino.vagas) || 0) * (Number(inquilino.valorVaga) || 0)
                         const despesas    = (inquilino.contasInclusas || []).reduce((s, k) => {
-                          if (inquilino.contasVariavel?.[k]) return s + (Number(cellVarVals[k]) || 0)
+                          if (k in cellVarVals) return s + (Number(cellVarVals[k]) || 0)
                           return s + (Number(inquilino.contasValores?.[k]) || 0)
                         }, 0)
                         const extrasTotal = cellExtras
@@ -482,71 +491,112 @@ export default function ImoveisMe() {
                 isVariavel: !!modal.inquilino.contasVariavel?.[k],
                 origem:     modal.inquilino.contasOrigem?.[k] || '',
               }))
-              const aluguel     = Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
-              const valorSeguro  = modal.inquilino.garantia === 'seguro' ? Number(modal.inquilino.valorSeguro) || 0 : 0
-              const valorGaragem = (Number(modal.inquilino.vagas) || 0) * (Number(modal.inquilino.valorVaga) || 0)
-              const despesas    = allContas.reduce((s, { key, value, isVariavel }) =>
-                s + (isVariavel ? Number(varValues[key]) || 0 : value), 0)
-              const extrasTotal = extraContas.reduce((s, e) => s + (parseFloat(e.valor) || 0), 0)
-              const totalMes    = aluguel + despesas + valorSeguro + valorGaragem + extrasTotal
-              const temVariavel = allContas.some(c => c.isVariavel)
-              const varPreenchido = allContas.filter(c => c.isVariavel).every(c => Number(varValues[c.key]) > 0)
+              const aluguelBase    = Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
+              const seguroBase     = modal.inquilino.garantia === 'seguro' ? Number(modal.inquilino.valorSeguro) || 0 : 0
+              const garagemBase    = (Number(modal.inquilino.vagas) || 0) * (Number(modal.inquilino.valorVaga) || 0)
+              const aluguel        = '_aluguel'  in varValues ? Number(varValues._aluguel)  || 0 : aluguelBase
+              const valorSeguro    = '_seguro'   in varValues ? Number(varValues._seguro)   || 0 : seguroBase
+              const valorGaragem   = '_garagem'  in varValues ? Number(varValues._garagem)  || 0 : garagemBase
+              const despesas       = allContas.reduce((s, { key, value }) =>
+                s + (key in varValues ? Number(varValues[key]) || 0 : value), 0)
+              const extrasTotal    = extraContas.reduce((s, e) => s + (parseFloat(e.valor) || 0), 0)
+              const totalMes       = aluguel + despesas + valorSeguro + valorGaragem + extrasTotal
+              const temVariavel    = allContas.some(c => c.isVariavel)
+              const varPreenchido  = allContas.filter(c => c.isVariavel).every(c => Number(varValues[c.key]) > 0)
+
+              const EditableRow = ({ icon, label, baseVal, vKey, showSeguro }) => {
+                const hasOv      = vKey in varValues
+                const curVal     = hasOv ? varValues[vKey] : String(baseVal || '')
+                const isModified = hasOv && parseFloat(varValues[vKey]) !== baseVal
+                const bc         = isModified ? '#fcd34d' : '#e2e8f0'
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                      {icon} {label}{showSeguro && modal.inquilino.seguro ? ` — ${SEGURO_LABELS[modal.inquilino.seguro] || modal.inquilino.seguro}` : ''}
+                      {isModified && <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#b45309', borderRadius: 8, padding: '1px 6px' }}>alterado</span>}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <input
+                        type="number" step="0.01"
+                        placeholder={String(baseVal || '0,00')}
+                        value={curVal}
+                        onChange={e => handleVarValue(vKey, e.target.value)}
+                        style={{ width: 110, padding: '4px 8px', border: `1.5px solid ${bc}`, borderRadius: 6, fontSize: 13, textAlign: 'right', outline: 'none', background: isModified ? '#fffbeb' : '#fff', color: isModified ? '#92400e' : '#334155', fontWeight: 600 }}
+                        onFocus={e => (e.target.style.borderColor = '#f59e0b')}
+                        onBlur={e  => (e.target.style.borderColor = bc)}
+                      />
+                      {isModified && (
+                        <button onClick={() => handleRemoveVarValue(vKey)} title="Reverter" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 15, padding: '0 2px', lineHeight: 1 }}>↺</button>
+                      )}
+                    </div>
+                  </div>
+                )
+              }
               return (
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
                   <div style={{ fontWeight: 700, fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Composição do Valor Mensal
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                      <span>🏠 Aluguel</span>
-                      <span style={{ fontWeight: 600 }}>{fmtBRL(aluguel)}</span>
-                    </div>
-                    {allContas.map(({ key, label, value, isVariavel, origem }) => (
-                      <div key={key} style={{ fontSize: 13, color: '#475569' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                            📄 {label}
-                            {isVariavel && (
-                              <span style={{ fontSize: 10, fontWeight: 700, background: '#ede9fe', color: '#7c3aed', borderRadius: 8, padding: '1px 6px' }}>
-                                variável
-                              </span>
-                            )}
-                          </span>
-                          {isVariavel ? (
-                            <input
-                              type="number" step="0.01" min="0"
-                              placeholder="0,00"
-                              value={varValues[key] ?? ''}
-                              onChange={e => handleVarValue(key, e.target.value)}
-                              style={{
-                                width: 110, padding: '4px 8px',
-                                border: '1.5px solid #c4b5fd', borderRadius: 6,
-                                fontSize: 13, textAlign: 'right', outline: 'none',
-                                background: '#faf5ff', color: '#6d28d9', fontWeight: 600,
-                              }}
-                              onFocus={e => (e.target.style.borderColor = '#7c3aed')}
-                              onBlur={e => (e.target.style.borderColor = '#c4b5fd')}
-                            />
-                          ) : (
-                            <span style={{ fontWeight: 600 }}>{value > 0 ? fmtBRL(value) : '—'}</span>
+                    <EditableRow icon="🏠" label="Aluguel"       baseVal={aluguelBase}  vKey="_aluguel" />
+                    {allContas.map(({ key, label, value, isVariavel, origem }) => {
+                      const hasOverride = key in varValues
+                      const inputVal    = hasOverride ? varValues[key] : String(value || '')
+                      const isModified  = hasOverride && parseFloat(varValues[key]) !== value
+                      const borderColor = isVariavel ? '#c4b5fd' : isModified ? '#fcd34d' : '#e2e8f0'
+                      const bgColor     = isVariavel ? '#faf5ff' : isModified ? '#fffbeb' : '#fff'
+                      const txtColor    = isVariavel ? '#6d28d9' : isModified ? '#92400e' : '#334155'
+                      return (
+                        <div key={key} style={{ fontSize: 13, color: '#475569' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                              📄 {label}
+                              {isVariavel && (
+                                <span style={{ fontSize: 10, fontWeight: 700, background: '#ede9fe', color: '#7c3aed', borderRadius: 8, padding: '1px 6px' }}>
+                                  variável
+                                </span>
+                              )}
+                              {!isVariavel && isModified && (
+                                <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#b45309', borderRadius: 8, padding: '1px 6px' }}>
+                                  alterado
+                                </span>
+                              )}
+                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <input
+                                type="number" step="0.01"
+                                placeholder={String(value || '0,00')}
+                                value={inputVal}
+                                onChange={e => handleVarValue(key, e.target.value)}
+                                style={{
+                                  width: 110, padding: '4px 8px',
+                                  border: `1.5px solid ${borderColor}`, borderRadius: 6,
+                                  fontSize: 13, textAlign: 'right', outline: 'none',
+                                  background: bgColor, color: txtColor, fontWeight: 600,
+                                }}
+                                onFocus={e => (e.target.style.borderColor = isVariavel ? '#7c3aed' : '#f59e0b')}
+                                onBlur={e  => (e.target.style.borderColor = borderColor)}
+                              />
+                              {!isVariavel && isModified && (
+                                <button
+                                  onClick={() => handleRemoveVarValue(key)}
+                                  title="Reverter para valor padrão"
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 15, padding: '0 2px', lineHeight: 1 }}
+                                >↺</button>
+                              )}
+                            </div>
+                          </div>
+                          {isVariavel && origem && (
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginLeft: 20, marginTop: 2 }}>📍 {origem}</div>
                           )}
                         </div>
-                        {isVariavel && origem && (
-                          <div style={{ fontSize: 11, color: '#94a3b8', marginLeft: 20, marginTop: 2 }}>📍 {origem}</div>
-                        )}
-                      </div>
-                    ))}
-                    {valorSeguro > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#475569' }}>
-                        <span>🛡️ Seguro Fiança{modal.inquilino.seguro ? ` — ${SEGURO_LABELS[modal.inquilino.seguro] || modal.inquilino.seguro}` : ''}</span>
-                        <span style={{ fontWeight: 600 }}>{fmtBRL(valorSeguro)}</span>
-                      </div>
+                      )
+                    })}
+                    {seguroBase > 0 && (
+                      <EditableRow icon="🛡️" label="Seguro Fiança" baseVal={seguroBase}  vKey="_seguro"  showSeguro />
                     )}
-                    {valorGaragem > 0 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#475569' }}>
-                        <span>🚗 Garagem ({modal.inquilino.vagas} vaga{Number(modal.inquilino.vagas) > 1 ? 's' : ''})</span>
-                        <span style={{ fontWeight: 600 }}>{fmtBRL(valorGaragem)}</span>
-                      </div>
+                    {garagemBase > 0 && (
+                      <EditableRow icon="🚗" label={`Garagem (${modal.inquilino.vagas} vaga${Number(modal.inquilino.vagas) > 1 ? 's' : ''})`} baseVal={garagemBase} vKey="_garagem" />
                     )}
                     {/* contas extras */}
                     {extraContas.map((extra, idx) => (
@@ -604,6 +654,29 @@ export default function ImoveisMe() {
                           <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 400, marginLeft: 4 }}>incompleto</span>
                         )}
                       </span>
+                    </div>
+                    {/* observação da composição */}
+                    <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 8, marginTop: 4 }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 4 }}>Observação</div>
+                      <textarea
+                        value={obsModal}
+                        onChange={e => setObsModal(e.target.value)}
+                        onBlur={e => {
+                          e.target.style.borderColor = '#e2e8f0'
+                          if (modal?.inquilino?.id && modal?.key) {
+                            update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), { _obs: obsModal })
+                          }
+                        }}
+                        placeholder="Anotações sobre este mês..."
+                        rows={2}
+                        style={{
+                          width: '100%', padding: '6px 10px',
+                          border: '1.5px solid #e2e8f0', borderRadius: 6,
+                          fontSize: 12, resize: 'vertical', outline: 'none',
+                          fontFamily: 'inherit', background: '#fff', boxSizing: 'border-box',
+                        }}
+                        onFocus={e => (e.target.style.borderColor = '#94a3b8')}
+                      />
                     </div>
                   </div>
                 </div>
@@ -707,15 +780,14 @@ export default function ImoveisMe() {
                   className="btn btn-primary"
                   style={{ width: 'auto' }}
                   onClick={() => {
-                    const _aluguel     = Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
+                    const _aluguel     = '_aluguel' in varValues ? Number(varValues._aluguel) || 0 : Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
                     const _allContas   = (modal.inquilino.contasInclusas || []).map(k => ({
-                      key: k, isVariavel: !!modal.inquilino.contasVariavel?.[k],
-                      value: Number(modal.inquilino.contasValores?.[k]) || 0,
+                      key: k, value: Number(modal.inquilino.contasValores?.[k]) || 0,
                     }))
-                    const _despesas    = _allContas.reduce((s, { key, value, isVariavel }) =>
-                      s + (isVariavel ? Number(varValues[key]) || 0 : value), 0)
-                    const _seguro      = modal.inquilino.garantia === 'seguro' ? Number(modal.inquilino.valorSeguro) || 0 : 0
-                    const _garagem     = (Number(modal.inquilino.vagas) || 0) * (Number(modal.inquilino.valorVaga) || 0)
+                    const _despesas    = _allContas.reduce((s, { key, value }) =>
+                      s + (key in varValues ? Number(varValues[key]) || 0 : value), 0)
+                    const _seguro      = '_seguro'  in varValues ? Number(varValues._seguro)  || 0 : (modal.inquilino.garantia === 'seguro' ? Number(modal.inquilino.valorSeguro) || 0 : 0)
+                    const _garagem     = '_garagem' in varValues ? Number(varValues._garagem) || 0 : (Number(modal.inquilino.vagas) || 0) * (Number(modal.inquilino.valorVaga) || 0)
                     const _extrasTotal = extraContas.reduce((s, e) => s + (parseFloat(e.valor) || 0), 0)
                     const _totalMes    = _aluguel + _despesas + _seguro + _garagem + _extrasTotal
                     setRegForm({
