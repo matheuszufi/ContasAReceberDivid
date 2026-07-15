@@ -7,9 +7,9 @@ const navCards = [
   { path: '/proprietarios', icon: '👥', label: 'Proprietários',  sub: 'Donos de imóveis cadastrados',  color: '#0891b2' },
   { path: '/inquilinos',    icon: '👤', label: 'Inquilinos',     sub: 'Gestão de inquilinos',          color: '#8b5cf6' },
   { path: '/inadimplentes', icon: '⚠️', label: 'Inadimplentes', sub: 'Controle de débitos',           color: '#ef4444' },
-  { path: '/imoveis-me',    icon: '🏠', label: 'Imóveis ME',     sub: 'Microempresa',                  color: '#0ea5e9' },
-  { path: '/imoveis-ma',    icon: '🏢', label: 'Imóveis MA',     sub: 'Média Administração',           color: '#22c55e' },
-  { path: '/imoveis-ml',    icon: '🏗️', label: 'Imóveis ML',     sub: 'Médio/Longo Prazo',             color: '#f59e0b' },
+  { path: '/imoveis-me',    icon: '🏠', label: 'Imóveis ME',     sub: 'ME',                  color: '#0ea5e9' },
+  { path: '/imoveis-ma',    icon: '🏢', label: 'Imóveis MA',     sub: 'MA',           color: '#22c55e' },
+  { path: '/imoveis-ml',    icon: '🏗️', label: 'Imóveis ML',     sub: 'ML',             color: '#f59e0b' },
 ]
 
 export default function Dashboard() {
