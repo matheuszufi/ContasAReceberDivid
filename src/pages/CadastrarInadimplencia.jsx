@@ -40,6 +40,31 @@ function calcTotal(original, multa, juros) {
   return v + (v * m / 100) + (v * j / 100)
 }
 
+const TIPOS_EVENTO = [
+  { value: 'Observação',           icon: '📝', color: '#64748b' },
+  { value: 'Contato realizado',    icon: '📞', color: '#3b82f6' },
+  { value: 'Notificação enviada',  icon: '📨', color: '#f59e0b' },
+  { value: 'Acordo realizado',     icon: '🤝', color: '#8b5cf6' },
+  { value: 'Pagamento parcial',    icon: '💰', color: '#22c55e' },
+  { value: 'Encaminhado jurídico', icon: '⚖️', color: '#ef4444' },
+  { value: 'Quitado',              icon: '✅', color: '#22c55e' },
+  { value: 'Outros',               icon: '📌', color: '#94a3b8' },
+]
+
+const EVENTO_STATUS_MAP = {
+  'Quitado':              'Pago',
+  'Acordo realizado':     'Acordo',
+  'Encaminhado jurídico': 'Protestado',
+  'Pagamento parcial':    'Em Negociação',
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) +
+    ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
 export default function CadastrarInadimplencia() {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -51,6 +76,10 @@ export default function CadastrarInadimplencia() {
   const [inquilinos, setInquilinos] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [timeline, setTimeline] = useState([])
+  const [tipoEvento, setTipoEvento] = useState('Observação')
+  const [descricaoEvento, setDescricaoEvento] = useState('')
+  const [savingEvento, setSavingEvento] = useState(false)
 
   useEffect(() => {
     return onValue(ref(db, 'inquilinos'), snap => {
@@ -63,6 +92,21 @@ export default function CadastrarInadimplencia() {
     if (!isEdit) return
     get(ref(db, `inadimplencias/${id}`)).then(snap => {
       if (snap.exists()) setForm({ ...initialForm, ...snap.val() })
+    })
+  }, [id, isEdit])
+
+  useEffect(() => {
+    if (!isEdit) return
+    return onValue(ref(db, `inadimplencias/${id}/timeline`), snap => {
+      const data = snap.val()
+      if (data) {
+        const sorted = Object.entries(data)
+          .map(([key, v]) => ({ key, ...v }))
+          .sort((a, b) => new Date(b.criadoEm) - new Date(a.criadoEm))
+        setTimeline(sorted)
+      } else {
+        setTimeline([])
+      }
     })
   }, [id, isEdit])
 
@@ -85,6 +129,29 @@ export default function CadastrarInadimplencia() {
       imovelId:       inq?.imovelId    || '',
       codigoImovel:   inq?.codigoImovel || '',
     }))
+  }
+
+  const tipoMeta = (t) => TIPOS_EVENTO.find(e => e.value === t) || TIPOS_EVENTO[TIPOS_EVENTO.length - 1]
+
+  const handleAddEvento = async (e) => {
+    e.preventDefault()
+    if (!descricaoEvento.trim() || savingEvento) return
+    setSavingEvento(true)
+    try {
+      await push(ref(db, `inadimplencias/${id}/timeline`), {
+        tipo:       tipoEvento,
+        descricao:  descricaoEvento.trim(),
+        criadoEm:   new Date().toISOString(),
+      })
+      const newStatus = EVENTO_STATUS_MAP[tipoEvento]
+      if (newStatus) {
+        await update(ref(db, `inadimplencias/${id}`), { status: newStatus, atualizadoEm: new Date().toISOString() })
+        setForm(prev => ({ ...prev, status: newStatus }))
+      }
+      setDescricaoEvento('')
+    } finally {
+      setSavingEvento(false)
+    }
   }
 
   const total = calcTotal(form.valorOriginal, form.multa, form.juros)
@@ -254,6 +321,86 @@ export default function CadastrarInadimplencia() {
           </button>
         </div>
       </form>
+
+      {isEdit && (
+        <>
+          {/* ── Adicionar Evento ── */}
+          <div className="card" style={{ marginTop: 24 }}>
+            <div className="card-header">
+              <h3>➕ Adicionar Evento na Timeline</h3>
+            </div>
+            <div className="card-body">
+              <form onSubmit={handleAddEvento}>
+                <div className="form-grid-2" style={{ marginBottom: 12 }}>
+                  <div className="form-group">
+                    <label>Tipo de Evento</label>
+                    <select value={tipoEvento} onChange={e => setTipoEvento(e.target.value)}>
+                      {TIPOS_EVENTO.map(t => (
+                        <option key={t.value} value={t.value}>{t.icon} {t.value}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Descrição *</label>
+                    <input
+                      value={descricaoEvento}
+                      onChange={e => setDescricaoEvento(e.target.value)}
+                      placeholder="Descreva o evento ou observação..."
+                      required
+                    />
+                  </div>
+                </div>
+                {EVENTO_STATUS_MAP[tipoEvento] && (
+                  <div className="info-banner" style={{ marginBottom: 12 }}>
+                    <p style={{ margin: 0 }}>Este evento atualizará o status para <strong>{EVENTO_STATUS_MAP[tipoEvento]}</strong>.</p>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="submit" className="btn btn-primary" style={{ width: 'auto' }} disabled={savingEvento}>
+                    {savingEvento ? 'Salvando...' : '💾 Registrar Evento'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          {/* ── Timeline ── */}
+          <div className="card" style={{ marginTop: 24 }}>
+            <div className="card-header">
+              <h3>📅 Histórico ({timeline.length} evento{timeline.length !== 1 ? 's' : ''})</h3>
+            </div>
+            <div className="card-body">
+              {timeline.length === 0 ? (
+                <div className="empty-state">
+                  <div className="es-icon">📋</div>
+                  <h3>Nenhum evento registrado</h3>
+                  <p>Adicione o primeiro evento acima.</p>
+                </div>
+              ) : (
+                <ul className="timeline">
+                  {timeline.map((evento, idx) => {
+                    const meta = tipoMeta(evento.tipo)
+                    return (
+                      <li key={evento.key || idx} className="timeline-item">
+                        <div className="timeline-icon" style={{ background: meta.color }}>
+                          {meta.icon}
+                        </div>
+                        <div className="timeline-content">
+                          <div className="timeline-header">
+                            <span className="timeline-tipo">{evento.tipo}</span>
+                            <span className="timeline-date">{fmtDate(evento.criadoEm)}</span>
+                          </div>
+                          <p className="timeline-text">{evento.descricao}</p>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </Layout>
   )
 }
