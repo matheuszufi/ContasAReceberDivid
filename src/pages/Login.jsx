@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth'
+import logo from '../assets/images/divid-logo.png'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -23,7 +24,9 @@ export default function Login() {
   return (
     <div className="auth-container">
       <form className="auth-card" onSubmit={handleLogin}>
-        <div className="auth-logo">🏠</div>
+        <div className="auth-logo">
+          <img src={logo} alt="Divid Logo" />
+        </div>
         <h2>ContasReceber</h2>
         <p className="auth-sub">Entre com sua conta para continuar</p>
         {error && <div className="error-msg">{error}</div>}
