@@ -155,35 +155,117 @@ export default function CadastrarInquilino() {
   }
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-    try {
-      // parse numeric fields
-      const contasValoresParsed = Object.fromEntries(
-        Object.entries(form.contasValores).map(([k, v]) => [k, parseFloat(v) || 0])
-      )
-      const payload = {
-        ...form,
-        contasValores: contasValoresParsed,
-        valorAluguel:  parseFloat(form.valorAluguel) || 0,
-        vagas:         parseInt(form.vagas) || 0,
-        valorVaga:     parseFloat(form.valorVaga) || 0,
-        valorSeguro:   parseFloat(form.valorSeguro) || 0,
+  e.preventDefault()
+  setError(null)
+  setLoading(true)
+
+  try {
+    // Verifica se existia imóvel antes da edição
+    let imovelAntigoId = null
+
+    if (isEdit) {
+      const inquilinoAtual = await get(ref(db, `inquilinos/${id}`))
+
+      if (inquilinoAtual.exists()) {
+        imovelAntigoId = inquilinoAtual.val().imovelId || null
       }
-      if (isEdit) {
-        await update(ref(db, `inquilinos/${id}`), { ...payload, atualizadoEm: new Date().toISOString() })
-      } else {
-        await push(ref(db, 'inquilinos'), { ...payload, criadoEm: new Date().toISOString() })
-      }
-      navigate('/inquilinos')
-    } catch (err) {
-      setError('Erro ao salvar. Verifique sua conexão e tente novamente.')
-      console.error(err)
-    } finally {
-      setLoading(false)
     }
+
+
+    const contasValoresParsed = Object.fromEntries(
+      Object.entries(form.contasValores).map(([k, v]) => [k, parseFloat(v) || 0])
+    )
+
+
+    const payload = {
+      ...form,
+      contasValores: contasValoresParsed,
+      valorAluguel: parseFloat(form.valorAluguel) || 0,
+      vagas: parseInt(form.vagas) || 0,
+      valorVaga: parseFloat(form.valorVaga) || 0,
+      valorSeguro: parseFloat(form.valorSeguro) || 0,
+    }
+
+
+    let inquilinoId = id
+
+
+    // Salva o inquilino
+    if (isEdit) {
+
+      await update(
+        ref(db, `inquilinos/${id}`),
+        {
+          ...payload,
+          atualizadoEm: new Date().toISOString()
+        }
+      )
+
+    } else {
+
+      const novo = await push(
+        ref(db, 'inquilinos'),
+        {
+          ...payload,
+          criadoEm: new Date().toISOString()
+        }
+      )
+
+      inquilinoId = novo.key
+    }
+
+
+
+    // ================================
+    // ATUALIZA STATUS DO IMÓVEL
+    // ================================
+
+
+    // Caso tenha trocado de imóvel na edição
+    if (
+      imovelAntigoId &&
+      imovelAntigoId !== form.imovelId
+    ) {
+
+      await update(
+        ref(db, `imoveis/${imovelAntigoId}`),
+        {
+          status: 'Disponível',
+          atualizadoEm: new Date().toISOString()
+        }
+      )
+
+    }
+
+
+    // Novo imóvel ocupado
+    if (form.imovelId) {
+
+      await update(
+        ref(db, `imoveis/${form.imovelId}`),
+        {
+          status: 'Ocupado',
+          atualizadoEm: new Date().toISOString()
+        }
+      )
+
+    }
+
+
+    navigate('/inquilinos')
+
+
+  } catch (err) {
+
+    setError('Erro ao salvar. Verifique sua conexão e tente novamente.')
+    console.error(err)
+
+  } finally {
+
+    setLoading(false)
+
   }
+}
 
   return (
     <Layout title={isEdit ? 'Editar Inquilino' : 'Cadastrar Inquilino'} subtitle={isEdit ? 'Atualize os dados do inquilino' : 'Preencha os dados do novo inquilino'}>
