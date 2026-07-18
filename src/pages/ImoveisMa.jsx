@@ -52,7 +52,7 @@ const thC = { padding: '10px 6px',  textAlign: 'center', fontWeight: 600, fontSi
 const tdL = { padding: '10px 12px', textAlign: 'left',   verticalAlign: 'middle', borderBottom: '1px solid #f1f5f9' }
 const tdC = { padding: '5px 4px',   textAlign: 'center', verticalAlign: 'middle', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }
 
-export default function ImoveisMa() {
+export default function ImoveisMe() {
   const navigate = useNavigate()
   const currentYear = new Date().getFullYear()
   const [year, setYear]             = useState(currentYear)
@@ -70,6 +70,9 @@ export default function ImoveisMa() {
   const [regForm, setRegForm]         = useState(null)
   const [regSaving, setRegSaving]     = useState(false)
   const [obsModal, setObsModal]       = useState('')
+  const [filterNome, setFilterNome]           = useState('')
+  const [filterImovel, setFilterImovel]       = useState('')
+  const [filterInadimplentes, setFilterInadimplentes] = useState(false)
 
   const closeModal = () => { setModal(null); setVarValues({}); setExtraContas([]); setRegForm(null); setObsModal('') }
 
@@ -104,6 +107,19 @@ export default function ImoveisMa() {
       inquilino: inquilinos.find(inq => inq.imovelId === im.id && inq.status !== 'Inativo'),
     }))
     .filter(r => r.inquilino)
+
+  const filteredRows = rows.filter(({ imovel, inquilino }) => {
+    if (filterNome && !inquilino.nome?.toLowerCase().includes(filterNome.toLowerCase())) return false
+    if (filterImovel && !imovel.codigo?.toLowerCase().includes(filterImovel.toLowerCase())) return false
+    if (filterInadimplentes) {
+      const hasInadimplente = MESES.some((_, mi) => {
+        const mk = `${year}-${padM(mi + 1)}`
+        return inadimplencias.some(i => i.imovelId === imovel.id && i.mesReferencia === mk && i.status !== 'Pago')
+      })
+      if (!hasInadimplente) return false
+    }
+    return true
+  })
 
   const monthKey = mi => `${year}-${padM(mi + 1)}`
   const getItems = (imovelId, mi) =>
@@ -230,8 +246,16 @@ export default function ImoveisMa() {
     , 0)
   , 0)
 
+  const totalRecuperado = rows.reduce((a, r) =>
+    a + MESES.reduce((s, _, mi) =>
+      s + getItems(r.imovel.id, mi)
+        .filter(i => i.status === 'Pago' && (Number(i.multa) > 0 || Number(i.juros) > 0))
+        .reduce((x, i) => x + (i.valorTotal || 0), 0)
+    , 0)
+  , 0)
+
   return (
-    <Layout title="🏠 Imóveis MA" subtitle="Omie — Planilha de Pagamentos Mensais">
+    <Layout title="🏠 Imóveis ME" subtitle="Properfy — Planilha de Pagamentos Mensais">
 
       {/* ── Toolbar ── */}
       <div className="actions-bar" style={{ flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' }}>
@@ -252,7 +276,7 @@ export default function ImoveisMa() {
         <div className="stat-card">
           <div className="stat-icon">🏠</div>
           <div className="stat-value">{loading ? '…' : rows.length}</div>
-          <div className="stat-label">Imóveis MA Ocupados</div>
+          <div className="stat-label">Imóveis ME Ocupados</div>
         </div>
         <div className="stat-card">
           <div className="stat-icon">✅</div>
@@ -264,13 +288,55 @@ export default function ImoveisMa() {
           <div className="stat-value" style={{ color: '#854d0e', fontSize: 16 }}>{fmtBRL(totalPendente)}</div>
           <div className="stat-label">Pendente em {year}</div>
         </div>
+        <div className="stat-card">
+          <div className="stat-icon">💰</div>
+          <div className="stat-value" style={{ color: '#0f766e', fontSize: 16 }}>{fmtBRL(totalRecuperado)}</div>
+          <div className="stat-label">Recuperado em {year}</div>
+        </div>
       </div>
+
+      {/* ── Filtros ── */}
+      {!loading && rows.length > 0 && (
+        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', flexShrink: 0 }}>🔍 Filtros</span>
+          <input
+            type="text"
+            placeholder="Nome do inquilino..."
+            value={filterNome}
+            onChange={e => setFilterNome(e.target.value)}
+            style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, width: 180, outline: 'none' }}
+          />
+          <input
+            type="text"
+            placeholder="Código do imóvel..."
+            value={filterImovel}
+            onChange={e => setFilterImovel(e.target.value)}
+            style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, width: 150, outline: 'none' }}
+          />
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
+            <input
+              type="checkbox"
+              checked={filterInadimplentes}
+              onChange={e => setFilterInadimplentes(e.target.checked)}
+            />
+            Apenas com inadimplências
+          </label>
+          {(filterNome || filterImovel || filterInadimplentes) && (
+            <button
+              onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterInadimplentes(false) }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, padding: 0, marginLeft: 'auto' }}
+            >
+              ✕ Limpar ({filteredRows.length}/{rows.length})
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Planilha ── */}
       <div className="card">
         <div className="card-header">
           <h3>Planilha de Pagamentos — {year}</h3>
-          <span className="badge badge-blue">MA</span>
+          <span className="badge badge-blue">ME</span>
         </div>
         <div className="card-body" style={{ padding: 0 }}>
           {loading ? (
@@ -278,8 +344,14 @@ export default function ImoveisMa() {
           ) : rows.length === 0 ? (
             <div className="empty-state">
               <div className="es-icon">🏠</div>
-              <h3>Nenhum imóvel MA com inquilino ativo</h3>
-              <p>Cadastre imóveis modelo MA e associe inquilinos para ver a planilha.</p>
+              <h3>Nenhum imóvel ME com inquilino ativo</h3>
+              <p>Cadastre imóveis modelo ME e associe inquilinos para ver a planilha.</p>
+            </div>
+          ) : filteredRows.length === 0 ? (
+            <div className="empty-state">
+              <div className="es-icon">🔍</div>
+              <h3>Nenhum resultado para os filtros</h3>
+              <p>Tente ajustar os filtros acima.</p>
             </div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
@@ -302,7 +374,7 @@ export default function ImoveisMa() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map(({ imovel, inquilino }) => (
+                  {filteredRows.map(({ imovel, inquilino }) => (
                     <tr
                       key={imovel.id}
                       onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
@@ -331,6 +403,7 @@ export default function ImoveisMa() {
                         const foraDoContrato =
                           (mesInicio && cellKey < mesInicio) ||
                           (mesFim    && cellKey > mesFim)
+                        const isDesocupacao = !!(mesFim && cellKey === mesFim && inquilino.desocupacaoRegistrada)
 
                         if (foraDoContrato) {
                           return (
@@ -366,16 +439,29 @@ export default function ImoveisMa() {
                           isReajuste = elapsed >= 0 && elapsed % 12 === 11
                         }
 
+                        const cellBg = isDesocupacao
+                          ? '#fee2e2'
+                          : summary
+                            ? STATUS_STYLE[summary]?.bg
+                            : isReajuste
+                              ? (isCur ? '#eff6ff' : '#fffbeb')
+                              : isCur
+                                ? '#eff6ff'
+                                : undefined
+
                         return (
                           <td
                             key={mi}
                             style={{
                               ...tdC,
-                              ...(isCur ? { background: '#eff6ff' } : {}),
-                              ...(isReajuste ? { borderBottom: '2.5px solid #f59e0b', background: isCur ? '#eff6ff' : '#fffbeb' } : {}),
+                              ...(cellBg ? { background: cellBg } : {}),
+                              ...(isReajuste ? { borderBottom: '2.5px solid #f59e0b' } : {}),
+                              ...(isDesocupacao ? { borderLeft: '3px solid #ef4444' } : {}),
                             }}
                             onClick={() => openModal({ imovel, inquilino }, mi)}
-                            title={isReajuste
+                            title={isDesocupacao
+                              ? 'Mês de desocupação — clique para ver detalhes'
+                              : isReajuste
                               ? '12º aluguel — mês de reajuste'
                               : summary
                                 ? `${items.length} registro(s) — clique para ver detalhes`
@@ -411,6 +497,12 @@ export default function ImoveisMa() {
                                   📅 reajuste
                                 </span>
                               )}
+                              {/* Badge de desocupação */}
+                              {isDesocupacao && (
+                                <span style={{ fontSize: 9, fontWeight: 700, color: '#991b1b', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 4, padding: '1px 4px', whiteSpace: 'nowrap' }}>
+                                  🚪 saída
+                                </span>
+                              )}
                             </div>
                           </td>
                         )
@@ -442,6 +534,10 @@ export default function ImoveisMa() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#b45309' }}>
           <span style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>📅</span>
           12º aluguel (reajuste)
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#991b1b' }}>
+          <span style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>🚪</span>
+          Mês de desocupação
         </div>
       </div>
 

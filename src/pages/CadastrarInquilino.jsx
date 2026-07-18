@@ -12,6 +12,7 @@ const CONTAS_OPCOES = [
   { value: 'iptu',             label: 'IPTU' },
   { value: 'lixo',             label: 'Lixo' },
   { value: 'seguro_incendio',  label: 'Seguro Incêndio' },
+  { value: 'fundo_reserva',    label: 'Fundo de Reserva' },
 ]
 
 const GARANTIA_OPCOES = [
@@ -316,59 +317,80 @@ export default function CadastrarInquilino() {
               )}
             </div>
 
-            <div className="form-group">
-              <label>Contas Inclusas</label>
-              <div className="checkbox-grid">
-                {CONTAS_OPCOES.map(opt => {
-                  const isActive   = form.contasInclusas.includes(opt.value)
-                  const isVariavel = !!form.contasVariavel[opt.value]
-                  return (
-                    <div key={opt.value} className={`conta-card${isActive ? ' active' : ''}${isVariavel ? ' variavel' : ''}`}>
-                      <label className="conta-card-header">
-                        <input
-                          type="checkbox"
-                          checked={isActive}
-                          onChange={() => handleCheckbox(opt.value)}
-                        />
-                        <span>{opt.label}</span>
-                        {isVariavel && <span className="conta-variavel-badge">variável</span>}
-                      </label>
-                      {isActive && (
-                        <div className="conta-card-body">
-                          <label className="conta-variavel-toggle">
-                            <input
-                              type="checkbox"
-                              checked={isVariavel}
-                              onChange={e => handleContaVariavel(opt.value, e.target.checked)}
-                            />
-                            <span>Conta variável</span>
-                          </label>
-                          {!isVariavel ? (
-                            <div className="conta-card-valor">
-                              <input
-                                type="number" step="0.01" min="0"
-                                placeholder="R$ 0,00"
-                                value={form.contasValores[opt.value] || ''}
-                                onChange={e => handleContaValor(opt.value, e.target.value)}
-                              />
-                            </div>
-                          ) : (
-                            <div className="conta-card-origem">
-                              <input
-                                type="text"
-                                placeholder="Onde encontrar o valor..."
-                                value={form.contasOrigem[opt.value] || ''}
-                                onChange={e => handleContaOrigem(opt.value, e.target.value)}
-                              />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+      <div className="form-group">
+  <label>Contas Inclusas</label>
+  <div className="checkbox-grid">
+    {CONTAS_OPCOES.map(opt => {
+      const isActive = form.contasInclusas.includes(opt.value)
+      const isVariavel = !!form.contasVariavel[opt.value]
+      const permiteValorNegativo = opt.value === 'fundo_reserva'
+
+      return (
+        <div
+          key={opt.value}
+          className={`conta-card${isActive ? ' active' : ''}${isVariavel ? ' variavel' : ''}`}
+        >
+          <label className="conta-card-header">
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={() => handleCheckbox(opt.value)}
+            />
+            <span>{opt.label}</span>
+            {isVariavel && (
+              <span className="conta-variavel-badge">variável</span>
+            )}
+          </label>
+
+          {isActive && (
+            <div className="conta-card-body">
+              <label className="conta-variavel-toggle">
+                <input
+                  type="checkbox"
+                  checked={isVariavel}
+                  onChange={e =>
+                    handleContaVariavel(opt.value, e.target.checked)
+                  }
+                />
+                <span>Conta variável</span>
+              </label>
+
+              {!isVariavel ? (
+                <div className="conta-card-valor">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min={permiteValorNegativo ? undefined : 0}
+                    placeholder={
+                      permiteValorNegativo
+                        ? "Ex.: -50,00"
+                        : "R$ 0,00"
+                    }
+                    value={form.contasValores[opt.value] || ''}
+                    onChange={e =>
+                      handleContaValor(opt.value, e.target.value)
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="conta-card-origem">
+                  <input
+                    type="text"
+                    placeholder="Onde encontrar o valor..."
+                    value={form.contasOrigem[opt.value] || ''}
+                    onChange={e =>
+                      handleContaOrigem(opt.value, e.target.value)
+                    }
+                  />
+                </div>
+              )}
             </div>
+          )}
+        </div>
+      )
+    })}
+  </div>
+</div>
 
             <div className="form-group">
               <label>Garantia</label>

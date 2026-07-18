@@ -14,6 +14,7 @@ const CONTAS_OPCOES = [
   { value: 'iptu',            label: 'IPTU' },
   { value: 'lixo',            label: 'Lixo' },
   { value: 'seguro_incendio', label: 'Seguro Incêndio' },
+  { value: 'fundo_reserva',    label: 'Fundo de Reserva' },
 ]
 
 const SEGURO_LABELS = {
