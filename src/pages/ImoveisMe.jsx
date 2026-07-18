@@ -31,8 +31,8 @@ const TIPOS_DEBITO = [
 const STATUS_STYLE = {
   'Pago':          { bg: '#dcfce7', border: '#86efac', color: '#166534', icon: '✅' },
   'Pendente':      { bg: '#fef9c3', border: '#fde047', color: '#854d0e', icon: '⚠️' },
-  'Em Negociação': { bg: '#dbeafe', border: '#93c5fd', color: '#1e40af', icon: '🤝' },
-  'Acordo':        { bg: '#dbeafe', border: '#93c5fd', color: '#1e40af', icon: '🤝' },
+  'Em Negociação': { bg: '#f5bb8c50', border: '#d89c4d', color: '#e79b68', icon: '🤝' },
+  'Acordo':        { bg: '#dbeafe', border: '#d1a044', color: '#fdd893', icon: '🤝' },
   'Protestado':    { bg: '#fee2e2', border: '#fca5a5', color: '#991b1b', icon: '❌' },
 }
 

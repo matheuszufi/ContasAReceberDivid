@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
-import { ref, push, onValue, get, update } from 'firebase/database'
+import { ref, push, onValue, get, update, remove } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 
@@ -44,9 +44,11 @@ const TIPOS_EVENTO = [
   { value: 'Observação',           icon: '📝', color: '#64748b' },
   { value: 'Contato realizado',    icon: '📞', color: '#3b82f6' },
   { value: 'Notificação enviada',  icon: '📨', color: '#f59e0b' },
-  { value: 'Acordo realizado',     icon: '🤝', color: '#8b5cf6' },
-  { value: 'Pagamento parcial',    icon: '💰', color: '#22c55e' },
+  { value: 'Acordo realizado',     icon: '🤝', color: '#b191fd' },
+  { value: 'Pagamento parcial',    icon: '💰', color: '#8fdcab' },
   { value: 'Encaminhado jurídico', icon: '⚖️', color: '#ef4444' },
+  { value: 'Seguro acionado',      icon: '🛡️', color: '#0ea5e9' },
+  { value: 'Seguro aprovado',      icon: '✅', color: '#16a34a' },
   { value: 'Quitado',              icon: '✅', color: '#22c55e' },
   { value: 'Outros',               icon: '📌', color: '#94a3b8' },
 ]
@@ -184,6 +186,19 @@ export default function CadastrarInadimplencia() {
       console.error(err)
     } finally { setLoading(false) }
   }
+
+  const handleDeleteEvento = async (eventoId) => {
+  if (!window.confirm('Deseja excluir este evento da timeline?')) return
+
+  try {
+    await remove(
+      ref(db, `inadimplencias/${id}/timeline/${eventoId}`)
+    )
+  } catch (err) {
+    console.error('Erro ao excluir evento:', err)
+    alert('Não foi possível excluir o evento.')
+  }
+}
 
   return (
     <Layout
@@ -390,7 +405,10 @@ export default function CadastrarInadimplencia() {
                             <span className="timeline-tipo">{evento.tipo}</span>
                             <span className="timeline-date">{fmtDate(evento.criadoEm)}</span>
                           </div>
-                          <p className="timeline-text">{evento.descricao}</p>
+                          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12}}>
+                            <p className="timeline-text" style={{ margin: 0 }}> {evento.descricao} </p>
+                            <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDeleteEvento(evento.key)} style={{whiteSpace: 'nowrap'}}>Excluir</button>
+                          </div>
                         </div>
                       </li>
                     )
