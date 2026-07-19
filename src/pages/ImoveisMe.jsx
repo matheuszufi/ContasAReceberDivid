@@ -31,7 +31,7 @@ const TIPOS_DEBITO = [
 const STATUS_STYLE = {
   'Pago':          { bg: '#dcfce7', border: '#86efac', color: '#166534', icon: '✅' },
   'Pendente':      { bg: '#fef9c3', border: '#fde047', color: '#854d0e', icon: '⚠️' },
-  'Em Negociação': { bg: '#f5bb8c50', border: '#d89c4d', color: '#e79b68', icon: '🤝' },
+  'Em Negociação': { bg: '#e2883f50', border: '#8e5f22', color: '#ac602e', icon: '🤝' },
   'Acordo':        { bg: '#dbeafe', border: '#d1a044', color: '#fdd893', icon: '🤝' },
   'Protestado':    { bg: '#fee2e2', border: '#fca5a5', color: '#991b1b', icon: '❌' },
 }
@@ -440,15 +440,21 @@ export default function ImoveisMe() {
                           isReajuste = elapsed >= 0 && elapsed % 12 === 11
                         }
 
+                        // Contas variáveis do inquilino ainda não alteradas neste mês
+                        const contasVariaveisKeys = (inquilino.contasInclusas || []).filter(k => inquilino.contasVariavel?.[k])
+                        const variavelPendente = contasVariaveisKeys.length > 0 && contasVariaveisKeys.some(k => !(k in cellVarVals))
+
                         const cellBg = isDesocupacao
                           ? '#fee2e2'
-                          : summary
-                            ? STATUS_STYLE[summary]?.bg
-                            : isReajuste
-                              ? (isCur ? '#eff6ff' : '#fffbeb')
-                              : isCur
-                                ? '#eff6ff'
-                                : undefined
+                          : variavelPendente
+                            ? '#ede9fe'
+                            : summary
+                              ? STATUS_STYLE[summary]?.bg
+                              : isReajuste
+                                ? (isCur ? '#eff6ff' : '#fffbeb')
+                                : isCur
+                                  ? '#eff6ff'
+                                  : undefined
 
                         return (
                           <td
@@ -458,10 +464,13 @@ export default function ImoveisMe() {
                               ...(cellBg ? { background: cellBg } : {}),
                               ...(isReajuste ? { borderBottom: '2.5px solid #f59e0b' } : {}),
                               ...(isDesocupacao ? { borderLeft: '3px solid #ef4444' } : {}),
+                              ...(variavelPendente && !isDesocupacao ? { borderLeft: '3px solid #a855f7' } : {}),
                             }}
                             onClick={() => openModal({ imovel, inquilino }, mi)}
                             title={isDesocupacao
                               ? 'Mês de desocupação — clique para ver detalhes'
+                              : variavelPendente
+                              ? 'Conta(s) de valor variável ainda não alterada(s) neste mês'
                               : isReajuste
                               ? '12º aluguel — mês de reajuste'
                               : summary
@@ -496,6 +505,12 @@ export default function ImoveisMe() {
                               {isReajuste && (
                                 <span style={{ fontSize: 9, fontWeight: 700, color: '#b45309', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 4px', whiteSpace: 'nowrap' }}>
                                   📅 reajuste
+                                </span>
+                              )}
+                              {/* Badge de conta variável pendente */}
+                              {variavelPendente && (
+                                <span style={{ fontSize: 9, fontWeight: 700, color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 4, padding: '1px 4px', whiteSpace: 'nowrap' }}>
+                                  🟣 variável
                                 </span>
                               )}
                               {/* Badge de desocupação */}
@@ -539,6 +554,10 @@ export default function ImoveisMe() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#991b1b' }}>
           <span style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>🚪</span>
           Mês de desocupação
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#7c3aed' }}>
+          <span style={{ background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>🟣</span>
+          Conta variável não alterada no mês
         </div>
       </div>
 
