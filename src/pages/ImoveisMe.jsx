@@ -267,7 +267,7 @@ export default function ImoveisMe() {
   const totalRecuperado = rows.reduce((a, r) =>
     a + MESES.reduce((s, _, mi) =>
       s + getItems(r.imovel.id, mi)
-        .filter(i => i.status === 'Pago' && (Number(i.multa) > 0 || Number(i.juros) > 0))
+        .filter(i => i.status === 'Pago')
         .reduce((x, i) => x + (i.valorTotal || 0), 0)
     , 0)
   , 0)
