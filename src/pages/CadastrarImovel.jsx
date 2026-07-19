@@ -133,9 +133,9 @@ export default function CadastrarImovel() {
               <label>Modelo *</label>
               <div className="radio-group">
                 {[
-                  { v: 'MA', desc: 'Média Administração' },
-                  { v: 'ME', desc: 'Microempresa' },
-                  { v: 'ML', desc: 'Médio/Longo Prazo' },
+                  { v: 'MA', desc: 'Omie' },
+                  { v: 'ME', desc: 'Properfy' },
+                  { v: 'ML', desc: 'Omie' },
                 ].map(({ v, desc }) => (
                   <label key={v} className="radio-item">
                     <input type="radio" name="modelo" value={v} checked={form.modelo === v} onChange={handleChange} required />
