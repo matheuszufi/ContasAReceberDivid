@@ -242,7 +242,7 @@ export default function Inquilinos() {
                     <td>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button className="btn btn-sm" onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}>Editar</button>
-                        <button className="btn btn-sm" style={{ background: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c' }} onClick={() => openDesocModal(inq)}>🚪 Desocupação</button>
+                        <button className="btn btn-sm" style={{ background: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c' }} onClick={() => openDesocModal(inq)}>Desocupação</button>
                         <button className="btn btn-sm btn-danger" onClick={() => handleDelete(inq.id)}>Excluir</button>
                       </div>
                     </td>

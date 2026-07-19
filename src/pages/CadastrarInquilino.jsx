@@ -73,6 +73,7 @@ export default function CadastrarInquilino() {
   const [imoveis, setImoveis] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [buscaImovel, setBuscaImovel] = useState('')
 
   useEffect(() => {
     return onValue(ref(db, 'imoveis'), snap => {
@@ -97,9 +98,14 @@ export default function CadastrarInquilino() {
     })
   }, [id, isEdit])
 
-  const handleImovelSelect = (e) => {
-    const id = e.target.value
+  const imoveisFiltrados = imoveis.filter(im=>{
+    const t=`${im.nome||''} ${im.codigo||''} ${im.endereco?.rua||''} ${im.endereco?.numero||''}`.toLowerCase()
+    return t.includes(buscaImovel.toLowerCase())
+  })
+
+  const handleImovelSelect = (id) => {
     const imovel = imoveis.find(im => im.id === id)
+    setBuscaImovel(imovel?.nome || `${imovel?.codigo?`[${imovel.codigo}] `:''}${imovel?.endereco?.rua||''}`)
     setForm(prev => ({
       ...prev,
       imovelId:     id,
@@ -153,6 +159,14 @@ export default function CadastrarInquilino() {
   const handleContaOrigem = (key, value) => {
     setForm(prev => ({ ...prev, contasOrigem: { ...prev.contasOrigem, [key]: value } }))
   }
+
+useEffect(() => {
+  if (!form.imovelId || imoveis.length===0) return
+  const imovel=imoveis.find(im=>im.id===form.imovelId)
+  if(imovel){
+    setBuscaImovel(imovel.nome || `${imovel.codigo?`[${imovel.codigo}] `:''}${imovel.endereco?.rua||''}${imovel.endereco?.numero?`, ${imovel.endereco.numero}`:''}`)
+  }
+}, [form.imovelId, imoveis])
 
   const handleSubmit = async (e) => {
   e.preventDefault()
@@ -342,16 +356,27 @@ export default function CadastrarInquilino() {
                     <p style={{ margin: 0 }}>Nenhum imóvel cadastrado. <button type="button" className="link-btn" onClick={() => navigate('/imoveis/cadastrar')}>Cadastrar imóvel</button></p>
                   </div>
                 ) : (
-                  <select value={form.imovelId} onChange={handleImovelSelect} required>
-                    <option value="">Selecione o imóvel...</option>
-                    {imoveis.map(im => (
-                      <option key={im.id} value={im.id}>
-                        {im.codigo ? `[${im.codigo}] ` : ''}
-                        {im.endereco?.rua ? `${im.endereco.rua}, ${im.endereco.numero || 's/n'}` : im.id.substring(0, 8)}
-                        {im.status ? ` — ${im.status}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  <div style={{position:'relative'}}>
+<input
+value={buscaImovel}
+placeholder="Pesquisar imóvel..."
+onChange={e=>{setBuscaImovel(e.target.value);setForm(f=>({...f,imovelId:'',codigoImovel:''}))}}
+style={{paddingRight:40}}
+required
+/>
+{form.imovelId && (
+<button
+type="button"
+onClick={()=>{setBuscaImovel('');setForm(f=>({...f,imovelId:'',codigoImovel:''}))}}
+style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',border:'none',background:'transparent',cursor:'pointer',fontSize:18}}
+>✕</button>
+)}
+{!form.imovelId && buscaImovel && <div style={{position:'absolute',background:'#fff',border:'1px solid #ddd',left:0,right:0,maxHeight:250,overflow:'auto',zIndex:99}}>
+{imoveisFiltrados.map(im=><div key={im.id} onClick={()=>handleImovelSelect(im.id)} style={{padding:10,cursor:'pointer'}}>
+<strong>{im.nome||im.codigo}</strong><br/>{im.endereco?.rua} {im.endereco?.numero}
+</div>)}
+</div>}
+</div>
                 )}
               </div>
               <div className="form-group">
