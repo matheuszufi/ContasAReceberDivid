@@ -28,6 +28,11 @@ const SEGURO_OPCOES = [
   { value: 'lado_bom',  label: 'Lado Bom Seguros' },
 ]
 
+const METODO_PAGAMENTO_OPCOES = [
+  { value: 'pre_pago', label: 'Pré-pago', hint: 'Contas exibidas no mês de uso' },
+  { value: 'pos_pago', label: 'Pós-pago', hint: 'Contas exibidas um mês após o uso' },
+]
+
 const formatCPF = (v) =>
   v.replace(/\D/g, '')
     .replace(/(\d{3})(\d)/, '$1.$2')
@@ -49,6 +54,7 @@ const initialForm = {
   telefone: '',
   dataEntrada: '',
   dataSaida: '',
+  metodoPagamento: 'pre_pago',
   imovelId: '',
   codigoImovel: '',
   numeroQuarto: '',
@@ -348,6 +354,21 @@ useEffect(() => {
               <div className="form-group">
                 <label>Data de Saída</label>
                 <input name="dataSaida" type="date" value={form.dataSaida} onChange={handleChange} />
+              </div>
+              <div className="form-group">
+                <label>Método de Pagamento</label>
+                <div className="radio-group">
+                  {METODO_PAGAMENTO_OPCOES.map(opt => (
+                    <label key={opt.value} className="radio-item" title={opt.hint}>
+                      <input
+                        type="radio" name="metodoPagamento"
+                        value={opt.value} checked={form.metodoPagamento === opt.value}
+                        onChange={handleChange}
+                      />
+                      <span>{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
               <div className="form-group">
                 <label>Imóvel *</label>

@@ -48,6 +48,23 @@ function getCellSummary(items) {
 const fmtBRL = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const padM   = n => String(n).padStart(2, '0')
 
+// Soma/subtrai meses a uma string 'YYYY-MM'
+const addMonths = (ym, n) => {
+  if (!ym) return ym
+  const [y, m] = ym.split('-').map(Number)
+  const d = new Date(y, m - 1 + n, 1)
+  return `${d.getFullYear()}-${padM(d.getMonth() + 1)}`
+}
+
+// Pré-pago: contas aparecem no mês de uso (entrada → saída).
+// Pós-pago: contas aparecem um mês após o uso (entrada+1 → saída+1).
+const getMesRange = (inquilino) => {
+  const shift = inquilino?.metodoPagamento === 'pos_pago' ? 1 : 0
+  const mesInicio = inquilino?.dataEntrada ? addMonths(inquilino.dataEntrada.substring(0, 7), shift) : undefined
+  const mesFim    = inquilino?.dataSaida   ? addMonths(inquilino.dataSaida.substring(0, 7), shift)   : undefined
+  return { mesInicio, mesFim }
+}
+
 const thL = { padding: '10px 12px', textAlign: 'left',   fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }
 const thC = { padding: '10px 6px',  textAlign: 'center', fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0', minWidth: 88, background: '#f8fafc' }
 const tdL = { padding: '10px 12px', textAlign: 'left',   verticalAlign: 'middle', borderBottom: '1px solid #f1f5f9' }
@@ -399,8 +416,7 @@ export default function ImoveisMe() {
                         const st       = summary ? STATUS_STYLE[summary] : null
                         const isCur    = isCurrentYear && mi === currentMonthIdx
                         const cellKey  = monthKey(mi)
-                        const mesInicio = inquilino.dataEntrada?.substring(0, 7)
-                        const mesFim    = inquilino.dataSaida?.substring(0, 7)
+                        const { mesInicio, mesFim } = getMesRange(inquilino)
                         const foraDoContrato =
                           (mesInicio && cellKey < mesInicio) ||
                           (mesFim    && cellKey > mesFim)
@@ -580,7 +596,7 @@ export default function ImoveisMe() {
                 </p>
                 {(() => {
                   const mi = modal.mi
-                  const mesIni = modal.inquilino.dataEntrada?.substring(0, 7)
+                  const { mesInicio: mesIni } = getMesRange(modal.inquilino)
                   if (!mesIni) return null
                   const [eY, eM] = mesIni.split('-').map(Number)
                   const elapsed = (year - eY) * 12 + ((mi + 1) - eM)
