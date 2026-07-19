@@ -25,13 +25,6 @@ const SEGURO_LABELS = {
   lado_bom:  'Lado Bom Seguros',
 }
 
-const GARANTIA_STYLE = {
-  seguro:       { bg: '#ede9fe', color: '#7c3aed', border: '#c4b5fd', icon: '🛡️' },
-  caucao:       { bg: '#f0fdf4', color: '#166534', border: '#86efac', icon: '💰' },
-  adiantamento: { bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd', icon: '💵' },
-  sem_garantia: { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0', icon: '🚫' },
-}
-
 const fmtMoney = (v) =>
   'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
@@ -92,11 +85,15 @@ export default function Inadimplentes() {
   }, [])
 
   const getGarantia = (d) => {
-    const g = d.garantia || inquilinos.find(i => i.id === d.inquilinoId)?.garantia || 'sem_garantia'
-    const s = d.seguro   || inquilinos.find(i => i.id === d.inquilinoId)?.seguro
-    const label = GARANTIA_LABELS[g] || g
-    const fullLabel = (g === 'seguro' && s) ? `${label} — ${SEGURO_LABELS[s] || s}` : label
-    return { key: g, label: fullLabel }
+    const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
+    if (!inquilino) return null
+    switch (inquilino.garantia) {
+      case 'seguro': return `Seguro Fiança — ${SEGURO_LABELS[inquilino.seguro] || inquilino.seguro || ''}`
+      case 'caucao': return 'Caução'
+      case 'adiantamento': return 'Adiantamento'
+      case 'sem_garantia': return 'Sem Garantia'
+      default: return null
+    }
   }
 
   const handleDelete = async (id) => {
@@ -294,16 +291,17 @@ export default function Inadimplentes() {
                     <td><strong>{d.inquilinoNome || '—'}</strong></td>
                     <td>
                       {(() => {
-                        const { key: gKey, label: g } = getGarantia(d)
-                        const style = GARANTIA_STYLE[gKey] || GARANTIA_STYLE.sem_garantia
-                        const isSeguro = gKey === 'seguro'
+                        const g = getGarantia(d)
+                        if (!g) return <span style={{ color: '#cbd5e1' }}>—</span>
+                        const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
+                        const isSeguro = inquilino?.garantia === 'seguro'
                         return (
                           <span
                           style={{
                             fontSize: 11, fontWeight: 600, borderRadius: 10, padding: '2px 8px',
-                            background: style.bg,
-                            color: style.color,
-                            border: `1px solid ${style.border}`,
+                            background: isSeguro ? '#ede9fe' : '#f0fdf4',
+                            color: isSeguro ? '#7c3aed' : '#166534',
+                            border: `1px solid ${isSeguro ? '#c4b5fd' : '#86efac'}`,
                             cursor: isSeguro ? 'pointer' : 'default'
                           }}
                           onClick={() => {
@@ -317,7 +315,7 @@ export default function Inadimplentes() {
                             }
                           }}
                         >
-                          {style.icon} {g}
+                          {isSeguro ? '🛡️' : '💰'} {g}
                         </span>
                         )
                       })()}
