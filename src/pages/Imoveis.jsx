@@ -44,7 +44,7 @@ export default function Imoveis() {
     <Layout title="Imóveis" subtitle="Lista e gerenciamento de todos os imóveis">
       <div className="actions-bar">
         <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => navigate('/imoveis/cadastrar')}>
-          ➕ Cadastrar Imóvel
+          <b>+</b> Cadastrar Imóvel
         </button>
         <input
           type="text"

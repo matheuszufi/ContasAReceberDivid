@@ -30,7 +30,7 @@ body { margin: 0; background: var(--bg); color: var(--text-primary); }
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  background: linear-gradient(135deg, #939597 0%, #dcdfe7 100%);
 }
 .auth-card {
   background: var(--card);
@@ -70,8 +70,8 @@ body { margin: 0; background: var(--bg); color: var(--text-primary); }
   white-space: nowrap;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35); }
+.btn-primary { background: rgb(28, 28, 29); color: #fff; }
+.btn-primary:hover { background: rgb(132, 132, 138); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35); }
 .btn-block { width: 100%; padding: 12px; margin-top: 8px; }
 .btn-secondary { background: var(--bg); color: var(--text-primary); border: 1.5px solid var(--border); }
 .btn-secondary:hover { background: var(--border); }
@@ -90,7 +90,7 @@ body { margin: 0; background: var(--bg); color: var(--text-primary); }
 /* ===================== Sidebar ===================== */
 .sidebar {
   width: var(--sidebar-width);
-  background: var(--sidebar-bg);
+  background: rgb(28, 28, 29);
   display: flex;
   flex-direction: column;
   position: fixed;

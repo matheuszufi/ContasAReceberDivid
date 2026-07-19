@@ -155,7 +155,7 @@ export default function Inquilinos() {
     <Layout title="Inquilinos" subtitle="Gestão de inquilinos cadastrados">
       <div className="actions-bar">
         <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => navigate('/inquilinos/cadastrar')}>
-          ➕ Cadastrar Inquilino
+          <b>+</b> Cadastrar Inquilino
         </button>
         <input
           type="text"

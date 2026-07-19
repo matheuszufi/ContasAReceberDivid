@@ -37,7 +37,7 @@ export default function Proprietarios() {
     <Layout title="Proprietários" subtitle="Gestão de proprietários de imóveis">
       <div className="actions-bar">
         <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => navigate('/proprietarios/cadastrar')}>
-          ➕ Cadastrar Proprietário
+          <b>+</b> Cadastrar Proprietário
         </button>
         <input
           type="text"

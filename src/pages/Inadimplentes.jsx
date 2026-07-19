@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ref, onValue, remove } from 'firebase/database'
+import { ref, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 
@@ -11,6 +11,14 @@ const statusBadge = {
   'Protestado':    'badge-red',
   'Acordo':        'badge-blue',
 }
+
+const SEGURO_ACIONADO_OPCOES = [
+  { value: 'nao_acionado',          label: 'Não Acionado',         bg: '#f0fdf4', color: '#166534', border: '#86efac' },
+  { value: 'acionado',              label: 'Acionado',             bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd' },
+  { value: 'necessita_documentos',  label: 'Necessita Documentos', bg: '#fffbeb', color: '#b45309', border: '#fde68a' },
+  { value: 'pagamento_aprovado',    label: 'Pagamento Aprovado',   bg: '#f0fdf4', color: '#166534', border: '#86efac' },
+  { value: 'pagamento_reprovado',   label: 'Pagamento Reprovado',  bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+]
 
 const GARANTIA_LABELS = {
   seguro:       'Seguro Fiança',
@@ -102,6 +110,14 @@ export default function Inadimplentes() {
   const handleDelete = async (id) => {
     if (!window.confirm('Deseja excluir este débito?')) return
     await remove(ref(db, `inadimplencias/${id}`))
+  }
+
+  const handleSeguroAcionadoChange = async (id, value) => {
+    await update(ref(db, `inadimplencias/${id}`), { seguroAcionado: value })
+  }
+
+  const handleUltimaCobrancaChange = async (id, value) => {
+    await update(ref(db, `inadimplencias/${id}`), { ultimaCobranca: value })
   }
 
   const abrirWhatsApp = (d) => {
@@ -268,11 +284,9 @@ export default function Inadimplentes() {
             <table>
               <thead>
                 <tr>
-                  <th>Inquilino</th>                  <th>Garantia</th>                  <th>Imóvel</th>
+                  <th>Inquilino</th>                  <th>Garantia</th>                  <th>Seguro Acionado</th>                  <th>Última Cobrança</th>                  <th>Imóvel</th>
                   <th>Tipo</th>
                   <th>Mês Ref.</th>
-                  <th>Vencimento</th>
-                  <th>Valor Original</th>
                   <th>Total c/ Encargos</th>
                   <th>Status</th>
                   <th>Ações</th>
@@ -322,20 +336,48 @@ export default function Inadimplentes() {
                         )
                       })()}
                     </td>
+                    <td>
+                      {(() => {
+                        const current = SEGURO_ACIONADO_OPCOES.find(o => o.value === d.seguroAcionado) || SEGURO_ACIONADO_OPCOES[0]
+                        return (
+                          <select
+                            value={current.value}
+                            onChange={e => handleSeguroAcionadoChange(d.id, e.target.value)}
+                            style={{
+                              fontSize: 11, fontWeight: 600, borderRadius: 10, padding: '2px 8px',
+                              background: current.bg,
+                              color: current.color,
+                              border: `1px solid ${current.border}`,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {SEGURO_ACIONADO_OPCOES.map(o => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        )
+                      })()}
+                    </td>
+                    <td>
+                      <input
+                        type="date"
+                        value={d.ultimaCobranca || ''}
+                        onChange={e => handleUltimaCobrancaChange(d.id, e.target.value)}
+                        style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                      />
+                    </td>
                     <td>{d.codigoImovel || '—'}</td>
                     <td>{d.tipoDebito || '—'}</td>
                     <td>{d.mesReferencia ? formatMonthLabel(d.mesReferencia) : '—'}</td>
-                    <td>{d.dataVencimento ? new Date(d.dataVencimento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
-                    <td>{fmtMoney(d.valorOriginal)}</td>
                     <td><strong>{fmtMoney(d.valorTotal)}</strong></td>
                     <td>
                       <span className={`badge ${statusBadge[d.status] || 'badge-gray'}`}>{d.status || 'Pendente'}</span>
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', borderColor: '#25D366' }} onClick={() => abrirWhatsApp(d)}>💬 WhatsApp</button>
+                        <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', borderColor: '#25D366' }} onClick={() => abrirWhatsApp(d)}>WhatsApp</button>
                         <button className="btn btn-sm" onClick={() => navigate(`/inadimplentes/editar/${d.id}`)}>Editar</button>
-                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(d.id)}>Excluir</button>
+                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(d.id)}>X</button>
                       </div>
                     </td>
                   </tr>
