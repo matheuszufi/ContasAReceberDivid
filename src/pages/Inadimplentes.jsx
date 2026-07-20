@@ -21,7 +21,7 @@ const SEGURO_ACIONADO_OPCOES = [
 ]
 
 const GARANTIA_LABELS = {
-  seguro:       'Seguro Fiança',
+  seguro:       'S.F.',
   caucao:       'Caução',
   adiantamento: 'Adiantamento',
   sem_garantia: 'Sem Garantia',
@@ -103,7 +103,7 @@ export default function Inadimplentes() {
     const g = d.garantia || inquilinos.find(i => i.id === d.inquilinoId)?.garantia || 'sem_garantia'
     const s = d.seguro   || inquilinos.find(i => i.id === d.inquilinoId)?.seguro
     const label = GARANTIA_LABELS[g] || g
-    const fullLabel = (g === 'seguro' && s) ? `${label} — ${SEGURO_LABELS[s] || s}` : label
+    const fullLabel = (g === 'seguro' && s) ? `${label} | ${SEGURO_LABELS[s] || s}` : label
     return { key: g, label: fullLabel }
   }
 
