@@ -13,11 +13,12 @@ const statusBadge = {
 }
 
 const SEGURO_ACIONADO_OPCOES = [
-  { value: 'nao_acionado',          label: 'Não Acionado',         bg: '#f0fdf4', color: '#166534', border: '#86efac' },
-  { value: 'acionado',              label: 'Acionado',             bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd' },
-  { value: 'necessita_documentos',  label: 'Necessita Documentos', bg: '#fffbeb', color: '#b45309', border: '#fde68a' },
-  { value: 'pagamento_aprovado',    label: 'Pagamento Aprovado',   bg: '#f0fdf4', color: '#166534', border: '#86efac' },
-  { value: 'pagamento_reprovado',   label: 'Pagamento Reprovado',  bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+  { value: 'nao_acionado',          label: 'Não Acionado',          bg: '#f0fdf4', color: '#166534', border: '#86efac' },
+  { value: 'acionado',              label: 'Acionado',              bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd' },
+  { value: 'aguardar_para_acionar', label: 'Aguardar para Acionar', bg: '#eff6ff', color: '#555555', border: '#727272' },
+  { value: 'necessita_documentos',  label: 'Necessita Documentos',  bg: '#fffbeb', color: '#b45309', border: '#fde68a' },
+  { value: 'pagamento_aprovado',    label: 'Pagamento Aprovado',    bg: '#f0fdf4', color: '#166534', border: '#86efac' },
+  { value: 'pagamento_reprovado',   label: 'Pagamento Reprovado',   bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
 ]
 
 const GARANTIA_LABELS = {
@@ -375,7 +376,7 @@ export default function Inadimplentes() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        <button className="btn btn-sm" style={{ background: '#25D366', color: '#fff', borderColor: '#25D366' }} onClick={() => abrirWhatsApp(d)}>WhatsApp</button>
+                        <button className="btn btn-sm" style={{ background: '#25d365a9', color: '#fff', borderColor: '#178d42' }} onClick={() => abrirWhatsApp(d)}>WhatsApp</button>
                         <button className="btn btn-sm" onClick={() => navigate(`/inadimplentes/editar/${d.id}`)}>Editar</button>
                         <button className="btn btn-sm btn-danger" onClick={() => handleDelete(d.id)}>X</button>
                       </div>

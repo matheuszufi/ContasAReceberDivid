@@ -27,7 +27,7 @@ export default function Login() {
         <div className="auth-logo">
           <img src={logo} alt="Divid Logo" />
         </div>
-        <h2>ContasReceber</h2>
+        <h2>Financeiro</h2>
         <p className="auth-sub">Entre com sua conta para continuar</p>
         {error && <div className="error-msg">{error}</div>}
         <div className="form-group">
