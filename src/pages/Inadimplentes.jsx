@@ -4,13 +4,14 @@ import { ref, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 
-const statusBadge = {
-  'Pendente':      'badge-yellow',
-  'Pago':          'badge-green',
-  'Em Negociação': 'badge-blue',
-  'Protestado':    'badge-red',
-  'Acordo':        'badge-blue',
-}
+const STATUS_OPCOES = [
+  { value: 'selecione',       label: 'Selecione',       bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd' },
+  { value: 'seguro_aprovado', label: 'Seguro Aprovado', bg: '#f0fdf4', color: '#166534', border: '#86efac' },
+  { value: 'nao_responde',    label: 'Não Responde',    bg: '#f7b5b5', color: '#6d1a17', border: '#86efac' },
+  { value: 'acordo',          label: 'Acordo',          bg: '#fffbeb', color: '#b45309', border: '#fde68a' },
+  { value: 'juridico',        label: 'Jurídico',        bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+  { value: 'pago',            label: 'Pago',            bg: '#f0fdf4', color: '#166534', border: '#86efac' },
+]
 
 const SEGURO_ACIONADO_OPCOES = [
   { value: 'nao_acionado',          label: 'Não Acionado',          bg: '#f0fdf4', color: '#166534', border: '#86efac' },
@@ -31,7 +32,7 @@ const GARANTIA_LABELS = {
 const SEGURO_LABELS = {
   credaluga: 'Credaluga',
   credpago:  'Credpago',
-  lado_bom:  'Lado Bom Seguros',
+  lado_bom:  'Lado Bom',
 }
 
 const GARANTIA_STYLE = {
@@ -66,8 +67,8 @@ function buildMonthGroups(debitos) {
 }
 
 function monthStats(list) {
-  const pending = list.filter(d => d.status !== 'Pago')
-  const paid    = list.filter(d => d.status === 'Pago')
+  const pending = list.filter(d => d.status !== 'pago')
+  const paid    = list.filter(d => d.status === 'pago')
   const uniqueInq = new Set(pending.map(d => d.inquilinoId).filter(Boolean))
   return {
     totalInadimplentes: uniqueInq.size || pending.length,
@@ -84,6 +85,24 @@ export default function Inadimplentes() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [mesSelecionado, setMesSelecionado] = useState(null)
+  const [colFilters, setColFilters] = useState({
+    inquilino: '',
+    imovel: '',
+    garantia: '',
+    seguroAcionado: '',
+    tipo: '',
+    mesReferencia: '',
+    status: '',
+  })
+
+  const setColFilter = (field, value) =>
+    setColFilters(prev => ({ ...prev, [field]: value }))
+
+  const limparColFilters = () =>
+    setColFilters({
+      inquilino: '', imovel: '', garantia: '', seguroAcionado: '',
+      tipo: '', mesReferencia: '', status: '',
+    })
 
   useEffect(() => {
     const r1 = ref(db, 'inadimplencias')
@@ -115,6 +134,10 @@ export default function Inadimplentes() {
 
   const handleSeguroAcionadoChange = async (id, value) => {
     await update(ref(db, `inadimplencias/${id}`), { seguroAcionado: value })
+  }
+
+  const handleStatusChange = async (id, value) => {
+    await update(ref(db, `inadimplencias/${id}`), { status: value })
   }
 
   const handleUltimaCobrancaChange = async (id, value) => {
@@ -154,9 +177,9 @@ export default function Inadimplentes() {
     alert('Este inquilino não possui Seguro Fiança.')
   }
 
-  const pendentes    = debitos.filter(d => d.status !== 'Pago')
+  const pendentes    = debitos.filter(d => d.status !== 'pago')
   const totalAberto  = pendentes.reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
-  const totalRecup   = debitos.filter(d => d.status === 'Pago').reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
+  const totalRecup   = debitos.filter(d => d.status === 'pago').reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
   const vencidos30   = pendentes.filter(d => {
     if (!d.dataVencimento) return false
     return (Date.now() - new Date(d.dataVencimento).getTime()) / 86400000 > 30
@@ -168,11 +191,24 @@ export default function Inadimplentes() {
     ? debitos.filter(d => (getMonth(d) || 'sem-mes') === mesSelecionado)
     : debitos
 
-  const filtered = baseList.filter(d =>
-    d.inquilinoNome?.toLowerCase().includes(search.toLowerCase()) ||
-    d.codigoImovel?.toLowerCase().includes(search.toLowerCase()) ||
-    d.tipoDebito?.toLowerCase().includes(search.toLowerCase())
-  )
+  // Opções únicas para os selects de filtro (calculadas a partir da lista atual)
+  const tipoOptions = [...new Set(baseList.map(d => d.tipoDebito).filter(Boolean))].sort()
+  const mesRefOptions = [...new Set(baseList.map(d => d.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a))
+  const garantiaOptions = [...new Set(baseList.map(d => getGarantia(d).key))]
+
+  const filtered = baseList
+    .filter(d =>
+      d.inquilinoNome?.toLowerCase().includes(search.toLowerCase()) ||
+      d.codigoImovel?.toLowerCase().includes(search.toLowerCase()) ||
+      d.tipoDebito?.toLowerCase().includes(search.toLowerCase())
+    )
+    .filter(d => !colFilters.inquilino || d.inquilinoNome?.toLowerCase().includes(colFilters.inquilino.toLowerCase()))
+    .filter(d => !colFilters.imovel || d.codigoImovel?.toLowerCase().includes(colFilters.imovel.toLowerCase()))
+    .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
+    .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
+    .filter(d => !colFilters.tipo || d.tipoDebito === colFilters.tipo)
+    .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
+    .filter(d => !colFilters.status || d.status === colFilters.status)
 
   return (
     <Layout title="⚠️ Inadimplentes" subtitle="Controle de clientes com débitos pendentes">
@@ -277,6 +313,11 @@ export default function Inadimplentes() {
               ? `Débitos — ${formatMonthLabel(mesSelecionado)} (${filtered.length})`
               : `Todos os Débitos (${filtered.length})`}
           </h3>
+          {Object.values(colFilters).some(v => v) && (
+            <button className="btn btn-sm btn-secondary" onClick={limparColFilters}>
+              Limpar filtros
+            </button>
+          )}
         </div>
         <div className="table-container">
           {loading ? (
@@ -285,12 +326,99 @@ export default function Inadimplentes() {
             <table>
               <thead>
                 <tr>
-                  <th>Inquilino</th>                  <th>Garantia</th>                  <th>Seguro Acionado</th>                  <th>Última Cobrança</th>                  <th>Imóvel</th>
+                  <th>Inquilino</th>
+                  <th>Imóvel</th>
+                  <th>Garantia</th>
+                  <th>Seguro Acionado</th>
+                  <th>Última Cobrança</th>
                   <th>Tipo</th>
                   <th>Mês Ref.</th>
                   <th>Total c/ Encargos</th>
                   <th>Status</th>
                   <th>Ações</th>
+                </tr>
+                <tr className="filter-row">
+                  <th>
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      value={colFilters.inquilino}
+                      onChange={e => setColFilter('inquilino', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    />
+                  </th>
+                  <th>
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      value={colFilters.imovel}
+                      onChange={e => setColFilter('imovel', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    />
+                  </th>
+                  <th>
+                    <select
+                      value={colFilters.garantia}
+                      onChange={e => setColFilter('garantia', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    >
+                      <option value="">Todas</option>
+                      {garantiaOptions.map(g => (
+                        <option key={g} value={g}>{GARANTIA_LABELS[g] || g}</option>
+                      ))}
+                    </select>
+                  </th>
+                  <th>
+                    <select
+                      value={colFilters.seguroAcionado}
+                      onChange={e => setColFilter('seguroAcionado', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    >
+                      <option value="">Todos</option>
+                      {SEGURO_ACIONADO_OPCOES.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </th>
+                  <th></th>
+                  <th>
+                    <select
+                      value={colFilters.tipo}
+                      onChange={e => setColFilter('tipo', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    >
+                      <option value="">Todos</option>
+                      {tipoOptions.map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </th>
+                  <th>
+                    <select
+                      value={colFilters.mesReferencia}
+                      onChange={e => setColFilter('mesReferencia', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    >
+                      <option value="">Todos</option>
+                      {mesRefOptions.map(m => (
+                        <option key={m} value={m}>{formatMonthLabel(m)}</option>
+                      ))}
+                    </select>
+                  </th>
+                  <th></th>
+                  <th>
+                    <select
+                      value={colFilters.status}
+                      onChange={e => setColFilter('status', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    >
+                      <option value="">Todos</option>
+                      {STATUS_OPCOES.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -307,22 +435,15 @@ export default function Inadimplentes() {
                 ) : filtered.map(d => (
                   <tr key={d.id}>
                     <td><strong>{d.inquilinoNome || '—'}</strong></td>
+                    <td>{d.codigoImovel || '—'}</td>
                     <td>
                       {(() => {
                         const { key: gKey, label: g } = getGarantia(d)
                         const style = GARANTIA_STYLE[gKey] || GARANTIA_STYLE.sem_garantia
                         const isSeguro = gKey === 'seguro'
                         return (
-                          <span
-                          style={{
-                            fontSize: 11, fontWeight: 600, borderRadius: 10, padding: '2px 8px',
-                            background: style.bg,
-                            color: style.color,
-                            border: `1px solid ${style.border}`,
-                            cursor: isSeguro ? 'pointer' : 'default'
-                          }}
-                          onClick={() => {
-                            if (!isSeguro) return
+                          <span style={{fontSize: 11, fontWeight: 600, borderRadius: 10, padding: '2px 8px', background: style.bg, whiteSpace: 'nowrap', color: style.color, border: `1px solid ${style.border}`,
+                            cursor: isSeguro ? 'pointer' : 'default'}} onClick={() => {if (!isSeguro) return
                             const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
                             if (!inquilino) return
                             if (inquilino.seguro === 'credpago') {
@@ -330,8 +451,7 @@ export default function Inadimplentes() {
                             } else if (inquilino.seguro === 'credaluga') {
                               window.open('https://app.credaluga.com.br/dashboard','_blank')
                             }
-                          }}
-                        >
+                            }} >
                           {style.icon} {g}
                         </span>
                         )
@@ -367,12 +487,30 @@ export default function Inadimplentes() {
                         style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                       />
                     </td>
-                    <td>{d.codigoImovel || '—'}</td>
                     <td>{d.tipoDebito || '—'}</td>
                     <td>{d.mesReferencia ? formatMonthLabel(d.mesReferencia) : '—'}</td>
                     <td><strong>{fmtMoney(d.valorTotal)}</strong></td>
                     <td>
-                      <span className={`badge ${statusBadge[d.status] || 'badge-gray'}`}>{d.status || 'Pendente'}</span>
+                      {(() => {
+                        const current = STATUS_OPCOES.find(o => o.value === d.status) || STATUS_OPCOES[0]
+                        return (
+                          <select
+                            value={current.value}
+                            onChange={e => handleStatusChange(d.id, e.target.value)}
+                            style={{
+                              fontSize: 11, fontWeight: 600, borderRadius: 10, padding: '2px 8px',
+                              background: current.bg,
+                              color: current.color,
+                              border: `1px solid ${current.border}`,
+                              cursor: 'pointer'
+                            }}
+                          >
+                            {STATUS_OPCOES.map(o => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        )
+                      })()}
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '6px' }}>
@@ -391,4 +529,3 @@ export default function Inadimplentes() {
     </Layout>
   )
 }
-
