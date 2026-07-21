@@ -57,6 +57,12 @@ const formatMonthLabel = (ym) => {
     .replace(/^./, c => c.toUpperCase())
 }
 
+const formatMonthShort = (ym) => {
+  if (!ym) return '—'
+  const [y, m] = ym.split('-')
+  return `${m}/${y.slice(2)}`
+}
+
 function buildMonthGroups(debitos) {
   const map = {}
   debitos.forEach(d => {
@@ -367,7 +373,7 @@ export default function Inadimplentes() {
                     >
                       <option value="">Todos</option>
                       {mesRefOptions.map(m => (
-                        <option key={m} value={m}>{formatMonthLabel(m)}</option>
+                        <option key={m} value={m}>{formatMonthShort(m)}</option>
                       ))}
                     </select>
                   </th>
@@ -428,7 +434,7 @@ export default function Inadimplentes() {
                     <td><strong>{d.inquilinoNome || '—'}</strong></td>
                     <td>{d.codigoImovel || '—'}</td>
                     <td><strong>{fmtMoney(d.valorTotal)}</strong></td>
-                    <td>{d.mesReferencia ? formatMonthLabel(d.mesReferencia) : '—'}</td>
+                    <td>{d.mesReferencia ? formatMonthShort(d.mesReferencia) : '—'}</td>
                     <td>
                       {(() => {
                         const { key: gKey, label: g } = getGarantia(d)
