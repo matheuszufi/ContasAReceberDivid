@@ -5,13 +5,14 @@ import { db } from '../firebase'
 import Layout from '../components/Layout'
 
 const STATUS_OPCOES = [
-  { value: 'selecione',       label: 'Selecione',       bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd' },
-  { value: 'seguro_aprovado', label: 'Seguro Aprovado', bg: '#f0fdf4', color: '#166534', border: '#86efac' },
-  { value: 'nao_responde',    label: 'Não Responde',    bg: '#f7b5b5', color: '#6d1a17', border: '#c73434' },
-  { value: 'nao_quer_pagar',   label: 'Não Quer Pagar', bg: '#e485859a', color: '#7e2020', border: '#d60909' },
-  { value: 'acordo',          label: 'Acordo',          bg: '#fffbeb', color: '#b45309', border: '#fde68a' },
-  { value: 'juridico',        label: 'Jurídico',        bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
-  { value: 'pago',            label: 'Pago',            bg: '#f0fdf4', color: '#166534', border: '#86efac' },
+  { value: 'selecione',       label: 'Selecione',         bg: '#eff6ff',   color: '#1d4ed8', border: '#93c5fd' },
+  { value: 'seguro_aprovado', label: 'Seguro Aprovado',   bg: '#f0fdf4',   color: '#166534', border: '#86efac' },
+  { value: 'cobranca_whats',  label: 'Cobrança WhatsApp', bg: '#8eec8a',   color: '#166534', border: '#86efac' },
+  { value: 'nao_responde',    label: 'Não Responde',      bg: '#f7b5b5',   color: '#6d1a17', border: '#c73434' },
+  { value: 'nao_quer_pagar',  label: 'Não Quer Pagar',    bg: '#e485859a', color: '#7e2020', border: '#d60909' },
+  { value: 'acordo',          label: 'Acordo',            bg: '#fffbeb',   color: '#b45309', border: '#fde68a' },
+  { value: 'juridico',        label: 'Jurídico',          bg: '#fef2f2',   color: '#b91c1c', border: '#fecaca' },
+  { value: 'pago',            label: 'Pago',              bg: '#f0fdf4',   color: '#166534', border: '#86efac' },
 ]
 
 const SEGURO_ACIONADO_OPCOES = [

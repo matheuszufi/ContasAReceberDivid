@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { ref, onValue, update, push, set, remove } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
-
+ 
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
-
+ 
 const CONTAS_OPCOES = [
   { value: 'agua',            label: 'Água' },
   { value: 'energia',         label: 'Energia' },
@@ -16,18 +16,18 @@ const CONTAS_OPCOES = [
   { value: 'seguro_incendio', label: 'Seguro Incêndio' },
   { value: 'fundo_reserva',    label: 'Fundo de Reserva' },
 ]
-
+ 
 const SEGURO_LABELS = {
   credaluga: 'Credaluga',
   credpago:  'Credpago',
   lado_bom:  'Lado Bom Seguros',
 }
-
+ 
 const TIPOS_DEBITO = [
   'Aluguel', 'Condomínio', 'Água', 'Energia', 'Gás',
   'IPTU', 'Lixo', 'Seguro Incêndio', 'Seguro Fiança', 'Outro',
 ]
-
+ 
 const STATUS_STYLE = {
   'Pago':          { bg: '#dcfce7', border: '#86efac', color: '#166534', icon: '✅' },
   'Pendente':      { bg: '#fef9c3', border: '#fde047', color: '#854d0e', icon: '⚠️' },
@@ -35,7 +35,7 @@ const STATUS_STYLE = {
   'Acordo':        { bg: '#dbeafe', border: '#d1a044', color: '#fdd893', icon: '🤝' },
   'Protestado':    { bg: '#fee2e2', border: '#fca5a5', color: '#991b1b', icon: '❌' },
 }
-
+ 
 function getCellSummary(items) {
   if (!items.length) return null
   const s = items.map(i => i.status)
@@ -44,10 +44,10 @@ function getCellSummary(items) {
   if (s.includes('Em Negociação') || s.includes('Acordo')) return 'Em Negociação'
   return 'Pago'
 }
-
+ 
 const fmtBRL = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const padM   = n => String(n).padStart(2, '0')
-
+ 
 // Soma/subtrai meses a uma string 'YYYY-MM'
 const addMonths = (ym, n) => {
   if (!ym) return ym
@@ -55,7 +55,7 @@ const addMonths = (ym, n) => {
   const d = new Date(y, m - 1 + n, 1)
   return `${d.getFullYear()}-${padM(d.getMonth() + 1)}`
 }
-
+ 
 // Pré-pago: contas aparecem no mês de uso (entrada → saída).
 // Pós-pago: contas aparecem um mês após o uso (entrada+1 → saída+1).
 const getMesRange = (inquilino) => {
@@ -64,12 +64,12 @@ const getMesRange = (inquilino) => {
   const mesFim    = inquilino?.dataSaida   ? addMonths(inquilino.dataSaida.substring(0, 7), shift)   : undefined
   return { mesInicio, mesFim }
 }
-
+ 
 const thL = { padding: '10px 12px', textAlign: 'left',   fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }
 const thC = { padding: '10px 6px',  textAlign: 'center', fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0', minWidth: 88, background: '#f8fafc' }
 const tdL = { padding: '10px 12px', textAlign: 'left',   verticalAlign: 'middle', borderBottom: '1px solid #f1f5f9' }
 const tdC = { padding: '5px 4px',   textAlign: 'center', verticalAlign: 'middle', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }
-
+ 
 export default function ImoveisMe() {
   const navigate = useNavigate()
   const currentYear = new Date().getFullYear()
@@ -91,11 +91,13 @@ export default function ImoveisMe() {
   const [filterNome, setFilterNome]           = useState('')
   const [filterImovel, setFilterImovel]       = useState('')
   const [filterInadimplentes, setFilterInadimplentes] = useState(false)
-
+ 
   const closeModal = () => { setModal(null); setVarValues({}); setExtraContas([]); setRegForm(null); setObsModal('') }
-
+ 
+  const goInquilino = (inquilinoId) => navigate(`/inquilinos/editar/${inquilinoId}`)
+ 
   const loading = !loadedIm || !loadedInq || !loadedInad || !loadedVV
-
+ 
   useEffect(() => {
     const u1 = onValue(ref(db, 'imoveis'), s => {
       const d = s.val()
@@ -118,14 +120,14 @@ export default function ImoveisMe() {
     })
     return () => { u1(); u2(); u3(); u4() }
   }, [])
-
+ 
   const rows = imoveis
     .map(im => ({
       imovel: im,
       inquilino: inquilinos.find(inq => inq.imovelId === im.id && inq.status !== 'Inativo'),
     }))
     .filter(r => r.inquilino)
-
+ 
   const filteredRows = rows.filter(({ imovel, inquilino }) => {
     if (filterNome && !inquilino.nome?.toLowerCase().includes(filterNome.toLowerCase())) return false
     if (filterImovel && !imovel.codigo?.toLowerCase().includes(filterImovel.toLowerCase())) return false
@@ -138,11 +140,11 @@ export default function ImoveisMe() {
     }
     return true
   })
-
+ 
   const monthKey = mi => `${year}-${padM(mi + 1)}`
   const getItems = (imovelId, mi) =>
     inadimplencias.filter(i => i.imovelId === imovelId && i.mesReferencia === monthKey(mi))
-
+ 
   const openModal = (row, mi) => {
     const key = monthKey(mi)
     setModal({ ...row, mi, key, items: getItems(row.imovel.id, mi) })
@@ -152,7 +154,7 @@ export default function ImoveisMe() {
     setExtraContas(extras ? Object.entries(extras).map(([id, v]) => ({ id, ...v })) : [])
     setObsModal(_obs || '')
   }
-
+ 
   const handleVarValue = (contaKey, rawValue) => {
     setVarValues(prev => ({ ...prev, [contaKey]: rawValue }))
     if (modal?.inquilino?.id && modal?.key) {
@@ -161,22 +163,22 @@ export default function ImoveisMe() {
       })
     }
   }
-
+ 
   const handleRemoveVarValue = (contaKey) => {
     setVarValues(prev => { const n = { ...prev }; delete n[contaKey]; return n })
     if (modal?.inquilino?.id && modal?.key) {
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), { [contaKey]: null })
     }
   }
-
+ 
   const handleAddExtra = () => {
     setExtraContas(prev => [...prev, { id: null, nome: '', valor: '' }])
   }
-
+ 
   const handleExtraChange = (idx, field, value) => {
     setExtraContas(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e))
   }
-
+ 
   const handleExtraSave = async (idx) => {
     const extra = extraContas[idx]
     if (!extra || !extra.nome.trim() || extra.valor === '' || extra.valor === undefined) return
@@ -191,7 +193,7 @@ export default function ImoveisMe() {
       setExtraContas(prev => prev.map((e, i) => i === idx ? { ...e, id: newRef.key } : e))
     }
   }
-
+ 
   const handleRemoveExtra = async (idx) => {
     const extra = extraContas[idx]
     if (extra?.id && modal?.inquilino?.id && modal?.key) {
@@ -199,7 +201,7 @@ export default function ImoveisMe() {
     }
     setExtraContas(prev => prev.filter((_, i) => i !== idx))
   }
-
+ 
   const handleRegSubmit = async () => {
     if (!regForm || !modal || regSaving) return
     setRegSaving(true)
@@ -232,7 +234,7 @@ export default function ImoveisMe() {
       setRegSaving(false)
     }
   }
-
+ 
   const goRegister = (imovel, inquilino, mesReferencia, valorOriginal) =>
     navigate('/inadimplentes/cadastrar', {
       state: {
@@ -244,10 +246,10 @@ export default function ImoveisMe() {
         ...(valorOriginal ? { valorOriginal: String(valorOriginal) } : {}),
       },
     })
-
+ 
   const isCurrentYear   = year === currentYear
   const currentMonthIdx = new Date().getMonth()
-
+ 
   const totalPago = rows.reduce((a, r) =>
     a + MESES.reduce((s, _, mi) =>
       s + getItems(r.imovel.id, mi)
@@ -255,7 +257,7 @@ export default function ImoveisMe() {
         .reduce((x, i) => x + (i.valorTotal || 0), 0)
     , 0)
   , 0)
-
+ 
   const totalPendente = rows.reduce((a, r) =>
     a + MESES.reduce((s, _, mi) =>
       s + getItems(r.imovel.id, mi)
@@ -263,7 +265,7 @@ export default function ImoveisMe() {
         .reduce((x, i) => x + (i.valorTotal || 0), 0)
     , 0)
   , 0)
-
+ 
   const totalRecuperado = rows.reduce((a, r) =>
     a + MESES.reduce((s, _, mi) =>
       s + getItems(r.imovel.id, mi)
@@ -271,10 +273,10 @@ export default function ImoveisMe() {
         .reduce((x, i) => x + (i.valorTotal || 0), 0)
     , 0)
   , 0)
-
+ 
   return (
     <Layout title="🏠 Imóveis ME" subtitle="Properfy — Planilha de Pagamentos Mensais">
-
+ 
       {/* ── Toolbar ── */}
       <div className="actions-bar" style={{ flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -288,7 +290,7 @@ export default function ImoveisMe() {
           <button className="btn btn-secondary" style={{ width: 'auto', background: '#fef9c3', borderColor: '#fde047', color: '#854d0e' }} onClick={() => navigate('/inadimplentes/cadastrar')}>📋 Registrar Conta</button>
         </div>
       </div>
-
+ 
       {/* ── Cards resumo ── */}
       <div className="stats-grid" style={{ marginBottom: 24 }}>
         <div className="stat-card">
@@ -312,7 +314,7 @@ export default function ImoveisMe() {
           <div className="stat-label">Recuperado em {year}</div>
         </div>
       </div>
-
+ 
       {/* ── Filtros ── */}
       {!loading && rows.length > 0 && (
         <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -349,7 +351,7 @@ export default function ImoveisMe() {
           )}
         </div>
       )}
-
+ 
       {/* ── Planilha ── */}
       <div className="card">
         <div className="card-header">
@@ -376,6 +378,7 @@ export default function ImoveisMe() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr>
+                    <th style={{ ...thL, textAlign: 'center', width: 44 }}></th>
                     <th style={thL}>Imóvel</th>
                     <th style={thL}>Inquilino</th>
                     <th style={{ ...thL, textAlign: 'right' }}>Aluguel</th>
@@ -398,15 +401,44 @@ export default function ImoveisMe() {
                       onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
                       onMouseLeave={e => (e.currentTarget.style.background = '')}
                     >
-                      <td style={tdL}>
-                        <strong>{imovel.codigo || '—'}</strong>
+                      <td style={{ ...tdC, cursor: 'default' }}>
+                        {inquilino.codigoContrato && (
+                          <a
+                            href={`https://sistema.divid.com.br/rental/contract/view/${inquilino.codigoContrato}#financial-statement`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Abrir contrato no Divid"
+                            onClick={e => e.stopPropagation()}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              width: 26, height: 26, borderRadius: 6,
+                              background: '#eff6ff', border: '1px solid #bfdbfe',
+                              color: '#1d4ed8', textDecoration: 'none', fontSize: 13,
+                            }}
+                          >
+                            🔗
+                          </a>
+                        )}
+                      </td>
+                      <td
+                        style={{ ...tdL, cursor: 'pointer' }}
+                        onClick={() => goInquilino(inquilino.id)}
+                        title="Ver cadastro do inquilino"
+                      >
+                        <strong style={{ color: '#1d4ed8' }}>{imovel.codigo || '—'}</strong>
                         {imovel.endereco?.rua && (
                           <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
                             {imovel.endereco.rua}{imovel.endereco.numero ? `, ${imovel.endereco.numero}` : ''}
                           </div>
                         )}
                       </td>
-                      <td style={tdL}>{inquilino.nome || '—'}</td>
+                      <td
+                        style={{ ...tdL, cursor: 'pointer', color: '#1d4ed8' }}
+                        onClick={() => goInquilino(inquilino.id)}
+                        title="Ver cadastro do inquilino"
+                      >
+                        {inquilino.nome || '—'}
+                      </td>
                       <td style={{ ...tdL, textAlign: 'right', fontWeight: 600 }}>
                         {fmtBRL(inquilino.valorAluguel || imovel.valorAluguel)}
                       </td>
@@ -421,7 +453,7 @@ export default function ImoveisMe() {
                           (mesInicio && cellKey < mesInicio) ||
                           (mesFim    && cellKey > mesFim)
                         const isDesocupacao = !!(mesFim && cellKey === mesFim && inquilino.desocupacaoRegistrada)
-
+ 
                         if (foraDoContrato) {
                           return (
                             <td
@@ -433,7 +465,7 @@ export default function ImoveisMe() {
                             </td>
                           )
                         }
-
+ 
                         const vv          = valoresVariaveis[inquilino.id]?.[cellKey] || {}
                         const { extras: cellExtras, ...cellVarVals } = vv
                         const aluguel      = '_aluguel' in cellVarVals ? Number(cellVarVals._aluguel) || 0 : Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
@@ -447,7 +479,7 @@ export default function ImoveisMe() {
                           ? Object.values(cellExtras).reduce((s, e) => s + (Number(e.valor) || 0), 0)
                           : 0
                         const totalMes    = aluguel + despesas + valorSeguro + valorGaragem + extrasTotal
-
+ 
                         // 12º aluguel = mês de reajuste
                         let isReajuste = false
                         if (mesInicio) {
@@ -455,14 +487,16 @@ export default function ImoveisMe() {
                           const elapsed = (year - eY) * 12 + ((mi + 1) - eM)
                           isReajuste = elapsed >= 0 && elapsed % 12 === 11
                         }
-
-                        // Contas variáveis do inquilino ainda não alteradas neste mês
+ 
+                        // Contas variáveis do inquilino: pendentes (ainda não alteradas) ou zeradas neste mês
                         const contasVariaveisKeys = (inquilino.contasInclusas || []).filter(k => inquilino.contasVariavel?.[k])
                         const variavelPendente = contasVariaveisKeys.length > 0 && contasVariaveisKeys.some(k => !(k in cellVarVals))
-
+                        const variavelZerada   = contasVariaveisKeys.length > 0 && contasVariaveisKeys.some(k => (k in cellVarVals) && (Number(cellVarVals[k]) === 0))
+                        const variavelAlerta   = variavelPendente || variavelZerada
+ 
                         const cellBg = isDesocupacao
                           ? '#fee2e2'
-                          : variavelPendente
+                          : variavelAlerta
                             ? '#ede9fe'
                             : summary
                               ? STATUS_STYLE[summary]?.bg
@@ -471,7 +505,7 @@ export default function ImoveisMe() {
                                 : isCur
                                   ? '#eff6ff'
                                   : undefined
-
+ 
                         return (
                           <td
                             key={mi}
@@ -480,13 +514,15 @@ export default function ImoveisMe() {
                               ...(cellBg ? { background: cellBg } : {}),
                               ...(isReajuste ? { borderBottom: '2.5px solid #f59e0b' } : {}),
                               ...(isDesocupacao ? { borderLeft: '3px solid #ef4444' } : {}),
-                              ...(variavelPendente && !isDesocupacao ? { borderLeft: '3px solid #a855f7' } : {}),
+                              ...(variavelAlerta && !isDesocupacao ? { borderLeft: '3px solid #a855f7' } : {}),
                             }}
                             onClick={() => openModal({ imovel, inquilino }, mi)}
                             title={isDesocupacao
                               ? 'Mês de desocupação — clique para ver detalhes'
                               : variavelPendente
                               ? 'Conta(s) de valor variável ainda não alterada(s) neste mês'
+                              : variavelZerada
+                              ? 'Conta(s) de valor variável com valor zerado neste mês'
                               : isReajuste
                               ? '12º aluguel — mês de reajuste'
                               : summary
@@ -523,8 +559,8 @@ export default function ImoveisMe() {
                                   📅 reajuste
                                 </span>
                               )}
-                              {/* Badge de conta variável pendente */}
-                              {variavelPendente && (
+                              {/* Badge de conta variável pendente/zerada */}
+                              {variavelAlerta && (
                                 <span style={{ fontSize: 9, fontWeight: 700, color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 4, padding: '1px 4px', whiteSpace: 'nowrap' }}>
                                   🟣 variável
                                 </span>
@@ -547,7 +583,7 @@ export default function ImoveisMe() {
           )}
         </div>
       </div>
-
+ 
       {/* ── Legenda ── */}
       <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
         {Object.entries(STATUS_STYLE)
@@ -573,10 +609,10 @@ export default function ImoveisMe() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#7c3aed' }}>
           <span style={{ background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>🟣</span>
-          Conta variável não alterada no mês
+          Conta variável não alterada ou com valor zerado no mês
         </div>
       </div>
-
+ 
       {/* ── Modal detalhe do mês ── */}
       {modal && (
         <div
@@ -612,7 +648,7 @@ export default function ImoveisMe() {
               </div>
               <button className="btn btn-secondary" style={{ width: 'auto', padding: '4px 10px', flexShrink: 0 }} onClick={closeModal}>✕</button>
             </div>
-
+ 
             {/* ── Composição do valor mensal ── */}
             {(() => {
               const contasInclusas = modal.inquilino.contasInclusas || []
@@ -626,7 +662,7 @@ export default function ImoveisMe() {
               const aluguelBase    = Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
               const seguroBase     = modal.inquilino.garantia === 'seguro' ? Number(modal.inquilino.valorSeguro) || 0 : 0
               const garagemBase    = (Number(modal.inquilino.vagas) || 0) * (Number(modal.inquilino.valorVaga) || 0)
-              const aluguel        = '_aluguel'  in varValues ? Number(varValues._aluguel)  || 0 : aluguelBase
+              const aluguel        = '_aluguel' in varValues ? Number(varValues._aluguel)  || 0 : aluguelBase
               const valorSeguro    = '_seguro'   in varValues ? Number(varValues._seguro)   || 0 : seguroBase
               const valorGaragem   = '_garagem'  in varValues ? Number(varValues._garagem)  || 0 : garagemBase
               const despesas       = allContas.reduce((s, { key, value }) =>
@@ -635,7 +671,7 @@ export default function ImoveisMe() {
               const totalMes       = aluguel + despesas + valorSeguro + valorGaragem + extrasTotal
               const temVariavel    = allContas.some(c => c.isVariavel)
               const varPreenchido  = allContas.filter(c => c.isVariavel).every(c => Number(varValues[c.key]) > 0)
-
+ 
               const EditableRow = ({ icon, label, baseVal, vKey, showSeguro }) => {
                 const hasOv      = vKey in varValues
                 const curVal     = hasOv ? varValues[vKey] : String(baseVal || '')
@@ -814,7 +850,7 @@ export default function ImoveisMe() {
                 </div>
               )
             })()}
-
+ 
             {/* ── Registrar Inadimplência ── */}
             {regForm && (
               <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '14px 16px', marginBottom: 16 }}>
@@ -904,7 +940,7 @@ export default function ImoveisMe() {
                 </div>
               </div>
             )}
-
+ 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={closeModal}>Fechar</button>
               {!regForm && (
@@ -943,3 +979,4 @@ export default function ImoveisMe() {
     </Layout>
   )
 }
+ 

@@ -26,6 +26,7 @@ const SEGURO_OPCOES = [
   { value: 'credaluga', label: 'Credaluga' },
   { value: 'credpago',  label: 'Credpago' },
   { value: 'lado_bom',  label: 'Lado Bom Seguros' },
+  { value: 'Avalyst',   label: 'Avalyst' },
 ]
 
 const METODO_PAGAMENTO_OPCOES = [
@@ -48,6 +49,7 @@ const formatPhone = (v) => {
 
 const initialForm = {
   nome: '',
+  locatario: '',
   status: 'Ativo',
   email: '',
   cpf: '',
@@ -58,6 +60,7 @@ const initialForm = {
   imovelId: '',
   codigoImovel: '',
   numeroQuarto: '',
+  codigoContrato: '',
   contasInclusas: [],
   contasValores: {},
   contasVariavel: {},
@@ -307,6 +310,13 @@ useEffect(() => {
                   required placeholder="Nome do inquilino"
                 />
               </div>
+              <div className="form-group fg-full">
+                <label>Locatário (se houver)</label>
+                <input
+                  name="locatario" value={form.locatario} onChange={handleChange}
+                  placeholder="Nome do locatário, caso diferente do inquilino"
+                />
+              </div>
               <div className="form-group">
                 <label>Status</label>
                 <select name="status" value={form.status} onChange={handleChange}>
@@ -347,6 +357,13 @@ useEffect(() => {
           </div>
           <div className="form-section-body">
             <div className="form-grid-2">
+              <div className="form-group">
+                <label>Código do Contrato</label>
+                <input
+                  name="codigoContrato" value={form.codigoContrato} onChange={handleChange}
+                  placeholder="Ex: CT-2026-001"
+                />
+              </div>
               <div className="form-group">
                 <label>Data de Entrada</label>
                 <input name="dataEntrada" type="date" value={form.dataEntrada} onChange={handleChange} />
