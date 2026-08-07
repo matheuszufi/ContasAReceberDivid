@@ -95,6 +95,19 @@ export default function ImoveisMe() {
   const [filterNome, setFilterNome]           = useState('')
   const [filterImovel, setFilterImovel]       = useState('')
   const [filterInadimplentes, setFilterInadimplentes] = useState(false)
+  const [sortBy, setSortBy]   = useState(null) // 'imovel' | 'inquilino'
+  const [sortDir, setSortDir] = useState('asc')
+
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(field)
+      setSortDir('asc')
+    }
+  }
+
+  const sortArrow = (field) => sortBy === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
  
   const closeModal = () => { setModal(null); setVarValues({}); setExtraContas([]); setRegForm(null); setObsModal('') }
  
@@ -126,11 +139,10 @@ export default function ImoveisMe() {
   }, [])
  
   const rows = imoveis
-    .map(im => ({
-      imovel: im,
-      inquilino: inquilinos.find(inq => inq.imovelId === im.id && inq.status !== 'Inativo'),
-    }))
-    .filter(r => r.inquilino)
+    .flatMap(im => inquilinos
+      .filter(inq => inq.imovelId === im.id && inq.status !== 'Inativo')
+      .map(inquilino => ({ imovel: im, inquilino }))
+    )
  
   const filteredRows = rows.filter(({ imovel, inquilino }) => {
     if (filterNome && !inquilino.nome?.toLowerCase().includes(filterNome.toLowerCase())) return false
@@ -138,20 +150,28 @@ export default function ImoveisMe() {
     if (filterInadimplentes) {
       const hasInadimplente = MESES.some((_, mi) => {
         const mk = `${year}-${padM(mi + 1)}`
-        return inadimplencias.some(i => i.imovelId === imovel.id && i.mesReferencia === mk && i.status !== 'Pago')
+        return inadimplencias.some(i => i.inquilinoId === inquilino.id && i.mesReferencia === mk && i.status !== 'Pago')
       })
       if (!hasInadimplente) return false
     }
     return true
   })
- 
+
+  const sortedRows = [...filteredRows].sort((a, b) => {
+    if (!sortBy) return 0
+    const va = sortBy === 'imovel' ? (a.imovel.codigo || '') : (a.inquilino.nome || '')
+    const vb = sortBy === 'imovel' ? (b.imovel.codigo || '') : (b.inquilino.nome || '')
+    const cmp = va.localeCompare(vb, 'pt-BR', { sensitivity: 'base' })
+    return sortDir === 'asc' ? cmp : -cmp
+  })
+
   const monthKey = mi => `${year}-${padM(mi + 1)}`
-  const getItems = (imovelId, mi) =>
-    inadimplencias.filter(i => i.imovelId === imovelId && i.mesReferencia === monthKey(mi))
- 
+  const getItems = (inquilinoId, mi) =>
+    inadimplencias.filter(i => i.inquilinoId === inquilinoId && i.mesReferencia === monthKey(mi))
+
   const openModal = (row, mi) => {
     const key = monthKey(mi)
-    setModal({ ...row, mi, key, items: getItems(row.imovel.id, mi) })
+    setModal({ ...row, mi, key, items: getItems(row.inquilino.id, mi) })
     const saved = valoresVariaveis[row.inquilino.id]?.[key] || {}
     const { extras, _obs, ...vals } = saved
     setVarValues(vals || {})
@@ -256,7 +276,7 @@ export default function ImoveisMe() {
  
   const totalPago = rows.reduce((a, r) =>
     a + MESES.reduce((s, _, mi) =>
-      s + getItems(r.imovel.id, mi)
+      s + getItems(r.inquilino.id, mi)
         .filter(i => i.status === 'Pago')
         .reduce((x, i) => x + (i.valorTotal || 0), 0)
     , 0)
@@ -264,7 +284,7 @@ export default function ImoveisMe() {
  
   const totalPendente = rows.reduce((a, r) =>
     a + MESES.reduce((s, _, mi) =>
-      s + getItems(r.imovel.id, mi)
+      s + getItems(r.inquilino.id, mi)
         .filter(i => i.status !== 'Pago')
         .reduce((x, i) => x + (i.valorTotal || 0), 0)
     , 0)
@@ -272,7 +292,7 @@ export default function ImoveisMe() {
  
   const totalRecuperado = rows.reduce((a, r) =>
     a + MESES.reduce((s, _, mi) =>
-      s + getItems(r.imovel.id, mi)
+      s + getItems(r.inquilino.id, mi)
         .filter(i => i.status === 'Pago')
         .reduce((x, i) => x + (i.valorTotal || 0), 0)
     , 0)
@@ -383,8 +403,8 @@ export default function ImoveisMe() {
                 <thead>
                   <tr>
                     <th style={{ ...thL, textAlign: 'center', width: 44 }}></th>
-                    <th style={thL}>Imóvel</th>
-                    <th style={thL}>Inquilino</th>
+                    <th style={{ ...thL, cursor: 'pointer' }} onClick={() => toggleSort('imovel')}>Imóvel{sortArrow('imovel')}</th>
+                    <th style={{ ...thL, cursor: 'pointer' }} onClick={() => toggleSort('inquilino')}>Inquilino{sortArrow('inquilino')}</th>
                     <th style={{ ...thL, textAlign: 'right' }}>Aluguel</th>
                     {MESES.map((m, i) => (
                       <th key={i} style={{
@@ -399,9 +419,9 @@ export default function ImoveisMe() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRows.map(({ imovel, inquilino }) => (
+                  {sortedRows.map(({ imovel, inquilino }) => (
                     <tr
-                      key={imovel.id}
+                      key={inquilino.id}
                       onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
                       onMouseLeave={e => (e.currentTarget.style.background = '')}
                     >
@@ -447,7 +467,7 @@ export default function ImoveisMe() {
                         {fmtBRL(inquilino.valorAluguel || imovel.valorAluguel)}
                       </td>
                       {MESES.map((_, mi) => {
-                        const items    = getItems(imovel.id, mi)
+                        const items    = getItems(inquilino.id, mi)
                         const summary  = getCellSummary(items)
                         const st       = summary ? STATUS_STYLE[summary] : null
                         const isCur    = isCurrentYear && mi === currentMonthIdx

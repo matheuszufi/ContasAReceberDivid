@@ -234,6 +234,23 @@ tbody tr:last-child td { border-bottom: none; }
 .badge-blue { background: #dbeafe; color: #1d4ed8; }
 .badge-gray { background: #f1f5f9; color: #64748b; }
 
+.badge-select {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 24px 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path fill='%23334155' d='M2.5 4.5l3.5 3.5 3.5-3.5z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px;
+}
+
 /* ===================== Actions Bar ===================== */
 .actions-bar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 20px; }
 .search-input { padding: 9px 14px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; min-width: 260px; outline: none; transition: border-color 0.2s; color: var(--text-primary); }

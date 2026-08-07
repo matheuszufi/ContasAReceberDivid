@@ -44,8 +44,8 @@ export default function ImportarPlanilha() {
   const [fileName, setFileName] = useState('')
   const [headers, setHeaders] = useState([])
   const [allRows, setAllRows] = useState([]) // todas as linhas da planilha, incluindo o cabeçalho (linha 1)
-  const [linhaInicial, setLinhaInicial] = useState(2)
-  const [linhaFinal, setLinhaFinal] = useState(1)
+  const [linhaInicial, setLinhaInicial] = useState(1)
+  const [linhaFinal, setLinhaFinal] = useState(50)
   const [mapping, setMapping] = useState({})
   const [error, setError] = useState(null)
   const [importing, setImporting] = useState(false)
@@ -69,8 +69,8 @@ export default function ImportarPlanilha() {
       const hdrs = json[0].map((h, i) => String(h || `Coluna ${i + 1}`))
       setHeaders(hdrs)
       setAllRows(json)
-      setLinhaInicial(2)
-      setLinhaFinal(json.length)
+      setLinhaInicial(1)
+      setLinhaFinal(Math.min(50, json.length))
 
       // Tenta adivinhar automaticamente o mapeamento pelas palavras-chave do cabeçalho
       const autoMap = {}
@@ -97,6 +97,12 @@ export default function ImportarPlanilha() {
     if (end < start) return []
     return allRows.slice(start - 1, end).filter(r => r.some(c => String(c).trim() !== ''))
   }, [allRows, linhaInicial, linhaFinal])
+
+  // Linhas que serão de fato importadas (exclui as marcadas como "Ignorado" pelo status)
+  const linhasVisiveis = useMemo(() => {
+    if (mapping.status === undefined) return rows
+    return rows.filter(row => parseStatusAtivo(row[mapping.status]))
+  }, [rows, mapping.status])
 
   const camposFaltando = CAMPOS.filter(c => c.required && mapping[c.key] === undefined)
   const podeImportar = rows.length > 0 && camposFaltando.length === 0 && !importing
@@ -135,6 +141,7 @@ export default function ImportarPlanilha() {
         const nomeImovelNorm = normalizar(nomeImovel)
         let imovel = imoveisExistentes.find(im => {
           if (codigo && im.codigo && normalizar(im.codigo) === normalizar(codigo)) return true
+          if (im.codigo && normalizar(im.codigo) === nomeImovelNorm) return true
           const nomeTxt      = normalizar(im.nome || '')
           const enderecoTxt  = normalizar(`${im.endereco?.rua || ''} ${im.endereco?.numero || ''}`.trim())
           if (nomeTxt && nomeTxt === nomeImovelNorm) return true
@@ -144,12 +151,12 @@ export default function ImportarPlanilha() {
 
         if (!imovel) {
           const novoImovel = {
-            codigo,
+            codigo: codigo || nomeImovel,
             nome: nomeImovel,
             status: 'Ocupado',
             modelo: '',
             proprietarioId: '',
-            endereco: { cep: '', rua: nomeImovel, numero: '', complemento: '', bairro: '', cidade: '', estado: '' },
+            endereco: { cep: '', rua: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '' },
             observacao: '',
             criadoEm: new Date().toISOString(),
           }
@@ -252,9 +259,9 @@ export default function ImportarPlanilha() {
                   <div className="form-group">
                     <label>Começar na linha</label>
                     <input
-                      type="number" min={2} max={allRows.length}
+                      type="number" min={1} max={allRows.length}
                       value={linhaInicial}
-                      onChange={e => setLinhaInicial(Number(e.target.value) || 2)}
+                      onChange={e => setLinhaInicial(Number(e.target.value) || 1)}
                     />
                   </div>
                   <div className="form-group">
@@ -304,7 +311,7 @@ export default function ImportarPlanilha() {
             <div className="form-section">
               <div className="form-section-header">
                 <span className="form-section-icon">👁️</span>
-                <h3>4. Pré-visualização (primeiras 5 linhas)</h3>
+                <h3>4. Pré-visualização ({linhasVisiveis.length} linha(s))</h3>
               </div>
               <div className="form-section-body">
                 <div className="table-container">
@@ -319,17 +326,13 @@ export default function ImportarPlanilha() {
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.slice(0, 5).map((row, i) => (
+                      {linhasVisiveis.map((row, i) => (
                         <tr key={i}>
                           <td>{mapping.imovel !== undefined ? String(row[mapping.imovel] ?? '') : '—'}</td>
                           <td>{mapping.morador !== undefined ? String(row[mapping.morador] ?? '') : '—'}</td>
                           <td>{mapping.valor !== undefined ? parseValorMonetario(row[mapping.valor]).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'}</td>
                           <td>{mapping.quarto !== undefined ? String(row[mapping.quarto] ?? '') : '—'}</td>
-                          <td>
-                            {mapping.status !== undefined
-                              ? (parseStatusAtivo(row[mapping.status]) ? '✅ Importa' : '⛔ Ignorado')
-                              : '✅ Importa'}
-                          </td>
+                          <td>✅ Importa</td>
                         </tr>
                       ))}
                     </tbody>

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ref, onValue, remove } from 'firebase/database'
+import { ref, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
+const MODELOS = ['MA', 'ME', 'ML']
 const statusBadge  = {
   'Disponível':    'badge-green',
   'Ocupado':       'badge-blue',
@@ -31,6 +32,10 @@ export default function Imoveis() {
   const handleDelete = async (id) => {
     if (!window.confirm('Deseja excluir este imóvel?')) return
     await remove(ref(db, `imoveis/${id}`))
+  }
+
+  const handleModeloChange = async (id, modelo) => {
+    await update(ref(db, `imoveis/${id}`), { modelo })
   }
 
   const filtered = imoveis.filter(im =>
@@ -120,7 +125,14 @@ export default function Imoveis() {
                   </td>
                   <td>{im.proprietarioNome || '—'}</td>
                   <td>
-                    {im.modelo ? <span className={`badge ${modeloBadge[im.modelo] || 'badge-gray'}`}>{im.modelo}</span> : '—'}
+                    <select
+                      className={`badge-select ${modeloBadge[im.modelo] || 'badge-gray'}`}
+                      value={im.modelo || ''}
+                      onChange={e => handleModeloChange(im.id, e.target.value)}
+                    >
+                      <option value="">—</option>
+                      {MODELOS.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
                   </td>
                   <td>
                     <span className={`badge ${statusBadge[im.status] || 'badge-gray'}`}>{im.status || '—'}</span>

@@ -91,6 +91,19 @@ export default function ImoveisMe() {
   const [filterNome, setFilterNome]           = useState('')
   const [filterImovel, setFilterImovel]       = useState('')
   const [filterInadimplentes, setFilterInadimplentes] = useState(false)
+  const [sortBy, setSortBy]   = useState(null) // 'imovel' | 'inquilino'
+  const [sortDir, setSortDir] = useState('asc')
+
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(field)
+      setSortDir('asc')
+    }
+  }
+
+  const sortArrow = (field) => sortBy === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
 
   const closeModal = () => { setModal(null); setVarValues({}); setExtraContas([]); setRegForm(null); setObsModal('') }
 
@@ -137,6 +150,14 @@ export default function ImoveisMe() {
       if (!hasInadimplente) return false
     }
     return true
+  })
+
+  const sortedRows = [...filteredRows].sort((a, b) => {
+    if (!sortBy) return 0
+    const va = sortBy === 'imovel' ? (a.imovel.codigo || '') : (a.inquilino.nome || '')
+    const vb = sortBy === 'imovel' ? (b.imovel.codigo || '') : (b.inquilino.nome || '')
+    const cmp = va.localeCompare(vb, 'pt-BR', { sensitivity: 'base' })
+    return sortDir === 'asc' ? cmp : -cmp
   })
 
   const monthKey = mi => `${year}-${padM(mi + 1)}`
@@ -376,8 +397,8 @@ export default function ImoveisMe() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr>
-                    <th style={thL}>Imóvel</th>
-                    <th style={thL}>Inquilino</th>
+                    <th style={{ ...thL, cursor: 'pointer' }} onClick={() => toggleSort('imovel')}>Imóvel{sortArrow('imovel')}</th>
+                    <th style={{ ...thL, cursor: 'pointer' }} onClick={() => toggleSort('inquilino')}>Inquilino{sortArrow('inquilino')}</th>
                     <th style={{ ...thL, textAlign: 'right' }}>Aluguel</th>
                     {MESES.map((m, i) => (
                       <th key={i} style={{
@@ -392,7 +413,7 @@ export default function ImoveisMe() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRows.map(({ imovel, inquilino }) => (
+                  {sortedRows.map(({ imovel, inquilino }) => (
                     <tr
                       key={imovel.id}
                       onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
