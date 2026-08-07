@@ -22,6 +22,7 @@ export default function CadastrarImovel() {
   const isEdit = Boolean(id)
   const [form, setForm] = useState(initialForm)
   const [proprietarios, setProprietarios] = useState([])
+  const [inquilinos, setInquilinos] = useState([])
   const [loading, setLoading] = useState(false)
   const [cepLoading, setCepLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -32,6 +33,15 @@ export default function CadastrarImovel() {
       setProprietarios(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
     })
   }, [])
+
+  useEffect(() => {
+    if (!isEdit) return
+    return onValue(ref(db, 'inquilinos'), snap => {
+      const data = snap.val()
+      const lista = data ? Object.entries(data).map(([iid, v]) => ({ id: iid, ...v })) : []
+      setInquilinos(lista.filter(inq => inq.imovelId === id))
+    })
+  }, [id, isEdit])
 
   useEffect(() => {
     if (!isEdit) return
@@ -212,6 +222,45 @@ export default function CadastrarImovel() {
             </div>
           </div>
         </div>
+
+        {/* ── Inquilinos ── */}
+        {isEdit && (
+          <div className="form-section">
+            <div className="form-section-header">
+              <span className="form-section-icon">👤</span>
+              <h3>Inquilinos Morando Neste Imóvel</h3>
+            </div>
+            <div className="form-section-body">
+              {inquilinos.length === 0 ? (
+                <p style={{ margin: 0, color: '#64748b' }}>Nenhum inquilino vinculado a este imóvel.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {inquilinos.map(inq => (
+                    <div
+                      key={inq.id}
+                      onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}
+                      style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        gap: 10, padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 8,
+                        cursor: 'pointer', background: '#f8fafc',
+                      }}
+                    >
+                      <div>
+                        <strong>{inq.nome || '—'}</strong>
+                        {inq.numeroQuarto && (
+                          <span style={{ marginLeft: 8, fontSize: 12, color: '#475569', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 5, padding: '1px 7px' }}>
+                            Quarto {inq.numeroQuarto}
+                          </span>
+                        )}
+                      </div>
+                      <span className={`badge ${inq.status === 'Ativo' ? 'badge-green' : 'badge-gray'}`}>{inq.status || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ── Observação ── */}
         <div className="form-section">
