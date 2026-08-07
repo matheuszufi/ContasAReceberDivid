@@ -93,6 +93,7 @@ export default function Inadimplentes() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [mesSelecionado, setMesSelecionado] = useState(null)
+  const [showRankingModal, setShowRankingModal] = useState(false)
   const [colFilters, setColFilters] = useState({
     inquilino: '',
     imovel: '',
@@ -196,6 +197,26 @@ export default function Inadimplentes() {
     return (Date.now() - new Date(d.dataVencimento).getTime()) / 86400000 > 30
   }).length
 
+  // Ranking dos inquilinos ativos com mais inadimplências cadastradas (histórico completo, não só em aberto)
+  const rankingInadimplentes = (() => {
+    const counts = {}
+    debitos.forEach(d => {
+      const key = d.inquilinoId || d.inquilinoNome
+      if (!key) return
+      const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
+      if (inquilino && inquilino.status === 'Inativo') return
+      if (!counts[key]) {
+        counts[key] = {
+          nome: d.inquilinoNome || inquilino?.nome || 'Sem nome',
+          total: 0,
+        }
+      }
+      counts[key].total += 1
+    })
+    return Object.values(counts).sort((a, b) => b.total - a.total)
+  })()
+  const topInadimplentes = rankingInadimplentes.slice(0, 5)
+
   const monthGroups = buildMonthGroups(debitos)
 
   const baseList = mesSelecionado
@@ -235,26 +256,54 @@ export default function Inadimplentes() {
       </div>
 
       {/* ── Resumo Geral ── */}
-      <div className="stats-grid" style={{ marginBottom: '24px' }}>
-        <div className="stat-card">
-          <div className="stat-icon">⚠️</div>
-          <div className="stat-value">{pendentes.length}</div>
-          <div className="stat-label">Débitos em Aberto</div>
+      <div style={{ display: 'flex', gap: 14, marginBottom: '24px', alignItems: 'stretch', flexWrap: 'wrap' }}>
+        <div className="stats-grid" style={{ flex: '1 1 480px' }}>
+          <div className="stat-card">
+            <div className="stat-icon">⚠️</div>
+            <div className="stat-value">{pendentes.length}</div>
+            <div className="stat-label">Débitos em Aberto</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">💸</div>
+            <div className="stat-value" style={{ fontSize: '16px' }}>{fmtMoney(totalAberto)}</div>
+            <div className="stat-label">Total em Aberto</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">✅</div>
+            <div className="stat-value" style={{ fontSize: '16px' }}>{fmtMoney(totalRecup)}</div>
+            <div className="stat-label">Total Recuperado</div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">📅</div>
+            <div className="stat-value">{vencidos30}</div>
+            <div className="stat-label">Vencidos há +30 dias</div>
+          </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon">💸</div>
-          <div className="stat-value" style={{ fontSize: '16px' }}>{fmtMoney(totalAberto)}</div>
-          <div className="stat-label">Total em Aberto</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">✅</div>
-          <div className="stat-value" style={{ fontSize: '16px' }}>{fmtMoney(totalRecup)}</div>
-          <div className="stat-label">Total Recuperado</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">📅</div>
-          <div className="stat-value">{vencidos30}</div>
-          <div className="stat-label">Vencidos há +30 dias</div>
+
+        <div className="card" style={{ flex: '1 1 260px', maxWidth: 320, display: 'flex', flexDirection: 'column' }}>
+          <div className="card-header">
+            <h3>🔝 Top 5 Inadimplentes</h3>
+            {rankingInadimplentes.length > 5 && (
+              <button className="btn btn-sm btn-secondary" style={{ width: 'auto' }} onClick={() => setShowRankingModal(true)}>
+                Ver lista completa
+              </button>
+            )}
+          </div>
+          <div className="card-body" style={{ padding: '10px 16px', flex: 1 }}>
+            {topInadimplentes.length === 0 ? (
+              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>Nenhum débito cadastrado.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {topInadimplentes.map((t, i) => (
+                  <div key={t.nome + i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', width: 16 }}>{i + 1}º</span>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.nome}</span>
+                    <span className="badge badge-red" style={{ flexShrink: 0 }}>{t.total}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -531,6 +580,33 @@ export default function Inadimplentes() {
           )}
         </div>
       </div>
+
+      {/* ── Modal: ranking completo de inadimplentes ── */}
+      {showRankingModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setShowRankingModal(false)}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 480, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>🔝 Ranking de Inadimplentes</h3>
+              <button className="btn btn-secondary" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => setShowRankingModal(false)}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {rankingInadimplentes.map((t, i) => (
+                <div key={t.nome + i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0', borderBottom: '1px solid #f1f5f9' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', width: 24 }}>{i + 1}º</span>
+                  <span style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text-primary)' }}>{t.nome}</span>
+                  <span className="badge badge-red" style={{ flexShrink: 0 }}>{t.total}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }
