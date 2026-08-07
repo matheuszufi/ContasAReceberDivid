@@ -10,8 +10,11 @@ const CAMPOS = [
   { key: 'imovel',   label: 'Imóvel (nome/endereço)',    required: true },
   { key: 'codigo',   label: 'Código do Imóvel',           required: false },
   { key: 'morador',  label: 'Morador (Inquilino)',        required: true },
-  { key: 'valor',    label: 'Valor do Pacote (Aluguel)',  required: true },
+  { key: 'valor',    label: 'Valor do Pacote (Aluguel, opcional)', required: false },
   { key: 'quarto',   label: 'Quarto (opcional)',          required: false },
+  { key: 'telefone', label: 'Telefone (opcional)',        required: false },
+  { key: 'cpf',      label: 'CPF (opcional)',             required: false },
+  { key: 'email',    label: 'E-mail (opcional)',          required: false },
   { key: 'status',   label: 'Status (importa só quem está "Ativo")', required: false },
 ]
 
@@ -22,6 +25,9 @@ const PALAVRAS_CHAVE = {
   morador: ['morador', 'inquilino', 'locatario', 'locatário', 'nome'],
   valor:   ['pacote', 'aluguel', 'aluguél', 'valor'],
   quarto:  ['quarto', 'apto', 'apartamento'],
+  telefone: ['telefone', 'celular', 'fone', 'whatsapp', 'contato'],
+  cpf:      ['cpf'],
+  email:    ['email', 'e-mail'],
   status:  ['status', 'situacao', 'situação', 'ativo'],
 }
 
@@ -125,6 +131,9 @@ export default function ImportarPlanilha() {
         const valorAluguel = parseValorMonetario(row[mapping.valor])
         const codigo = mapping.codigo !== undefined ? String(row[mapping.codigo] ?? '').trim() : ''
         const numeroQuarto = mapping.quarto !== undefined ? String(row[mapping.quarto] ?? '').trim() : ''
+        const telefone = mapping.telefone !== undefined ? String(row[mapping.telefone] ?? '').trim() : ''
+        const cpf = mapping.cpf !== undefined ? String(row[mapping.cpf] ?? '').trim() : ''
+        const email = mapping.email !== undefined ? String(row[mapping.email] ?? '').trim() : ''
 
         if (!nomeImovel || !nomeMorador) {
           ignorados++
@@ -175,9 +184,9 @@ export default function ImportarPlanilha() {
           nome: nomeMorador,
           locatario: '',
           status: 'Ativo',
-          email: '',
-          cpf: '',
-          telefone: '',
+          email,
+          cpf,
+          telefone,
           dataEntrada: '',
           dataSaida: '',
           metodoPagamento: 'pre_pago',

@@ -169,6 +169,29 @@ export default function ImoveisMe() {
   const getItems = (inquilinoId, mi) =>
     inadimplencias.filter(i => i.inquilinoId === inquilinoId && i.mesReferencia === monthKey(mi))
 
+  // Total do mês para um inquilino (aluguel + contas + seguro + garagem + extras), 0 se fora do contrato
+  const getTotalMes = (imovel, inquilino, mi) => {
+    const cellKey = monthKey(mi)
+    const { mesInicio, mesFim } = getMesRange(inquilino)
+    if ((mesInicio && cellKey < mesInicio) || (mesFim && cellKey > mesFim)) return 0
+    const vv = valoresVariaveis[inquilino.id]?.[cellKey] || {}
+    const { extras: cellExtras, ...cellVarVals } = vv
+    const aluguel      = '_aluguel' in cellVarVals ? Number(cellVarVals._aluguel) || 0 : Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
+    const valorSeguro  = '_seguro'  in cellVarVals ? Number(cellVarVals._seguro)  || 0 : (inquilino.garantia === 'seguro' ? Number(inquilino.valorSeguro) || 0 : 0)
+    const valorGaragem = '_garagem' in cellVarVals ? Number(cellVarVals._garagem) || 0 : (Number(inquilino.vagas) || 0) * (Number(inquilino.valorVaga) || 0)
+    const despesas = (inquilino.contasInclusas || []).reduce((s, k) => {
+      if (isContaPagaImobiliaria(inquilino, k)) return s
+      if (k in cellVarVals) return s + (Number(cellVarVals[k]) || 0)
+      return s + (Number(inquilino.contasValores?.[k]) || 0)
+    }, 0)
+    const extrasTotal = cellExtras ? Object.values(cellExtras).reduce((s, e) => s + (Number(e.valor) || 0), 0) : 0
+    return aluguel + despesas + valorSeguro + valorGaragem + extrasTotal
+  }
+
+  const monthTotals = MESES.map((_, mi) =>
+    sortedRows.reduce((s, { imovel, inquilino }) => s + getTotalMes(imovel, inquilino, mi), 0)
+  )
+
   const openModal = (row, mi) => {
     const key = monthKey(mi)
     setModal({ ...row, mi, key, items: getItems(row.inquilino.id, mi) })
@@ -401,6 +424,22 @@ export default function ImoveisMe() {
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
+                  <tr>
+                    <th style={{ ...thL, textAlign: 'center', width: 44 }}></th>
+                    <th style={thL}></th>
+                    <th style={thL}></th>
+                    <th style={{ ...thL, textAlign: 'right' }}>Total do mês</th>
+                    {MESES.map((_, i) => (
+                      <th key={i} style={{
+                        ...thC,
+                        ...(isCurrentYear && i === currentMonthIdx
+                          ? { background: '#eff6ff', color: '#1d4ed8' }
+                          : {}),
+                      }}>
+                        {fmtBRL(monthTotals[i])}
+                      </th>
+                    ))}
+                  </tr>
                   <tr>
                     <th style={{ ...thL, textAlign: 'center', width: 44 }}></th>
                     <th style={{ ...thL, cursor: 'pointer' }} onClick={() => toggleSort('imovel')}>Imóvel{sortArrow('imovel')}</th>
