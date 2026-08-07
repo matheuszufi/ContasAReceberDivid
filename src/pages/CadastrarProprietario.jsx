@@ -216,6 +216,7 @@ export default function CadastrarProprietario() {
         imoveisIds: imoveisSelecionados,
       }
 
+      let proprietarioId = id
       if (isEdit) {
         await update(
           ref(db, `proprietarios/${id}`),
@@ -225,14 +226,29 @@ export default function CadastrarProprietario() {
           }
         )
       } else {
-        await push(
+        const novoRef = await push(
           ref(db, 'proprietarios'),
           {
             ...payload,
             criadoEm: new Date().toISOString(),
           }
         )
+        proprietarioId = novoRef.key
       }
+
+      // Mantém imoveis[].proprietarioId/proprietarioNome em sincronia com a seleção feita aqui
+      await Promise.all(
+        imoveis
+          .filter(im => imoveisSelecionados.includes(im.id) || im.proprietarioId === proprietarioId)
+          .map(im => {
+            const deveTer = imoveisSelecionados.includes(im.id)
+            if (deveTer === (im.proprietarioId === proprietarioId)) return Promise.resolve()
+            return update(ref(db, `imoveis/${im.id}`), {
+              proprietarioId: deveTer ? proprietarioId : '',
+              proprietarioNome: deveTer ? (form.nome || '') : '',
+            })
+          })
+      )
 
       navigate('/proprietarios')
 

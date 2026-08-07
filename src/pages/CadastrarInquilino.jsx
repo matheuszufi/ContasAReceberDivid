@@ -115,13 +115,16 @@ export default function CadastrarInquilino() {
   }, [id, isEdit])
 
   const imoveisFiltrados = imoveis.filter(im=>{
-    const t=`${im.nome||''} ${im.codigo||''} ${im.endereco?.rua||''} ${im.endereco?.numero||''}`.toLowerCase()
+    const t=`${im.codigo||''} ${im.endereco?.rua||''} ${im.endereco?.numero||''}`.toLowerCase()
     return t.includes(buscaImovel.toLowerCase())
   })
 
+  // Sempre recalculado a partir dos dados atuais do imóvel, nunca de um texto salvo
+  const imovelSelecionado = imoveis.find(im => im.id === form.imovelId)
+
   const handleImovelSelect = (id) => {
     const imovel = imoveis.find(im => im.id === id)
-    setBuscaImovel(imovel?.nome || `${imovel?.codigo?`[${imovel.codigo}] `:''}${imovel?.endereco?.rua||''}`)
+    setBuscaImovel('')
     setForm(prev => ({
       ...prev,
       imovelId:     id,
@@ -167,20 +170,11 @@ export default function CadastrarInquilino() {
   }
 
   const handleContaVariavel = (key, checked) => {
-    setForm(prev => {
-      const newContasPagador = { ...prev.contasPagador }
-      if (checked) {
-        newContasPagador[key] = prev.contasPagador[key] || 'imobiliaria'
-      } else {
-        delete newContasPagador[key]
-      }
-      return {
-        ...prev,
-        contasVariavel: { ...prev.contasVariavel, [key]: checked },
-        contasValores:  checked ? { ...prev.contasValores, [key]: '' } : prev.contasValores,
-        contasPagador:  newContasPagador,
-      }
-    })
+    setForm(prev => ({
+      ...prev,
+      contasVariavel: { ...prev.contasVariavel, [key]: checked },
+      contasValores:  checked ? { ...prev.contasValores, [key]: '' } : prev.contasValores,
+    }))
   }
 
   const handleContaOrigem = (key, value) => {
@@ -190,14 +184,6 @@ export default function CadastrarInquilino() {
   const handleContaPagador = (key, value) => {
     setForm(prev => ({ ...prev, contasPagador: { ...prev.contasPagador, [key]: value } }))
   }
-
-useEffect(() => {
-  if (!form.imovelId || imoveis.length===0) return
-  const imovel=imoveis.find(im=>im.id===form.imovelId)
-  if(imovel){
-    setBuscaImovel(imovel.nome || `${imovel.codigo?`[${imovel.codigo}] `:''}${imovel.endereco?.rua||''}${imovel.endereco?.numero?`, ${imovel.endereco.numero}`:''}`)
-  }
-}, [form.imovelId, imoveis])
 
   const handleSubmit = async (e) => {
   e.preventDefault()
@@ -415,25 +401,29 @@ useEffect(() => {
                   <div className="info-banner" style={{ marginTop: 0 }}>
                     <p style={{ margin: 0 }}>Nenhum imóvel cadastrado. <button type="button" className="link-btn" onClick={() => navigate('/imoveis/cadastrar')}>Cadastrar imóvel</button></p>
                   </div>
+                ) : form.imovelId ? (
+                  <div style={{position:'relative',display:'flex',alignItems:'center',justifyContent:'space-between',border:'1px solid #ddd',borderRadius:6,padding:'10px 12px'}}>
+                    <span>
+                      <strong>{imovelSelecionado?.codigo || '—'}</strong>
+                      {imovelSelecionado?.endereco?.rua ? ` — ${imovelSelecionado.endereco.rua}${imovelSelecionado.endereco?.numero ? `, ${imovelSelecionado.endereco.numero}` : ''}` : ''}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={()=>{setBuscaImovel('');setForm(f=>({...f,imovelId:'',codigoImovel:''}))}}
+                      style={{border:'none',background:'transparent',cursor:'pointer',fontSize:18}}
+                    >✕</button>
+                  </div>
                 ) : (
                   <div style={{position:'relative'}}>
 <input
 value={buscaImovel}
 placeholder="Pesquisar imóvel..."
-onChange={e=>{setBuscaImovel(e.target.value);setForm(f=>({...f,imovelId:'',codigoImovel:''}))}}
-style={{paddingRight:40}}
+onChange={e=>setBuscaImovel(e.target.value)}
 required
 />
-{form.imovelId && (
-<button
-type="button"
-onClick={()=>{setBuscaImovel('');setForm(f=>({...f,imovelId:'',codigoImovel:''}))}}
-style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',border:'none',background:'transparent',cursor:'pointer',fontSize:18}}
->✕</button>
-)}
-{!form.imovelId && buscaImovel && <div style={{position:'absolute',background:'#fff',border:'1px solid #ddd',left:0,right:0,maxHeight:250,overflow:'auto',zIndex:99}}>
+{buscaImovel && <div style={{position:'absolute',background:'#fff',border:'1px solid #ddd',left:0,right:0,maxHeight:250,overflow:'auto',zIndex:99}}>
 {imoveisFiltrados.map(im=><div key={im.id} onClick={()=>handleImovelSelect(im.id)} style={{padding:10,cursor:'pointer'}}>
-<strong>{im.nome||im.codigo}</strong><br/>{im.endereco?.rua} {im.endereco?.numero}
+<strong>{im.codigo}</strong><br/>{im.endereco?.rua} {im.endereco?.numero}
 </div>)}
 </div>}
 </div>
@@ -522,22 +512,20 @@ style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',bord
                 <span>Conta variável</span>
               </label>
 
-              {isVariavel && (
-                <div className="conta-variavel-pagador radio-group">
-                  {PAGADOR_OPCOES.map(pOpt => (
-                    <label key={pOpt.value} className="radio-item">
-                      <input
-                        type="radio"
-                        name={`pagador-${opt.value}`}
-                        value={pOpt.value}
-                        checked={(form.contasPagador[opt.value] || 'imobiliaria') === pOpt.value}
-                        onChange={() => handleContaPagador(opt.value, pOpt.value)}
-                      />
-                      <span>{pOpt.label}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
+              <div className="conta-variavel-pagador radio-group">
+                {PAGADOR_OPCOES.map(pOpt => (
+                  <label key={pOpt.value} className="radio-item">
+                    <input
+                      type="radio"
+                      name={`pagador-${opt.value}`}
+                      value={pOpt.value}
+                      checked={(form.contasPagador[opt.value] || (isVariavel ? 'imobiliaria' : 'inquilino')) === pOpt.value}
+                      onChange={() => handleContaPagador(opt.value, pOpt.value)}
+                    />
+                    <span>{pOpt.label}</span>
+                  </label>
+                ))}
+              </div>
 
               {!isVariavel && (
                 <div className="conta-card-valor">

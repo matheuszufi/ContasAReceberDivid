@@ -48,9 +48,12 @@ function getCellSummary(items) {
 const fmtBRL = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const padM   = n => String(n).padStart(2, '0')
 
-// Conta variável cujo pagador escolhido é a imobiliária: não entra na composição do inquilino
-const isContaPagaImobiliaria = (inquilino, k) =>
-  !!inquilino?.contasVariavel?.[k] && inquilino?.contasPagador?.[k] === 'imobiliaria'
+// Conta cujo pagador escolhido é a imobiliária: não entra na composição do inquilino
+// (sem valor salvo, assume 'imobiliaria' para variáveis e 'inquilino' para fixas, preservando o comportamento anterior)
+const isContaPagaImobiliaria = (inquilino, k) => {
+  const pagador = inquilino?.contasPagador?.[k] || (inquilino?.contasVariavel?.[k] ? 'imobiliaria' : 'inquilino')
+  return pagador === 'imobiliaria'
+}
  
 // Soma/subtrai meses a uma string 'YYYY-MM'
 const addMonths = (ym, n) => {
@@ -95,6 +98,7 @@ export default function ImoveisMl() {
   const [filterNome, setFilterNome]           = useState('')
   const [filterImovel, setFilterImovel]       = useState('')
   const [filterInadimplentes, setFilterInadimplentes] = useState(false)
+  const [filterContasVariaveis, setFilterContasVariaveis] = useState(false)
   const [sortBy, setSortBy]   = useState(null) // 'imovel' | 'inquilino'
   const [sortDir, setSortDir] = useState('asc')
 
@@ -112,6 +116,7 @@ export default function ImoveisMl() {
   const closeModal = () => { setModal(null); setVarValues({}); setExtraContas([]); setRegForm(null); setObsModal('') }
  
   const goInquilino = (inquilinoId) => navigate(`/inquilinos/editar/${inquilinoId}`)
+  const goImovel = (imovelId) => navigate(`/imoveis/editar/${imovelId}`)
  
   const loading = !loadedIm || !loadedInq || !loadedInad || !loadedVV
  
@@ -153,6 +158,10 @@ export default function ImoveisMl() {
         return inadimplencias.some(i => i.inquilinoId === inquilino.id && i.mesReferencia === mk && i.status !== 'Pago')
       })
       if (!hasInadimplente) return false
+    }
+    if (filterContasVariaveis) {
+      const hasContaVariavel = (inquilino.contasInclusas || []).some(k => inquilino.contasVariavel?.[k] && !isContaPagaImobiliaria(inquilino, k))
+      if (!hasContaVariavel) return false
     }
     return true
   })
@@ -388,9 +397,17 @@ export default function ImoveisMl() {
             />
             Apenas com inadimplências
           </label>
-          {(filterNome || filterImovel || filterInadimplentes) && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
+            <input
+              type="checkbox"
+              checked={filterContasVariaveis}
+              onChange={e => setFilterContasVariaveis(e.target.checked)}
+            />
+            Apenas com contas variáveis
+          </label>
+          {(filterNome || filterImovel || filterInadimplentes || filterContasVariaveis) && (
             <button
-              onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterInadimplentes(false) }}
+              onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterInadimplentes(false); setFilterContasVariaveis(false) }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, padding: 0, marginLeft: 'auto' }}
             >
               ✕ Limpar ({filteredRows.length}/{rows.length})
@@ -485,8 +502,8 @@ export default function ImoveisMl() {
                       </td>
                       <td
                         style={{ ...tdL, cursor: 'pointer' }}
-                        onClick={() => goInquilino(inquilino.id)}
-                        title="Ver cadastro do inquilino"
+                        onClick={() => goImovel(imovel.id)}
+                        title="Ver cadastro do imóvel"
                       >
                         <strong style={{ color: '#1d4ed8' }}>{imovel.codigo || '—'}</strong>
                         {imovel.endereco?.rua && (

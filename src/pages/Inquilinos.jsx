@@ -13,9 +13,18 @@ const CONTA_LABELS = {
   gas: 'Gás', iptu: 'IPTU', lixo: 'Lixo', seguro_incendio: 'Seguro Incêndio',
 }
 
+// Monta o link do WhatsApp a partir do telefone, assumindo DDI 55 quando ausente
+const whatsappLink = (telefone) => {
+  const digits = String(telefone || '').replace(/\D/g, '')
+  if (!digits) return null
+  const withCountry = digits.length <= 11 ? `55${digits}` : digits
+  return `https://wa.me/${withCountry}`
+}
+
 export default function Inquilinos() {
   const navigate = useNavigate()
   const [inquilinos, setInquilinos] = useState([])
+  const [imoveis, setImoveis] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [desocModal, setDesocModal] = useState(null)
@@ -38,6 +47,15 @@ export default function Inquilinos() {
     })
     return () => unsubscribe()
   }, [])
+
+  useEffect(() => {
+    return onValue(ref(db, 'imoveis'), snap => {
+      const data = snap.val()
+      setImoveis(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+  }, [])
+
+  const imoveisById = Object.fromEntries(imoveis.map(im => [im.id, im]))
 
   const getDefaultDesocValues = (inq) => {
     const vals = {}
@@ -142,10 +160,14 @@ export default function Inquilinos() {
     await remove(ref(db, `inquilinos/${id}`))
   }
 
+  const handleStatusChange = async (id, status) => {
+    await update(ref(db, `inquilinos/${id}`), { status })
+  }
+
   const filtered = inquilinos.filter(i =>
     i.nome?.toLowerCase().includes(search.toLowerCase()) ||
     i.cpf?.includes(search) ||
-    i.codigoImovel?.toLowerCase().includes(search.toLowerCase())
+    (imoveisById[i.imovelId]?.codigo || i.codigoImovel)?.toLowerCase().includes(search.toLowerCase())
   )
 
   const ativos   = inquilinos.filter(i => i.status === 'Ativo').length
@@ -224,23 +246,42 @@ export default function Inquilinos() {
                   <tr key={inq.id}>
                     <td><strong>{inq.nome}</strong></td>
                     <td>{inq.cpf || '—'}</td>
-                    <td>{inq.telefone || '—'}</td>
-                    <td>{inq.codigoImovel || '—'}</td>
+                    <td>
+                      {whatsappLink(inq.telefone) ? (
+                        <a
+                          href={whatsappLink(inq.telefone)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          title="Abrir conversa no WhatsApp"
+                          style={{ color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}
+                        >
+                          💬 {inq.telefone}
+                        </a>
+                      ) : '—'}
+                    </td>
+                    <td>{imoveisById[inq.imovelId]?.codigo || inq.codigoImovel || '—'}</td>
                     <td>{inq.numeroQuarto || '—'}</td>
                     <td>
-                      {inq.modelo
-                        ? <span className={`badge ${modeloBadge[inq.modelo] || 'badge-gray'}`}>{inq.modelo}</span>
+                      {imoveisById[inq.imovelId]?.modelo
+                        ? <span className={`badge ${modeloBadge[imoveisById[inq.imovelId].modelo] || 'badge-gray'}`}>{imoveisById[inq.imovelId].modelo}</span>
                         : '—'}
                     </td>
                     <td>
-                      {inq.valorImovel
-                        ? `R$ ${Number(inq.valorImovel).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                      {(inq.valorAluguel || imoveisById[inq.imovelId]?.valorAluguel)
+                        ? `R$ ${Number(inq.valorAluguel || imoveisById[inq.imovelId]?.valorAluguel).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                         : '—'}
                     </td>
                     <td>
-                      <span className={`badge ${inq.status === 'Ativo' ? 'badge-green' : 'badge-gray'}`}>
-                        {inq.status}
-                      </span>
+                      <select
+                        className={`badge-select ${inq.status === 'Ativo' ? 'badge-green' : 'badge-gray'}`}
+                        value={inq.status || 'Ativo'}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => handleStatusChange(inq.id, e.target.value)}
+                      >
+                        <option value="Ativo">Ativo</option>
+                        <option value="Inativo">Inativo</option>
+                      </select>
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '6px' }}>

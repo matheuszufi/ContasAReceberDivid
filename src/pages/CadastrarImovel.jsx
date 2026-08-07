@@ -103,11 +103,33 @@ export default function CadastrarImovel() {
         ...form,
         proprietarioNome: proprietario?.nome || '',
       }
+      let imovelId = id
       if (isEdit) {
         await update(ref(db, `imoveis/${id}`), { ...payload, atualizadoEm: new Date().toISOString() })
+        // Propaga o novo código do imóvel para os inquilinos vinculados
+        await Promise.all(
+          inquilinos
+            .filter(inq => inq.codigoImovel !== form.codigo)
+            .map(inq => update(ref(db, `inquilinos/${inq.id}`), { codigoImovel: form.codigo }))
+        )
       } else {
-        await push(ref(db, 'imoveis'), { ...payload, criadoEm: new Date().toISOString() })
+        const novoRef = await push(ref(db, 'imoveis'), { ...payload, criadoEm: new Date().toISOString() })
+        imovelId = novoRef.key
       }
+      // Mantém proprietarios[].imoveisIds em sincronia com o proprietário escolhido aqui
+      await Promise.all(
+        proprietarios
+          .filter(p => (p.imoveisIds || []).includes(imovelId) || p.id === form.proprietarioId)
+          .map(p => {
+            const tinha = (p.imoveisIds || []).includes(imovelId)
+            const deveTer = p.id === form.proprietarioId
+            if (tinha === deveTer) return Promise.resolve()
+            const novaLista = deveTer
+              ? [...(p.imoveisIds || []), imovelId]
+              : (p.imoveisIds || []).filter(iid => iid !== imovelId)
+            return update(ref(db, `proprietarios/${p.id}`), { imoveisIds: novaLista })
+          })
+      )
       navigate('/imoveis')
     } catch (err) {
       setError('Erro ao salvar. Verifique sua conexão e tente novamente.')

@@ -16,6 +16,7 @@ const statusBadge  = {
 export default function Imoveis() {
   const navigate = useNavigate()
   const [imoveis, setImoveis] = useState([])
+  const [proprietarios, setProprietarios] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
@@ -29,6 +30,15 @@ export default function Imoveis() {
     return () => unsub()
   }, [])
 
+  useEffect(() => {
+    return onValue(ref(db, 'proprietarios'), snap => {
+      const data = snap.val()
+      setProprietarios(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+  }, [])
+
+  const proprietariosById = Object.fromEntries(proprietarios.map(p => [p.id, p]))
+
   const handleDelete = async (id) => {
     if (!window.confirm('Deseja excluir este imóvel?')) return
     await remove(ref(db, `imoveis/${id}`))
@@ -41,7 +51,7 @@ export default function Imoveis() {
   const filtered = imoveis.filter(im =>
     im.codigo?.toLowerCase().includes(search.toLowerCase()) ||
     im.endereco?.rua?.toLowerCase().includes(search.toLowerCase()) ||
-    im.proprietarioNome?.toLowerCase().includes(search.toLowerCase())
+    (proprietariosById[im.proprietarioId]?.nome || im.proprietarioNome)?.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -129,7 +139,7 @@ export default function Imoveis() {
                   <td>
                     {[im.endereco?.cidade, im.endereco?.estado].filter(Boolean).join('/') || '—'}
                   </td>
-                  <td>{im.proprietarioNome || '—'}</td>
+                  <td>{proprietariosById[im.proprietarioId]?.nome || im.proprietarioNome || '—'}</td>
                   <td>
                     <select
                       className={`badge-select ${modeloBadge[im.modelo] || 'badge-gray'}`}
