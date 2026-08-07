@@ -12,6 +12,7 @@ import Proprietarios from './pages/Proprietarios'
 import CadastrarProprietario from './pages/CadastrarProprietario'
 import Inquilinos from './pages/Inquilinos'
 import CadastrarInquilino from './pages/CadastrarInquilino'
+import ImportarPlanilha from './pages/ImportarPlanilha'
 import Inadimplentes from './pages/Inadimplentes'
 import CadastrarInadimplencia from './pages/CadastrarInadimplencia'
 import TimelineInadimplencia from './pages/TimelineInadimplencia'
@@ -41,6 +42,7 @@ export default function App() {
       <Route path="/inquilinos"                 element={<PrivateRoute><Inquilinos /></PrivateRoute>} />
       <Route path="/inquilinos/cadastrar"       element={<PrivateRoute><CadastrarInquilino /></PrivateRoute>} />
       <Route path="/inquilinos/editar/:id"      element={<PrivateRoute><CadastrarInquilino /></PrivateRoute>} />
+      <Route path="/inquilinos/importar"        element={<PrivateRoute><ImportarPlanilha /></PrivateRoute>} />
       <Route path="/inadimplentes"              element={<PrivateRoute><Inadimplentes /></PrivateRoute>} />
       <Route path="/inadimplentes/cadastrar"    element={<PrivateRoute><CadastrarInadimplencia /></PrivateRoute>} />
       <Route path="/inadimplentes/editar/:id"   element={<PrivateRoute><CadastrarInadimplencia /></PrivateRoute>} />

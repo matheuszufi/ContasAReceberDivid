@@ -47,6 +47,10 @@ function getCellSummary(items) {
  
 const fmtBRL = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const padM   = n => String(n).padStart(2, '0')
+
+// Conta variável cujo pagador escolhido é a imobiliária: não entra na composição do inquilino
+const isContaPagaImobiliaria = (inquilino, k) =>
+  !!inquilino?.contasVariavel?.[k] && inquilino?.contasPagador?.[k] === 'imobiliaria'
  
 // Soma/subtrai meses a uma string 'YYYY-MM'
 const addMonths = (ym, n) => {
@@ -472,6 +476,7 @@ export default function ImoveisMe() {
                         const valorSeguro  = '_seguro'  in cellVarVals ? Number(cellVarVals._seguro)  || 0 : (inquilino.garantia === 'seguro' ? Number(inquilino.valorSeguro) || 0 : 0)
                         const valorGaragem = '_garagem' in cellVarVals ? Number(cellVarVals._garagem) || 0 : (Number(inquilino.vagas) || 0) * (Number(inquilino.valorVaga) || 0)
                         const despesas    = (inquilino.contasInclusas || []).reduce((s, k) => {
+                          if (isContaPagaImobiliaria(inquilino, k)) return s
                           if (k in cellVarVals) return s + (Number(cellVarVals[k]) || 0)
                           return s + (Number(inquilino.contasValores?.[k]) || 0)
                         }, 0)
@@ -489,7 +494,7 @@ export default function ImoveisMe() {
                         }
  
                         // Contas variáveis do inquilino: pendentes (ainda não alteradas) ou zeradas neste mês
-                        const contasVariaveisKeys = (inquilino.contasInclusas || []).filter(k => inquilino.contasVariavel?.[k])
+                        const contasVariaveisKeys = (inquilino.contasInclusas || []).filter(k => inquilino.contasVariavel?.[k] && !isContaPagaImobiliaria(inquilino, k))
                         const variavelPendente = contasVariaveisKeys.length > 0 && contasVariaveisKeys.some(k => !(k in cellVarVals))
                         const variavelZerada   = contasVariaveisKeys.length > 0 && contasVariaveisKeys.some(k => (k in cellVarVals) && (Number(cellVarVals[k]) === 0))
                         const variavelAlerta   = variavelPendente || variavelZerada
@@ -651,7 +656,7 @@ export default function ImoveisMe() {
  
             {/* ── Composição do valor mensal ── */}
             {(() => {
-              const contasInclusas = modal.inquilino.contasInclusas || []
+              const contasInclusas = (modal.inquilino.contasInclusas || []).filter(k => !isContaPagaImobiliaria(modal.inquilino, k))
               const allContas = contasInclusas.map(k => ({
                 key:        k,
                 label:      CONTAS_OPCOES.find(c => c.value === k)?.label || k,
@@ -949,9 +954,11 @@ export default function ImoveisMe() {
                   style={{ width: 'auto' }}
                   onClick={() => {
                     const _aluguel     = '_aluguel' in varValues ? Number(varValues._aluguel) || 0 : Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
-                    const _allContas   = (modal.inquilino.contasInclusas || []).map(k => ({
-                      key: k, value: Number(modal.inquilino.contasValores?.[k]) || 0,
-                    }))
+                    const _allContas   = (modal.inquilino.contasInclusas || [])
+                      .filter(k => !isContaPagaImobiliaria(modal.inquilino, k))
+                      .map(k => ({
+                        key: k, value: Number(modal.inquilino.contasValores?.[k]) || 0,
+                      }))
                     const _despesas    = _allContas.reduce((s, { key, value }) =>
                       s + (key in varValues ? Number(varValues[key]) || 0 : value), 0)
                     const _seguro      = '_seguro'  in varValues ? Number(varValues._seguro)  || 0 : (modal.inquilino.garantia === 'seguro' ? Number(modal.inquilino.valorSeguro) || 0 : 0)

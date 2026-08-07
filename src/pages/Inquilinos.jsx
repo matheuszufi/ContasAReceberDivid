@@ -157,6 +157,9 @@ export default function Inquilinos() {
         <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => navigate('/inquilinos/cadastrar')}>
           <b>+</b> Cadastrar Inquilino
         </button>
+        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={() => navigate('/inquilinos/importar')}>
+          📥 Importar Planilha
+        </button>
         <input
           type="text"
           placeholder="Buscar por nome, CPF ou imóvel..."

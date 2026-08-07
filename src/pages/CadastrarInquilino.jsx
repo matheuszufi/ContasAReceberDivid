@@ -34,6 +34,11 @@ const METODO_PAGAMENTO_OPCOES = [
   { value: 'pos_pago', label: 'Pós-pago', hint: 'Contas exibidas um mês após o uso' },
 ]
 
+const PAGADOR_OPCOES = [
+  { value: 'imobiliaria', label: 'Paga a imobiliária' },
+  { value: 'inquilino',   label: 'Paga o inquilino' },
+]
+
 const formatCPF = (v) =>
   v.replace(/\D/g, '')
     .replace(/(\d{3})(\d)/, '$1.$2')
@@ -65,6 +70,7 @@ const initialForm = {
   contasValores: {},
   contasVariavel: {},
   contasOrigem: {},
+  contasPagador: {},
   valorAluguel: '',
   vagas: '',
   valorVaga: '',
@@ -102,6 +108,7 @@ export default function CadastrarInquilino() {
           contasValores:  data.contasValores  || {},
           contasVariavel: data.contasVariavel || {},
           contasOrigem:   data.contasOrigem   || {},
+          contasPagador:  data.contasPagador  || {},
         })
       }
     })
@@ -144,12 +151,14 @@ export default function CadastrarInquilino() {
       const newContasValores  = { ...prev.contasValores }
       const newContasVariavel = { ...prev.contasVariavel }
       const newContasOrigem   = { ...prev.contasOrigem }
+      const newContasPagador  = { ...prev.contasPagador }
       if (isActive) {
         delete newContasValores[value]
         delete newContasVariavel[value]
         delete newContasOrigem[value]
+        delete newContasPagador[value]
       }
-      return { ...prev, contasInclusas: newContasInclusas, contasValores: newContasValores, contasVariavel: newContasVariavel, contasOrigem: newContasOrigem }
+      return { ...prev, contasInclusas: newContasInclusas, contasValores: newContasValores, contasVariavel: newContasVariavel, contasOrigem: newContasOrigem, contasPagador: newContasPagador }
     })
   }
 
@@ -158,15 +167,28 @@ export default function CadastrarInquilino() {
   }
 
   const handleContaVariavel = (key, checked) => {
-    setForm(prev => ({
-      ...prev,
-      contasVariavel: { ...prev.contasVariavel, [key]: checked },
-      contasValores:  checked ? { ...prev.contasValores, [key]: '' } : prev.contasValores,
-    }))
+    setForm(prev => {
+      const newContasPagador = { ...prev.contasPagador }
+      if (checked) {
+        newContasPagador[key] = prev.contasPagador[key] || 'imobiliaria'
+      } else {
+        delete newContasPagador[key]
+      }
+      return {
+        ...prev,
+        contasVariavel: { ...prev.contasVariavel, [key]: checked },
+        contasValores:  checked ? { ...prev.contasValores, [key]: '' } : prev.contasValores,
+        contasPagador:  newContasPagador,
+      }
+    })
   }
 
   const handleContaOrigem = (key, value) => {
     setForm(prev => ({ ...prev, contasOrigem: { ...prev.contasOrigem, [key]: value } }))
+  }
+
+  const handleContaPagador = (key, value) => {
+    setForm(prev => ({ ...prev, contasPagador: { ...prev.contasPagador, [key]: value } }))
   }
 
 useEffect(() => {
@@ -499,6 +521,23 @@ style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',bord
                 />
                 <span>Conta variável</span>
               </label>
+
+              {isVariavel && (
+                <div className="conta-variavel-pagador radio-group">
+                  {PAGADOR_OPCOES.map(pOpt => (
+                    <label key={pOpt.value} className="radio-item">
+                      <input
+                        type="radio"
+                        name={`pagador-${opt.value}`}
+                        value={pOpt.value}
+                        checked={(form.contasPagador[opt.value] || 'imobiliaria') === pOpt.value}
+                        onChange={() => handleContaPagador(opt.value, pOpt.value)}
+                      />
+                      <span>{pOpt.label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
 
               {!isVariavel && (
                 <div className="conta-card-valor">
