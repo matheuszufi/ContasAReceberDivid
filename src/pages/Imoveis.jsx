@@ -41,8 +41,7 @@ export default function Imoveis() {
   const filtered = imoveis.filter(im =>
     im.codigo?.toLowerCase().includes(search.toLowerCase()) ||
     im.endereco?.rua?.toLowerCase().includes(search.toLowerCase()) ||
-    im.proprietarioNome?.toLowerCase().includes(search.toLowerCase()) ||
-    im.tipo?.toLowerCase().includes(search.toLowerCase())
+    im.proprietarioNome?.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -53,7 +52,7 @@ export default function Imoveis() {
         </button>
         <input
           type="text"
-          placeholder="Buscar por código, endereço, proprietário ou tipo..."
+          placeholder="Buscar por código, endereço ou proprietário..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="search-input"
@@ -95,8 +94,8 @@ export default function Imoveis() {
             <thead>
               <tr>
                 <th>Código</th>
-                <th>Tipo</th>
                 <th>Endereço</th>
+                <th>Cidade/Estado</th>
                 <th>Proprietário</th>
                   <th>Modelo</th>
                   <th>Status</th>
@@ -106,7 +105,7 @@ export default function Imoveis() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={7}>
                     <div className="empty-state">
                       <div className="es-icon">🏠</div>
                       <h3>Nenhum imóvel encontrado</h3>
@@ -117,11 +116,18 @@ export default function Imoveis() {
               ) : filtered.map(im => (
                 <tr key={im.id}>
                   <td><strong>{im.codigo || '—'}</strong></td>
-                  <td>{im.tipo || '—'}</td>
                   <td>
                     {im.endereco?.rua
-                      ? `${im.endereco.rua}, ${im.endereco.numero || 's/n'} — ${im.endereco.bairro || im.endereco.cidade || ''}`
+                      ? [
+                          `${im.endereco.rua}, ${im.endereco.numero || 's/n'}`,
+                          im.endereco.complemento,
+                          im.endereco.bairro,
+                          im.endereco.cep,
+                        ].filter(Boolean).join(' — ')
                       : '—'}
+                  </td>
+                  <td>
+                    {[im.endereco?.cidade, im.endereco?.estado].filter(Boolean).join('/') || '—'}
                   </td>
                   <td>{im.proprietarioNome || '—'}</td>
                   <td>
