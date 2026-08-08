@@ -26,6 +26,7 @@ const navSections = [
   {
     label: 'Categorias',
     items: [
+      { path: '/imoveis-todos', icon: '🗂️', label: 'Todos Imóveis' },
       { path: '/imoveis-me', icon: '🏠', label: 'Imóveis ME' },
       { path: '/imoveis-ma', icon: '🏢', label: 'Imóveis MA' },
       { path: '/imoveis-ml', icon: '🏗️', label: 'Imóveis ML' },

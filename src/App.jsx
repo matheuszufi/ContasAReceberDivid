@@ -4,6 +4,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Imoveis from './pages/Imoveis'
+import ImoveisTodos from './pages/ImoveisTodos'
 import CadastrarImovel from './pages/CadastrarImovel'
 import ImoveisMe from './pages/ImoveisMe'
 import ImoveisMa from './pages/ImoveisMa'
@@ -31,6 +32,7 @@ export default function App() {
       <Route path="/register" element={<Register />} />
       <Route path="/dashboard"                  element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/imoveis"                    element={<PrivateRoute><Imoveis /></PrivateRoute>} />
+      <Route path="/imoveis-todos"              element={<PrivateRoute><ImoveisTodos /></PrivateRoute>} />
       <Route path="/imoveis/cadastrar"          element={<PrivateRoute><CadastrarImovel /></PrivateRoute>} />
       <Route path="/imoveis/editar/:id"         element={<PrivateRoute><CadastrarImovel /></PrivateRoute>} />
       <Route path="/imoveis-me"                 element={<PrivateRoute><ImoveisMe /></PrivateRoute>} />

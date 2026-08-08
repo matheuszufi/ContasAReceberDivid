@@ -100,7 +100,7 @@ export default function Inadimplentes() {
     garantia: '',
     seguroAcionado: '',
     mesReferencia: '',
-    status: '',
+    status: 'nao_pago',
   })
 
   const setColFilter = (field, value) =>
@@ -109,7 +109,7 @@ export default function Inadimplentes() {
   const limparColFilters = () =>
     setColFilters({
       inquilino: '', imovel: '', garantia: '', seguroAcionado: '',
-      mesReferencia: '', status: '',
+      mesReferencia: '', status: 'nao_pago',
     })
 
   useEffect(() => {
@@ -238,7 +238,11 @@ export default function Inadimplentes() {
     .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
     .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
     .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
-    .filter(d => !colFilters.status || d.status === colFilters.status)
+    .filter(d => {
+      if (!colFilters.status) return true
+      if (colFilters.status === 'nao_pago') return d.status !== 'pago'
+      return d.status === colFilters.status
+    })
 
   return (
     <Layout title="⚠️ Inadimplentes" subtitle="Controle de clientes com débitos pendentes">
@@ -459,6 +463,7 @@ export default function Inadimplentes() {
                       style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                     >
                       <option value="">Todos</option>
+                      <option value="nao_pago">Todos menos Pago</option>
                       {STATUS_OPCOES.map(o => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}

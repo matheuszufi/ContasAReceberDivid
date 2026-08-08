@@ -12,6 +12,7 @@ const formatCEP = (v) =>
 const initialForm = {
   codigo: '', status: 'Disponível', modelo: '',
   proprietarioId: '',
+  ucEnergia: '', ucAgua: '',
   endereco: { cep: '', rua: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '' },
   observacao: '',
 }
@@ -240,6 +241,26 @@ export default function CadastrarImovel() {
               <div className="form-group">
                 <label>Estado (UF)</label>
                 <input name="estado" value={form.endereco.estado} onChange={handleEndereco} placeholder="SP" maxLength={2} style={{ textTransform: 'uppercase' }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Unidades Consumidoras ── */}
+        <div className="form-section">
+          <div className="form-section-header">
+            <span className="form-section-icon">🔌</span>
+            <h3>Unidades Consumidoras</h3>
+          </div>
+          <div className="form-section-body">
+            <div className="form-grid-2">
+              <div className="form-group">
+                <label>UC de Energia</label>
+                <input name="ucEnergia" value={form.ucEnergia} onChange={handleChange} placeholder="Número da UC de energia" />
+              </div>
+              <div className="form-group">
+                <label>UC de Água</label>
+                <input name="ucAgua" value={form.ucAgua} onChange={handleChange} placeholder="Número da UC de água" />
               </div>
             </div>
           </div>
