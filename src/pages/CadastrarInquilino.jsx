@@ -35,8 +35,8 @@ const METODO_PAGAMENTO_OPCOES = [
 ]
 
 const PAGADOR_OPCOES = [
-  { value: 'imobiliaria', label: 'Paga a imobiliária' },
-  { value: 'inquilino',   label: 'Paga o inquilino' },
+  { value: 'imobiliaria', label: 'imobiliaria paga' },
+  { value: 'inquilino',   label: 'inquilino paga' },
 ]
 
 const formatCPF = (v) =>
@@ -512,19 +512,18 @@ required
                 <span>Conta variável</span>
               </label>
 
-              <div className="conta-variavel-pagador radio-group">
-                {PAGADOR_OPCOES.map(pOpt => (
-                  <label key={pOpt.value} className="radio-item">
-                    <input
-                      type="radio"
-                      name={`pagador-${opt.value}`}
-                      value={pOpt.value}
-                      checked={(form.contasPagador[opt.value] || (isVariavel ? 'imobiliaria' : 'inquilino')) === pOpt.value}
-                      onChange={() => handleContaPagador(opt.value, pOpt.value)}
-                    />
-                    <span>{pOpt.label}</span>
-                  </label>
-                ))}
+              <div className="form-group" style={{ marginBottom: '16px' }}>
+                <label>Pagamento</label>
+                <select
+                  value={form.contasPagador[opt.value] || (isVariavel ? 'imobiliaria' : 'inquilino')}
+                  onChange={e => handleContaPagador(opt.value, e.target.value)}
+                >
+                  {PAGADOR_OPCOES.map(pOpt => (
+                    <option key={pOpt.value} value={pOpt.value}>
+                      {pOpt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {!isVariavel && (

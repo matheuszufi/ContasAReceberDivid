@@ -140,14 +140,11 @@ export default function Dashboard() {
   const monthCards = useMemo(() => MONTH_FULL_LABELS.map((label, index) => {
     const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
     const totals = yearMonthTotals[key] || { inadimplente: 0, recuperado: 0 }
-    const total = totals.inadimplente + totals.recuperado
-    const recoveredPercent = total > 0 ? Math.round((totals.recuperado / total) * 100) : 0
     return {
       key,
       label,
       inadimplente: totals.inadimplente,
       recuperado: totals.recuperado,
-      recoveredPercent,
       active: periodMode === 'month' && selectedMonth === key,
     }
   }), [selectedYear, selectedMonth, yearMonthTotals, periodMode])
@@ -172,6 +169,11 @@ export default function Dashboard() {
     const keys = new Set(periodMonthKeys)
     return inadimplencias.filter(d => keys.has(getMonthKey(d)))
   }, [inadimplencias, periodMonthKeys])
+
+  const periodPendentes = useMemo(
+    () => periodDebts.filter(d => d.status !== 'pago'),
+    [periodDebts]
+  )
 
   const periodPagas = useMemo(
     () => periodDebts.filter(d => d.status === 'pago'),
@@ -200,7 +202,7 @@ export default function Dashboard() {
 
   const topInadimplentes = useMemo(() => {
     const map = {}
-    periodDebts.forEach(debt => {
+    periodPendentes.forEach(debt => {
       const key = debt.inquilinoId || debt.inquilinoNome || 'desconhecido'
       const name = inquilinoMap[debt.inquilinoId]?.nome || debt.inquilinoNome || 'Desconhecido'
       const value = parseFloat(debt.valorTotal) || parseFloat(debt.valorOriginal) || 0
@@ -217,7 +219,7 @@ export default function Dashboard() {
         return b.total - a.total
       })
       .slice(0, 5)
-  }, [periodDebts, inquilinoMap, topFilter])
+  }, [periodPendentes, inquilinoMap, topFilter])
 
   const pie = getPieSegments(
     selectedMonthTotals.inadimplente + selectedMonthTotals.recuperado,
@@ -357,37 +359,19 @@ export default function Dashboard() {
                     type="button"
                     className={`month-card compact ${card.active ? 'active' : ''}`}
                     onClick={() => handleSelectMonth(card.key)}
-                    style={{ position: 'relative', overflow: 'hidden' }}
                   >
-                    <div
-                      aria-hidden="true"
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        height: `${card.recoveredPercent}%`,
-                        background: 'rgba(34, 197, 94, 0.25)',
-                        borderTop: card.recoveredPercent > 0 ? '2px solid #22c55e' : 'none',
-                        transition: 'height 0.3s ease',
-                        pointerEvents: 'none',
-                        zIndex: 0,
-                      }}
-                    />
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                      <div className="mc-top-row">
-                        <span>{MONTH_LABELS[Number(card.key.slice(-2)) - 1]}</span>
-                        <strong>{fmtMoney(card.inadimplente + card.recuperado)}</strong>
+                    <div className="mc-top-row">
+                      <span>{MONTH_LABELS[Number(card.key.slice(-2)) - 1]}</span>
+                      <strong>{fmtMoney(card.inadimplente + card.recuperado)}</strong>
+                    </div>
+                    <div className="mc-values-row">
+                      <div className="mc-value-group">
+                        <span className="mc-value-label">Recuperado</span>
+                        <strong>{fmtMoney(card.recuperado)}</strong>
                       </div>
-                      <div className="mc-values-row">
-                        <div className="mc-value-group">
-                          <span className="mc-value-label">Recuperado</span>
-                          <strong>{fmtMoney(card.recuperado)}</strong>
-                        </div>
-                        <div className="mc-value-group">
-                          <span className="mc-value-label">Em aberto</span>
-                          <strong>{fmtMoney(card.inadimplente)}</strong>
-                        </div>
+                      <div className="mc-value-group">
+                        <span className="mc-value-label">Em aberto</span>
+                        <strong>{fmtMoney(card.inadimplente)}</strong>
                       </div>
                     </div>
                   </button>
