@@ -222,7 +222,7 @@ export default function ImoveisTodos() {
   }
  
   const handleAddExtra = () => {
-    setExtraContas(prev => [...prev, { id: null, nome: '', valor: '', parcelas: 1, mesInicio: modal?.key || '' }])
+    setExtraContas(prev => [...prev, { id: null, nome: '', valor: '' }])
   }
  
   const handleExtraChange = (idx, field, value) => {
@@ -233,40 +233,14 @@ export default function ImoveisTodos() {
     const extra = extraContas[idx]
     if (!extra || !extra.nome.trim() || extra.valor === '' || extra.valor === undefined) return
     const numVal = parseFloat(extra.valor)
-    const parcelas = Math.max(1, parseInt(extra.parcelas, 10) || 1)
-    const mesInicio = extra.mesInicio || modal?.key
-    if (isNaN(numVal) || !modal?.inquilino?.id || !mesInicio) return
-
-    const basePath = `valoresVariaveis/${modal.inquilino.id}`
-    let currentId = extra.id
-
-    for (let offset = 0; offset < parcelas; offset += 1) {
-      const targetMonth = addMonths(mesInicio, offset)
-      if (!targetMonth) continue
-      const targetPath = `${basePath}/${targetMonth}/extras`
-      if (targetMonth === modal.key && extra.id) {
-        await update(ref(db, `${targetPath}/${extra.id}`), {
-          nome: extra.nome.trim(),
-          valor: numVal,
-          parcelas,
-          mesInicio,
-        })
-      } else {
-        const newRef = push(ref(db, targetPath))
-        await set(newRef, {
-          nome: extra.nome.trim(),
-          valor: numVal,
-          parcelas,
-          mesInicio,
-        })
-        if (targetMonth === modal.key && !currentId) {
-          currentId = newRef.key
-        }
-      }
-    }
-
-    if (currentId && currentId !== extra.id) {
-      setExtraContas(prev => prev.map((e, i) => i === idx ? { ...e, id: currentId } : e))
+    if (isNaN(numVal) || !modal?.inquilino?.id || !modal?.key) return
+    const basePath = `valoresVariaveis/${modal.inquilino.id}/${modal.key}/extras`
+    if (extra.id) {
+      await update(ref(db, `${basePath}/${extra.id}`), { nome: extra.nome.trim(), valor: numVal })
+    } else {
+      const newRef = push(ref(db, basePath))
+      await set(newRef, { nome: extra.nome.trim(), valor: numVal })
+      setExtraContas(prev => prev.map((e, i) => i === idx ? { ...e, id: newRef.key } : e))
     }
   }
  
@@ -867,8 +841,8 @@ export default function ImoveisTodos() {
                       <EditableRow icon="🚗" label={`Garagem (${modal.inquilino.vagas} vaga${Number(modal.inquilino.vagas) > 1 ? 's' : ''})`} baseVal={garagemBase} vKey="_garagem" />
                     )}
                     {extraContas.map((extra, idx) => (
-                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr 1fr auto', gap: 6, alignItems: 'center' }}>
-                        <span style={{ color: '#94a3b8', fontSize: 13, flexShrink: 0, display: 'inline-flex', alignItems: 'center' }}>📋</span>
+                      <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span style={{ color: '#94a3b8', fontSize: 13, flexShrink: 0 }}>📋</span>
                         <input
                           type="text"
                           placeholder="Nome da conta"
@@ -883,35 +857,12 @@ export default function ImoveisTodos() {
                         />
                         <input
                           type="number" step="0.01"
-                          placeholder="Valor"
+                          placeholder="0,00"
                           value={extra.valor}
                           onChange={e => handleExtraChange(idx, 'valor', e.target.value)}
                           onBlur={() => handleExtraSave(idx)}
                           style={{
-                            width: '100%', padding: '4px 8px', flexShrink: 0,
-                            border: '1.5px solid #e2e8f0', borderRadius: 6,
-                            fontSize: 12, textAlign: 'right', outline: 'none', background: '#fff',
-                          }}
-                        />
-                        <input
-                          type="month"
-                          value={extra.mesInicio || modal.key}
-                          onChange={e => handleExtraChange(idx, 'mesInicio', e.target.value)}
-                          onBlur={() => handleExtraSave(idx)}
-                          style={{
-                            width: '100%', padding: '4px 8px', flexShrink: 0,
-                            border: '1.5px solid #e2e8f0', borderRadius: 6,
-                            fontSize: 12, outline: 'none', background: '#fff',
-                          }}
-                        />
-                        <input
-                          type="number" step="1" min="1"
-                          placeholder="Parcelas"
-                          value={extra.parcelas || 1}
-                          onChange={e => handleExtraChange(idx, 'parcelas', e.target.value)}
-                          onBlur={() => handleExtraSave(idx)}
-                          style={{
-                            width: '100%', padding: '4px 8px', flexShrink: 0,
+                            width: 90, padding: '4px 8px', flexShrink: 0,
                             border: '1.5px solid #e2e8f0', borderRadius: 6,
                             fontSize: 12, textAlign: 'right', outline: 'none', background: '#fff',
                           }}

@@ -47,7 +47,6 @@ const initialForm = {
   nome: '',
   status: 'Ativo',
   email: '',
-  dataNascimento: '',
 
   tipoDocumento: 'cpf',
   cpfCnpj: '',
@@ -81,7 +80,6 @@ export default function CadastrarProprietario() {
   const [form, setForm] = useState(initialForm)
   const [imoveis, setImoveis] = useState([])
   const [imoveisSelecionados, setImoveisSelecionados] = useState([])
-  const [buscaImovel, setBuscaImovel] = useState('')
   const [loading, setLoading] = useState(false)
   const [cepLoading, setCepLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -199,25 +197,13 @@ export default function CadastrarProprietario() {
     }
   }
 
-  const adicionarImovel = (id) => {
-    setImoveisSelecionados(prev => prev.includes(id) ? prev : [...prev, id])
-    setBuscaImovel('')
+  const toggleImovel = (id) => {
+    setImoveisSelecionados(prev =>
+      prev.includes(id)
+        ? prev.filter(i => i !== id)
+        : [...prev, id]
+    )
   }
-
-  const removerImovel = (id) => {
-    setImoveisSelecionados(prev => prev.filter(i => i !== id))
-  }
-
-  const imoveisFiltrados = buscaImovel.trim()
-    ? imoveis.filter(im => {
-      if (imoveisSelecionados.includes(im.id)) return false
-      const termo = buscaImovel.trim().toLowerCase()
-      const codigo = (im.codigo || '').toLowerCase()
-      const rua = (im.endereco?.rua || '').toLowerCase()
-      const bairro = (im.endereco?.bairro || '').toLowerCase()
-      return codigo.includes(termo) || rua.includes(termo) || bairro.includes(termo)
-    }).slice(0, 6)
-    : []
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -319,16 +305,6 @@ export default function CadastrarProprietario() {
                   value={form.email}
                   onChange={handleChange}
                   placeholder="email@exemplo.com"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Data de Nascimento</label>
-                <input
-                  name="dataNascimento"
-                  type="date"
-                  value={form.dataNascimento}
-                  onChange={handleChange}
                 />
               </div>
 
@@ -492,107 +468,70 @@ export default function CadastrarProprietario() {
             ) : (
               <div className="form-group">
 
-                <label>Imóveis deste proprietário</label>
+                <label>
+                  Selecione os imóveis deste proprietário
+                </label>
 
-                {imoveisSelecionados.length > 0 && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                    {imoveisSelecionados.map(selId => {
-                      const im = imoveis.find(i => i.id === selId)
-                      if (!im) return null
-                      return (
-                        <div
-                          key={selId}
-                          style={{
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            padding: '6px 10px', borderRadius: 20,
-                            background: '#eff6ff', border: '1px solid #bfdbfe',
-                            fontSize: 13,
-                          }}
-                        >
-                          <strong>{im.codigo || im.id.substring(0, 8)}</strong>
-                          {im.endereco?.rua && (
-                            <span style={{ color: '#64748b' }}>
-                              {im.endereco.rua}, {im.endereco.numero || 's/n'}
+                <div className="imovel-select-grid">
+
+                  {imoveis.map(im => {
+
+                    const selected = imoveisSelecionados.includes(im.id)
+
+                    return (
+                      <div
+                        key={im.id}
+                        className={`imovel-select-card${selected ? ' selected' : ''}`}
+                        onClick={() => toggleImovel(im.id)}
+                      >
+
+                        <div className="isc-code">
+                          {im.codigo || im.id.substring(0, 8)}
+                        </div>
+
+                        <div className="isc-address">
+                          {im.endereco?.rua
+                            ? `${im.endereco.rua}, ${im.endereco.numero || 's/n'}`
+                            : im.tipo || 'Endereço não informado'}
+                        </div>
+
+                        <div className="isc-meta">
+
+                          {im.modelo && (
+                            <span
+                              className={`badge ${
+                                im.modelo === 'MA'
+                                  ? 'badge-green'
+                                  : im.modelo === 'ME'
+                                    ? 'badge-blue'
+                                    : 'badge-yellow'
+                              }`}
+                            >
+                              {im.modelo}
                             </span>
                           )}
-                          <button
-                            type="button"
-                            onClick={() => removerImovel(selId)}
-                            aria-label="Remover imóvel"
-                            style={{
-                              border: 'none', background: 'transparent', cursor: 'pointer',
-                              color: '#64748b', fontWeight: 700, fontSize: 14, lineHeight: 1,
-                              padding: 0,
-                            }}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
 
-                <div style={{ position: 'relative' }}>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <input
-                      value={buscaImovel}
-                      onChange={(e) => setBuscaImovel(e.target.value)}
-                      placeholder="Digite o código, rua ou bairro do imóvel..."
-                      style={{ flex: 1 }}
-                    />
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      disabled={imoveisFiltrados.length === 0}
-                      onClick={() => imoveisFiltrados[0] && adicionarImovel(imoveisFiltrados[0].id)}
-                    >
-                      + Adicionar
-                    </button>
-                  </div>
-
-                  {buscaImovel.trim() && (
-                    <div
-                      style={{
-                        marginTop: 6, border: '1px solid #e2e8f0', borderRadius: 8,
-                        overflow: 'hidden', background: '#fff',
-                      }}
-                    >
-                      {imoveisFiltrados.length === 0 ? (
-                        <div style={{ padding: '10px 14px', fontSize: 13, color: '#64748b' }}>
-                          Nenhum imóvel encontrado.
-                        </div>
-                      ) : (
-                        imoveisFiltrados.map(im => (
-                          <div
-                            key={im.id}
-                            onClick={() => adicionarImovel(im.id)}
-                            style={{
-                              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                              gap: 10, padding: '10px 14px', cursor: 'pointer',
-                              borderTop: '1px solid #f1f5f9',
-                            }}
-                          >
-                            <div>
-                              <strong>{im.codigo || im.id.substring(0, 8)}</strong>
-                              {im.endereco?.rua && (
-                                <span style={{ marginLeft: 8, fontSize: 13, color: '#64748b' }}>
-                                  {im.endereco.rua}, {im.endereco.numero || 's/n'}
-                                </span>
-                              )}
-                            </div>
-                            <button
-                              type="button"
-                              className="link-btn"
-                              onClick={(e) => { e.stopPropagation(); adicionarImovel(im.id) }}
+                          {im.status && (
+                            <span
+                              className={`badge ${
+                                im.status === 'Disponível'
+                                  ? 'badge-green'
+                                  : im.status === 'Ocupado'
+                                    ? 'badge-blue'
+                                    : 'badge-gray'
+                              }`}
                             >
-                              + Adicionar
-                            </button>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
+                              {im.status}
+                            </span>
+                          )}
+
+                        </div>
+
+                      </div>
+                    )
+
+                  })}
+
                 </div>
 
               </div>
