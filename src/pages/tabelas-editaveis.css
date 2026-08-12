@@ -1,0 +1,193 @@
+/* ==========================================================
+   Estilos para as planilhas editáveis (Imóveis e Inquilinos)
+   Adicione este bloco ao seu arquivo CSS global existente
+   (onde já estão definidos .table-container, .card etc.)
+   Substitui o arquivo "imoveis-tabela-editavel.css" anterior.
+   ========================================================== */
+
+.table-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.imoveis-table,
+.inquilinos-table {
+  min-width: max-content; /* impede que colunas espremam e força o scroll lateral */
+}
+
+.imoveis-table th,
+.imoveis-table td,
+.inquilinos-table th,
+.inquilinos-table td {
+  white-space: nowrap;
+}
+
+.imoveis-table td.table-cell-wrap,
+.inquilinos-table td.table-cell-wrap {
+  white-space: normal;
+  max-width: 240px;
+}
+
+.editable-cell {
+  cursor: text;
+  transition: background 0.12s;
+}
+
+.editable-cell:hover {
+  background: #f1f5f9;
+}
+
+.editable-cell.editing {
+  padding: 4px !important;
+}
+
+.cell-input {
+  width: 100%;
+  min-width: 90px;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: inherit;
+  font-family: inherit;
+  outline: none;
+}
+
+.cell-empty {
+  color: #94a3b8;
+}
+
+.hint-text {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Tags pequenas usadas para exibir as "Contas Inclusas" do inquilino */
+.mini-tag {
+  display: inline-block;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  border-radius: 5px;
+  padding: 2px 6px;
+  margin: 2px 4px 2px 0;
+  white-space: nowrap;
+}
+
+.mini-tag-variavel {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+/* Célula de conta (Água, Energia, etc.) na planilha de inquilinos:
+   checkbox "Sim/Não" + valor editável logo abaixo, quando aplicável */
+.conta-cell {
+  vertical-align: top;
+  padding: 8px 10px !important;
+}
+
+.conta-cell-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.conta-cell-check input[type="checkbox"] {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+}
+
+.editable-value {
+  display: inline-block;
+  cursor: text;
+  font-size: 12px;
+  color: #475569;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+
+.editable-value:hover {
+  background: #f1f5f9;
+}
+
+/* ==========================================================
+   Adições para: reordenação de colunas (drag and drop) e
+   checkbox "Cobrar no boleto" na planilha de Inquilinos.
+   Acrescente este bloco ao seu CSS global existente.
+   ========================================================== */
+
+/* Cabeçalho com coluna reordenável */
+.th-draggable {
+  user-select: none;
+  transition: background 0.12s, box-shadow 0.12s;
+  position: relative;
+}
+.th-draggable.th-dragging {
+  opacity: 0.45;
+  background: #eff6ff;
+}
+.th-draggable.th-drag-over {
+  box-shadow: inset 3px 0 0 var(--accent, #1d4ed8);
+  background: #eff6ff;
+}
+
+/* Alça de arrastar — só ela inicia o drag, o resto do cabeçalho fica normal */
+.th-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  margin-right: 4px;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: grab;
+  touch-action: none; /* impede o navegador de rolar a tela ao arrastar no toque */
+  border-radius: 4px;
+}
+.th-drag-handle:hover { color: #1d4ed8; background: #e2e8f0; }
+.th-drag-handle:active { cursor: grabbing; }
+
+/* Enquanto uma coluna está sendo arrastada, impede seleção de texto na página toda */
+body.col-dragging {
+  user-select: none;
+  cursor: grabbing;
+}
+
+/* Checkbox "Cobrar no boleto" dentro da célula de conta */
+.conta-cell-boleto {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+  margin: 2px 0 4px;
+  padding: 2px 5px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.conta-cell-boleto:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+.conta-cell-boleto input[type="checkbox"] {
+  cursor: pointer;
+  width: 12px;
+  height: 12px;
+  accent-color: #16a34a;
+}
+.conta-cell-boleto.checked {
+  color: #15803d;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}

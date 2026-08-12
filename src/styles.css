@@ -219,8 +219,8 @@ body { margin: 0; background: var(--bg); color: var(--text-primary); -webkit-fon
 .stat-card .stat-label { font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 
 /* ===================== Table ===================== */
-.table-container { overflow-x: auto; overflow-y: visible; }
-table { width: 100%; border-collapse: collapse; overflow: visible; }
+.table-container { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; }
+.imoveis-table { width: 100%; min-width: 1600px; border-collapse: collapse; overflow: visible; }
 thead th {
   font-size: 11px;
   font-weight: 700;
@@ -233,9 +233,10 @@ thead th {
   border-bottom: 2px solid var(--border);
   white-space: nowrap;
 }
-tbody td { padding: 12px 16px; font-size: 13px; color: var(--text-primary); border-bottom: 1px solid #f1f5f9; }
+tbody td { padding: 12px 16px; font-size: 13px; color: var(--text-primary); border-bottom: 1px solid #f1f5f9; vertical-align: top; }
 tbody tr:hover { background: #f8fafc; }
 tbody tr:last-child td { border-bottom: none; }
+.table-cell-wrap { white-space: normal; max-width: 260px; word-break: break-word; }
 
 /* ===================== Badges ===================== */
 .badge { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
@@ -367,7 +368,7 @@ tbody tr:last-child td { border-bottom: none; }
 .conta-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
-  border-radius: 18px;
+  /* border-radius: 18px; */
   overflow: hidden;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
@@ -1029,3 +1030,310 @@ tbody tr:last-child td { border-bottom: none; }
   text-align: right;
 }
 
+/* ==========================================================
+   Estilos para as planilhas editáveis (Imóveis e Inquilinos)
+   Adicione este bloco ao seu arquivo CSS global existente
+   (onde já estão definidos .table-container, .card etc.)
+   Substitui o arquivo "imoveis-tabela-editavel.css" anterior.
+   ========================================================== */
+
+.table-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.imoveis-table,
+.inquilinos-table {
+  min-width: max-content; /* impede que colunas espremam e força o scroll lateral */
+}
+
+.imoveis-table th,
+.imoveis-table td,
+.inquilinos-table th,
+.inquilinos-table td {
+  white-space: nowrap;
+}
+
+.imoveis-table td.table-cell-wrap,
+.inquilinos-table td.table-cell-wrap {
+  white-space: normal;
+  max-width: 240px;
+}
+
+.editable-cell {
+  cursor: text;
+  transition: background 0.12s;
+}
+
+.editable-cell:hover {
+  background: #f1f5f9;
+}
+
+.editable-cell.editing {
+  padding: 4px !important;
+}
+
+.cell-input {
+  width: 100%;
+  min-width: 90px;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: inherit;
+  font-family: inherit;
+  outline: none;
+}
+
+.cell-empty {
+  color: #94a3b8;
+}
+
+.hint-text {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Tags pequenas usadas para exibir as "Contas Inclusas" do inquilino */
+.mini-tag {
+  display: inline-block;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 11px;
+  border-radius: 5px;
+  padding: 2px 6px;
+  margin: 2px 4px 2px 0;
+  white-space: nowrap;
+}
+
+.mini-tag-variavel {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+/* Célula de conta (Água, Energia, etc.) na planilha de inquilinos:
+   checkbox "Sim/Não" + valor editável logo abaixo, quando aplicável */
+.conta-cell {
+  vertical-align: top;
+  padding: 8px 10px !important;
+}
+
+.conta-cell-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.conta-cell-check input[type="checkbox"] {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+}
+
+.editable-value {
+  display: inline-block;
+  cursor: text;
+  font-size: 12px;
+  color: #475569;
+  padding: 1px 4px;
+  border-radius: 4px;
+  transition: background 0.12s;
+}
+
+.editable-value:hover {
+  background: #f1f5f9;
+}
+
+/* ==========================================================
+   Adições para: reordenação de colunas (drag and drop) e
+   checkbox "Cobrar no boleto" na planilha de Inquilinos.
+   Acrescente este bloco ao seu CSS global existente.
+   ========================================================== */
+
+/* Cabeçalho com coluna reordenável */
+.th-draggable {
+  user-select: none;
+  transition: background 0.12s, box-shadow 0.12s;
+  position: relative;
+}
+.th-draggable.th-dragging {
+  opacity: 0.45;
+  background: #eff6ff;
+}
+.th-draggable.th-drag-over {
+  box-shadow: inset 3px 0 0 var(--accent, #1d4ed8);
+  background: #eff6ff;
+}
+
+/* Alça de arrastar — só ela inicia o drag, o resto do cabeçalho fica normal */
+.th-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  margin-right: 4px;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: grab;
+  touch-action: none; /* impede o navegador de rolar a tela ao arrastar no toque */
+  border-radius: 4px;
+}
+.th-drag-handle:hover { color: #1d4ed8; background: #e2e8f0; }
+.th-drag-handle:active { cursor: grabbing; }
+
+/* Enquanto uma coluna está sendo arrastada, impede seleção de texto na página toda */
+body.col-dragging {
+  user-select: none;
+  cursor: grabbing;
+}
+
+/* Checkbox "Cobrar no boleto" dentro da célula de conta */
+.conta-cell-boleto {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+  margin: 2px 0 4px;
+  padding: 2px 5px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.conta-cell-boleto:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+.conta-cell-boleto input[type="checkbox"] {
+  cursor: pointer;
+  width: 12px;
+  height: 12px;
+  accent-color: #16a34a;
+}
+.conta-cell-boleto.checked {
+  color: #15803d;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+/* ==========================================================
+   Cabeçalho fixo (sticky) e coluna "Nome" travada no scroll
+   horizontal, na planilha de Inquilinos.
+   ========================================================== */
+
+/* A planilha ganha sua própria área de rolagem vertical, como uma
+   planilha de verdade: cabeçalho e coluna "Nome" ficam sempre visíveis. */
+.inquilinos-scroll-area {
+  max-height: 70vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Cabeçalho sempre visível ao rolar verticalmente */
+.inquilinos-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+}
+
+/* Coluna "Nome" sempre visível ao rolar horizontalmente */
+.inquilinos-table .col-sticky-th,
+.inquilinos-table .col-sticky-td {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  box-shadow: 4px 0 6px -4px rgba(15, 23, 42, 0.18);
+}
+
+/* No cabeçalho, a coluna "Nome" acumula sticky-top + sticky-left,
+   por isso precisa do maior z-index (fica "por cima" de tudo). */
+.inquilinos-table .col-sticky-th {
+  z-index: 5;
+  background: #f8fafc;
+}
+
+.inquilinos-table .col-sticky-td {
+  z-index: 2;
+}
+
+/* Mantém a cor de hover da linha também na célula travada */
+.inquilinos-table tbody tr:hover .col-sticky-td {
+  background: #f8fafc;
+}
+
+
+/* Cabeçalho com coluna reordenável */
+.th-draggable {
+  user-select: none;
+  transition: background 0.12s, box-shadow 0.12s;
+  position: relative;
+}
+.th-draggable.th-dragging {
+  opacity: 0.45;
+  background: #eff6ff;
+}
+.th-draggable.th-drag-over {
+  box-shadow: inset 3px 0 0 var(--accent, #1d4ed8);
+  background: #eff6ff;
+}
+
+/* Alça de arrastar — só ela inicia o drag, o resto do cabeçalho fica normal */
+.th-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  margin-right: 4px;
+  color: #94a3b8;
+  font-size: 13px;
+  cursor: grab;
+  touch-action: none; /* impede o navegador de rolar a tela ao arrastar no toque */
+  border-radius: 4px;
+}
+.th-drag-handle:hover { color: #1d4ed8; background: #e2e8f0; }
+.th-drag-handle:active { cursor: grabbing; }
+
+/* Enquanto uma coluna está sendo arrastada, impede seleção de texto na página toda */
+body.col-dragging {
+  user-select: none;
+  cursor: grabbing;
+}
+
+/* Checkbox "Cobrar no boleto" dentro da célula de conta */
+.conta-cell-boleto {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+  margin: 2px 0 4px;
+  padding: 2px 5px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.conta-cell-boleto:hover {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+.conta-cell-boleto input[type="checkbox"] {
+  cursor: pointer;
+  width: 12px;
+  height: 12px;
+  accent-color: #16a34a;
+}
+.conta-cell-boleto.checked {
+  color: #15803d;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}

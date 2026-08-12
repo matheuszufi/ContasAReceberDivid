@@ -34,11 +34,6 @@ const METODO_PAGAMENTO_OPCOES = [
   { value: 'pos_pago', label: 'Pós-pago', hint: 'Contas exibidas um mês após o uso' },
 ]
 
-const PAGADOR_OPCOES = [
-  { value: 'imobiliaria', label: 'imobiliaria paga' },
-  { value: 'inquilino',   label: 'inquilino paga' },
-]
-
 const formatCPF = (v) =>
   v.replace(/\D/g, '')
     .replace(/(\d{3})(\d)/, '$1.$2')
@@ -481,6 +476,7 @@ required
       const isActive = form.contasInclusas.includes(opt.value)
       const isVariavel = !!form.contasVariavel[opt.value]
       const permiteValorNegativo = opt.value === 'fundo_reserva'
+      const cobraNoBoleto = (form.contasPagador[opt.value] || (isVariavel ? 'imobiliaria' : 'inquilino')) === 'inquilino'
 
       return (
         <div
@@ -512,19 +508,16 @@ required
                 <span>Conta variável</span>
               </label>
 
-              <div className="form-group" style={{ marginBottom: '16px' }}>
-                <label>Pagamento</label>
-                <select
-                  value={form.contasPagador[opt.value] || (isVariavel ? 'imobiliaria' : 'inquilino')}
-                  onChange={e => handleContaPagador(opt.value, e.target.value)}
-                >
-                  {PAGADOR_OPCOES.map(pOpt => (
-                    <option key={pOpt.value} value={pOpt.value}>
-                      {pOpt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <label className="conta-variavel-toggle conta-boleto-toggle">
+                <input
+                  type="checkbox"
+                  checked={cobraNoBoleto}
+                  onChange={e =>
+                    handleContaPagador(opt.value, e.target.checked ? 'inquilino' : 'imobiliaria')
+                  }
+                />
+                <span>Cobrar no boleto do inquilino</span>
+              </label>
 
               {!isVariavel && (
                 <div className="conta-card-valor">
