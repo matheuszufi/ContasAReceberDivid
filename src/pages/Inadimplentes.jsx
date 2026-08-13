@@ -217,6 +217,11 @@ export default function Inadimplentes() {
     return imovel?.codigo || inquilino?.codigoImovel || d.codigoImovel || ''
   }
 
+  const getImovelId = (d) => inquilinos.find(i => i.id === d.inquilinoId)?.imovelId || ''
+
+  const goInquilino = (d) => d.inquilinoId && navigate(`/inquilinos/editar/${d.inquilinoId}`)
+  const goImovel = (d) => { const imovelId = getImovelId(d); if (imovelId) navigate(`/imoveis/editar/${imovelId}`) }
+
   const handleDelete = async (id) => {
     if (!window.confirm('Deseja excluir este débito?')) return
     await remove(ref(db, `inadimplencias/${id}`))
@@ -593,8 +598,28 @@ export default function Inadimplentes() {
                   </tr>
                 ) : filtered.map(d => (
                   <tr key={d.id}>
-                    <td><strong>{getInquilinoNome(d)}</strong></td>
-                    <td>{getCodigoImovel(d) || '—'}</td>
+                    <td>
+                      <strong
+                        className="link-btn"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => goInquilino(d)}
+                        title="Abrir cadastro do inquilino"
+                      >
+                        {getInquilinoNome(d)}
+                      </strong>
+                    </td>
+                    <td>
+                      {getCodigoImovel(d) ? (
+                        <span
+                          className="link-btn"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => goImovel(d)}
+                          title="Abrir cadastro do imóvel"
+                        >
+                          {getCodigoImovel(d)}
+                        </span>
+                      ) : '—'}
+                    </td>
                     <td><strong>{fmtMoney(d.valorTotal)}</strong></td>
                     <td>{d.mesReferencia ? formatMonthShort(d.mesReferencia) : '—'}</td>
                     <td>

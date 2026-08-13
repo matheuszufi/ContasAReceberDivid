@@ -207,9 +207,15 @@ export default function ImportarInadimplencia() {
       const existentesSnap = await get(ref(db, 'inadimplencias'))
       const existentesData = existentesSnap.val() || {}
       const existentes = Object.entries(existentesData).map(([id, v]) => ({ id, ...v }))
-      const mapaExistentes = {}
+      // Fila de débitos já existentes por inquilino+mês; cada linha da planilha consome um
+      // débito da fila (update) e, quando a fila esgota, uma nova inadimplência é criada —
+      // assim várias linhas com o mesmo inquilino/mês geram vários débitos, não um só.
+      const filaExistentes = {}
       existentes.forEach(e => {
-        if (e.inquilinoId && e.mesReferencia) mapaExistentes[`${e.inquilinoId}_${e.mesReferencia}`] = e.id
+        if (e.inquilinoId && e.mesReferencia) {
+          const chave = `${e.inquilinoId}_${e.mesReferencia}`
+          ;(filaExistentes[chave] = filaExistentes[chave] || []).push(e.id)
+        }
       })
 
       let criados = 0
@@ -223,7 +229,7 @@ export default function ImportarInadimplencia() {
         }
         const inquilino = p.inquilino
         const chave = `${p.inquilinoId}_${p.mesReferencia}`
-        const existenteId = mapaExistentes[chave]
+        const existenteId = filaExistentes[chave]?.shift()
 
         const dataPagamento = p.status === 'Pago' ? new Date().toISOString().substring(0, 10) : ''
 
@@ -237,7 +243,7 @@ export default function ImportarInadimplencia() {
           })
           atualizados++
         } else {
-          const novoRef = await push(ref(db, 'inadimplencias'), {
+          await push(ref(db, 'inadimplencias'), {
             inquilinoId:    p.inquilinoId,
             inquilinoNome:  inquilino?.nome || p.nomeInformado,
             imovelId:       inquilino?.imovelId    || '',
@@ -256,7 +262,6 @@ export default function ImportarInadimplencia() {
             observacao:     '',
             criadoEm:       new Date().toISOString(),
           })
-          mapaExistentes[chave] = novoRef.key
           criados++
         }
       }
