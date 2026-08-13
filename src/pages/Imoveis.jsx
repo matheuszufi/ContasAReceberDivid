@@ -3,22 +3,55 @@ import { useNavigate } from 'react-router-dom'
 import { ref, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import * as XLSX from 'xlsx'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 const MODELOS = ['MA', 'ME', 'ML']
 const STATUS_LIST = ['Disponível', 'Ocupado', 'Em Manutenção', 'Indisponível']
-const statusBadge  = {
-  'Disponível':    'badge-green',
-  'Ocupado':       'badge-blue',
+const statusBadge = {
+  'Disponível': 'badge-green',
+  'Ocupado': 'badge-blue',
   'Em Manutenção': 'badge-yellow',
-  'Indisponível':  'badge-red',
+  'Indisponível': 'badge-red',
 }
 
-const formatCEP = (v) =>
-  v.replace(/\D/g, '').replace(/(\d{5})(\d{1,3})/, '$1-$2').substring(0, 9)
+const DEFAULT_COLUMNS = [
+  { key: 'codigo', label: 'Código' },
+  { key: 'proprietario', label: 'Proprietário' },
+  { key: 'modelo', label: 'Modelo' },
+  { key: 'status', label: 'Status' },
+  { key: 'cep', label: 'CEP' },
+  { key: 'rua', label: 'Rua' },
+  { key: 'numero', label: 'Número' },
+  { key: 'complemento', label: 'Complemento' },
+  { key: 'bairro', label: 'Bairro' },
+  { key: 'cidade', label: 'Cidade' },
+  { key: 'estado', label: 'Estado' },
+  { key: 'ucEnergia', label: 'UC Energia' },
+  { key: 'ucAgua', label: 'UC Água' },
+  { key: 'observacao', label: 'Observação' },
+]
 
-// Célula genérica: exibe o valor; ao clicar, vira input (ou select) editável
-function EditableCell({ value, display, onSave, type = 'text', options = [], placeholder = '—' }) {
+const COLUMNS_BY_KEY = Object.fromEntries(DEFAULT_COLUMNS.map(c => [c.key, c]))
+const DEFAULT_COLUMN_ORDER = DEFAULT_COLUMNS.map(c => c.key).filter(k => k !== 'codigo')
+const COLUMN_ORDER_STORAGE_KEY = 'imoveis_column_order_v2'
+
+const formatCEP = (v) =>
+  String(v || '').replace(/\D/g, '').replace(/(\d{5})(\d{1,3})/, '$1-$2').substring(0, 9)
+
+const loadColumnOrder = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(COLUMN_ORDER_STORAGE_KEY) || 'null')
+    if (Array.isArray(saved)) {
+      const filtered = saved.filter(k => COLUMNS_BY_KEY[k] && k !== 'codigo')
+      const missing = DEFAULT_COLUMN_ORDER.filter(k => !filtered.includes(k))
+      return [...filtered, ...missing]
+    }
+  } catch {}
+  return DEFAULT_COLUMN_ORDER
+}
+
+function EditableCell({ value, display, onSave, type = 'text', options = [], placeholder = '—', className = '' }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const inputRef = useRef(null)
@@ -30,16 +63,11 @@ function EditableCell({ value, display, onSave, type = 'text', options = [], pla
     }
   }, [editing])
 
-  const start = () => {
-    setDraft(value ?? '')
-    setEditing(true)
-  }
-
+  const start = () => setEditing(true)
   const commit = () => {
     setEditing(false)
     if (draft !== value) onSave(draft)
   }
-
   const cancel = () => {
     setEditing(false)
     setDraft(value ?? '')
@@ -47,7 +75,7 @@ function EditableCell({ value, display, onSave, type = 'text', options = [], pla
 
   if (!editing) {
     return (
-      <td className="editable-cell" onClick={start} title="Clique para editar">
+      <td className={`editable-cell ${className}`} onClick={start} title="Clique para editar">
         {display !== undefined ? display : (value || <span className="cell-empty">{placeholder}</span>)}
       </td>
     )
@@ -55,7 +83,7 @@ function EditableCell({ value, display, onSave, type = 'text', options = [], pla
 
   if (type === 'select') {
     return (
-      <td className="editable-cell editing">
+      <td className={`editable-cell editing ${className}`}>
         <select
           ref={inputRef}
           className="cell-input"
@@ -75,7 +103,7 @@ function EditableCell({ value, display, onSave, type = 'text', options = [], pla
   }
 
   return (
-    <td className="editable-cell editing">
+    <td className={`editable-cell editing ${className}`}>
       <input
         ref={inputRef}
         className="cell-input"
@@ -97,6 +125,9 @@ export default function Imoveis() {
   const [proprietarios, setProprietarios] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [columnOrder, setColumnOrder] = useState(loadColumnOrder)
+  const [draggingKey, setDraggingKey] = useState(null)
+  const [dragOverKey, setDragOverKey] = useState(null)
 
   useEffect(() => {
     const r = ref(db, 'imoveis')
@@ -114,6 +145,65 @@ export default function Imoveis() {
       setProprietarios(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
     })
   }, [])
+
+  const persistColumnOrder = (order) => {
+    try { localStorage.setItem(COLUMN_ORDER_STORAGE_KEY, JSON.stringify(order)) } catch {}
+  }
+
+  const handleDragHandlePointerDown = (key) => (e) => {
+    e.preventDefault()
+    setDraggingKey(key)
+    setDragOverKey(key)
+  }
+
+  useEffect(() => {
+    if (!draggingKey) return
+
+    const findColKey = (clientX, clientY) => {
+      const el = document.elementFromPoint(clientX, clientY)
+      const th = el && el.closest ? el.closest('th[data-col-key]') : null
+      return th ? th.getAttribute('data-col-key') : null
+    }
+
+    const handlePointerMove = (e) => {
+      const key = findColKey(e.clientX, e.clientY)
+      if (key) setDragOverKey(prev => (prev !== key ? key : prev))
+    }
+
+    const handlePointerUp = (e) => {
+      const targetKey = findColKey(e.clientX, e.clientY)
+      if (targetKey && targetKey !== draggingKey) {
+        setColumnOrder(prev => {
+          const next = [...prev]
+          const fromIdx = next.indexOf(draggingKey)
+          const toIdx = next.indexOf(targetKey)
+          if (fromIdx === -1 || toIdx === -1) return prev
+          next.splice(fromIdx, 1)
+          next.splice(toIdx, 0, draggingKey)
+          persistColumnOrder(next)
+          return next
+        })
+      }
+      setDraggingKey(null)
+      setDragOverKey(null)
+    }
+
+    document.body.classList.add('col-dragging')
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+    window.addEventListener('pointercancel', handlePointerUp)
+    return () => {
+      document.body.classList.remove('col-dragging')
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      window.removeEventListener('pointercancel', handlePointerUp)
+    }
+  }, [draggingKey])
+
+  const handleResetColumnOrder = () => {
+    setColumnOrder(DEFAULT_COLUMN_ORDER)
+    try { localStorage.removeItem(COLUMN_ORDER_STORAGE_KEY) } catch {}
+  }
 
   const proprietariosById = Object.fromEntries(proprietarios.map(p => [p.id, p]))
 
@@ -139,7 +229,6 @@ export default function Imoveis() {
     await update(ref(db, `imoveis/${id}/endereco`), { [campo]: value })
   }
 
-  // Ao trocar o proprietário direto na planilha, mantém proprietarios[].imoveisIds sincronizado
   const handleProprietarioChange = async (im, novoProprietarioId) => {
     const novoProprietario = proprietarios.find(p => p.id === novoProprietarioId)
     await update(ref(db, `imoveis/${im.id}`), {
@@ -161,17 +250,169 @@ export default function Imoveis() {
     )
   }
 
+  const handleExport = () => {
+    const dados = filtered.map(im => ({
+      Código: im.codigo || '',
+      Proprietário: proprietariosById[im.proprietarioId]?.nome || im.proprietarioNome || '',
+      Modelo: im.modelo || '',
+      Status: im.status || '',
+      CEP: im.endereco?.cep || '',
+      Rua: im.endereco?.rua || '',
+      Número: im.endereco?.numero || '',
+      Complemento: im.endereco?.complemento || '',
+      Bairro: im.endereco?.bairro || '',
+      Cidade: im.endereco?.cidade || '',
+      Estado: im.endereco?.estado || '',
+      'UC Energia': im.ucEnergia || '',
+      'UC Água': im.ucAgua || '',
+      Observação: im.observacao || '',
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(dados)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Imoveis')
+    const dataAtual = new Date().toISOString().split('T')[0]
+    XLSX.writeFile(workbook, `imoveis_${dataAtual}.xlsx`)
+  }
+
   const filtered = imoveis.filter(im =>
     im.codigo?.toLowerCase().includes(search.toLowerCase()) ||
     im.endereco?.rua?.toLowerCase().includes(search.toLowerCase()) ||
     (proprietariosById[im.proprietarioId]?.nome || im.proprietarioNome)?.toLowerCase().includes(search.toLowerCase())
   )
 
+  const buildRowCells = (im) => {
+    const cells = {
+      codigo: (
+        <EditableCell
+          key="codigo"
+          value={im.codigo || ''}
+          display={<strong>{im.codigo || '—'}</strong>}
+          onSave={v => handleCampoChange(im.id, 'codigo', v)}
+          className="col-sticky-td"
+        />
+      ),
+      proprietario: (
+        <EditableCell
+          key="proprietario"
+          value={im.proprietarioId || ''}
+          display={proprietariosById[im.proprietarioId]?.nome || im.proprietarioNome || '—'}
+          type="select"
+          options={proprietarios.map(p => ({ value: p.id, label: p.nome }))}
+          onSave={v => handleProprietarioChange(im, v)}
+        />
+      ),
+      modelo: (
+        <td key="modelo">
+          <select
+            className={`badge-select ${modeloBadge[im.modelo] || 'badge-gray'}`}
+            value={im.modelo || ''}
+            onChange={e => handleModeloChange(im.id, e.target.value)}
+          >
+            <option value="">—</option>
+            {MODELOS.map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </td>
+      ),
+      status: (
+        <td key="status">
+          <select
+            className={`badge-select ${statusBadge[im.status] || 'badge-gray'}`}
+            value={im.status || ''}
+            onChange={e => handleStatusChange(im.id, e.target.value)}
+          >
+            <option value="">—</option>
+            {STATUS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </td>
+      ),
+      cep: (
+        <EditableCell
+          key="cep"
+          value={im.endereco?.cep || ''}
+          onSave={v => handleEnderecoChange(im.id, 'cep', v)}
+        />
+      ),
+      rua: (
+        <EditableCell
+          key="rua"
+          value={im.endereco?.rua || ''}
+          onSave={v => handleEnderecoChange(im.id, 'rua', v)}
+        />
+      ),
+      numero: (
+        <EditableCell
+          key="numero"
+          value={im.endereco?.numero || ''}
+          onSave={v => handleEnderecoChange(im.id, 'numero', v)}
+        />
+      ),
+      complemento: (
+        <EditableCell
+          key="complemento"
+          value={im.endereco?.complemento || ''}
+          onSave={v => handleEnderecoChange(im.id, 'complemento', v)}
+        />
+      ),
+      bairro: (
+        <EditableCell
+          key="bairro"
+          value={im.endereco?.bairro || ''}
+          onSave={v => handleEnderecoChange(im.id, 'bairro', v)}
+        />
+      ),
+      cidade: (
+        <EditableCell
+          key="cidade"
+          value={im.endereco?.cidade || ''}
+          onSave={v => handleEnderecoChange(im.id, 'cidade', v)}
+        />
+      ),
+      estado: (
+        <EditableCell
+          key="estado"
+          value={im.endereco?.estado || ''}
+          onSave={v => handleEnderecoChange(im.id, 'estado', String(v).toUpperCase().substring(0, 2))}
+        />
+      ),
+      ucEnergia: (
+        <EditableCell
+          key="ucEnergia"
+          value={im.ucEnergia || ''}
+          onSave={v => handleCampoChange(im.id, 'ucEnergia', v)}
+        />
+      ),
+      ucAgua: (
+        <EditableCell
+          key="ucAgua"
+          value={im.ucAgua || ''}
+          onSave={v => handleCampoChange(im.id, 'ucAgua', v)}
+        />
+      ),
+      observacao: (
+        <EditableCell
+          key="observacao"
+          value={im.observacao || ''}
+          display={<span className="table-cell-wrap">{im.observacao || '—'}</span>}
+          onSave={v => handleCampoChange(im.id, 'observacao', v)}
+        />
+      )
+    }
+
+    return cells
+  }
+
   return (
     <Layout title="Imóveis" subtitle="Lista e gerenciamento de todos os imóveis">
       <div className="actions-bar">
         <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => navigate('/imoveis/cadastrar')}>
           <b>+</b> Cadastrar Imóvel
+        </button>
+        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={handleExport}>
+          📤 Exportar Planilha
+        </button>
+        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={handleResetColumnOrder} title="Restaura a ordem original das colunas">
+          ↺ Restaurar Ordem das Colunas
         </button>
         <input
           type="text"
@@ -208,131 +449,65 @@ export default function Imoveis() {
       <div className="card">
         <div className="card-header">
           <h3>Todos os Imóveis ({filtered.length})</h3>
-          <span className="hint-text">Clique em qualquer célula para editar</span>
+          <span className="hint-text">Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas</span>
         </div>
-        <div className="table-container table-scroll-x">
+        <div className="table-container table-scroll-x inquilinos-scroll-area">
           {loading ? (
             <div className="empty-state"><div className="es-icon">⏳</div><p>Carregando...</p></div>
           ) : (
-          <table className="imoveis-table">
-            <thead>
-              <tr>
-                <th>Código</th>
-                <th>Proprietário</th>
-                <th>Modelo</th>
-                <th>Status</th>
-                <th>CEP</th>
-                <th>Rua</th>
-                <th>Número</th>
-                <th>Complemento</th>
-                <th>Bairro</th>
-                <th>Cidade</th>
-                <th>Estado</th>
-                <th>UC Energia</th>
-                <th>UC Água</th>
-                <th>Observação</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
+            <table className="inquilinos-table">
+              <thead>
                 <tr>
-                  <td colSpan={15}>
-                    <div className="empty-state">
-                      <div className="es-icon">🏠</div>
-                      <h3>Nenhum imóvel encontrado</h3>
-                      <p>Cadastre um novo imóvel para começar.</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : filtered.map(im => (
-                <tr key={im.id}>
-                  <EditableCell
-                    value={im.codigo || ''}
-                    display={<strong>{im.codigo || '—'}</strong>}
-                    onSave={v => handleCampoChange(im.id, 'codigo', v)}
-                  />
-                  <EditableCell
-                    value={im.proprietarioId || ''}
-                    display={proprietariosById[im.proprietarioId]?.nome || im.proprietarioNome || '—'}
-                    type="select"
-                    options={proprietarios.map(p => ({ value: p.id, label: p.nome }))}
-                    onSave={v => handleProprietarioChange(im, v)}
-                  />
-                  <td>
-                    <select
-                      className={`badge-select ${modeloBadge[im.modelo] || 'badge-gray'}`}
-                      value={im.modelo || ''}
-                      onChange={e => handleModeloChange(im.id, e.target.value)}
+                  <th className="col-sticky-th">{COLUMNS_BY_KEY.codigo.label}</th>
+                  {columnOrder.map(key => (
+                    <th
+                      key={key}
+                      data-col-key={key}
+                      className={`th-draggable ${draggingKey === key ? 'th-dragging' : ''} ${dragOverKey === key && draggingKey && draggingKey !== key ? 'th-drag-over' : ''}`}
                     >
-                      <option value="">—</option>
-                      {MODELOS.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      className={`badge-select ${statusBadge[im.status] || 'badge-gray'}`}
-                      value={im.status || ''}
-                      onChange={e => handleStatusChange(im.id, e.target.value)}
-                    >
-                      <option value="">—</option>
-                      {STATUS_LIST.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </td>
-                  <EditableCell
-                    value={im.endereco?.cep || ''}
-                    onSave={v => handleEnderecoChange(im.id, 'cep', v)}
-                  />
-                  <EditableCell
-                    value={im.endereco?.rua || ''}
-                    onSave={v => handleEnderecoChange(im.id, 'rua', v)}
-                  />
-                  <EditableCell
-                    value={im.endereco?.numero || ''}
-                    onSave={v => handleEnderecoChange(im.id, 'numero', v)}
-                  />
-                  <EditableCell
-                    value={im.endereco?.complemento || ''}
-                    onSave={v => handleEnderecoChange(im.id, 'complemento', v)}
-                  />
-                  <EditableCell
-                    value={im.endereco?.bairro || ''}
-                    onSave={v => handleEnderecoChange(im.id, 'bairro', v)}
-                  />
-                  <EditableCell
-                    value={im.endereco?.cidade || ''}
-                    onSave={v => handleEnderecoChange(im.id, 'cidade', v)}
-                  />
-                  <EditableCell
-                    value={im.endereco?.estado || ''}
-                    onSave={v => handleEnderecoChange(im.id, 'estado', v.toUpperCase().substring(0, 2))}
-                  />
-                  <EditableCell
-                    value={im.ucEnergia || ''}
-                    onSave={v => handleCampoChange(im.id, 'ucEnergia', v)}
-                  />
-                  <EditableCell
-                    value={im.ucAgua || ''}
-                    onSave={v => handleCampoChange(im.id, 'ucAgua', v)}
-                  />
-                  <EditableCell
-                    value={im.observacao || ''}
-                    display={<span className="table-cell-wrap">{im.observacao || '—'}</span>}
-                    onSave={v => handleCampoChange(im.id, 'observacao', v)}
-                  />
-                  <td>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button className="btn btn-sm" onClick={() => navigate(`/imoveis/editar/${im.id}`)}>Editar</button>
-                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(im.id)}>Excluir</button>
-                    </div>
-                  </td>
+                      <span
+                        className="th-drag-handle"
+                        onPointerDown={handleDragHandlePointerDown(key)}
+                        title="Arraste para reordenar a coluna"
+                      >⠿</span>
+                      {COLUMNS_BY_KEY[key].label}
+                    </th>
+                  ))}
+                  <th>Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={columnOrder.length + 2}>
+                      <div className="empty-state">
+                        <div className="es-icon">🏠</div>
+                        <h3>Nenhum imóvel encontrado</h3>
+                        <p>Cadastre um novo imóvel para começar.</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filtered.map(im => {
+                  const cells = buildRowCells(im)
+                  return (
+                    <tr key={im.id}>
+                      {cells.codigo}
+                      {columnOrder.map(key => cells[key])}
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button className="btn btn-sm" onClick={() => navigate(`/imoveis/editar/${im.id}`)}>Editar</button>
+                          <button className="btn btn-sm btn-danger" onClick={() => handleDelete(im.id)}>Excluir</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
     </Layout>
   )
 }
+
