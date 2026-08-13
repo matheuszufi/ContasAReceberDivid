@@ -16,6 +16,7 @@ import CadastrarInquilino from './pages/CadastrarInquilino'
 import ImportarPlanilha from './pages/ImportarPlanilha'
 import Inadimplentes from './pages/Inadimplentes'
 import CadastrarInadimplencia from './pages/CadastrarInadimplencia'
+import ImportarInadimplencia from './pages/ImportarInadimplencia'
 import TimelineInadimplencia from './pages/TimelineInadimplencia'
 import { useAuth } from './auth'
 import { firebaseError } from './firebase'
@@ -83,6 +84,7 @@ export default function App() {
       <Route path="/inquilinos/editar/:id"      element={<PrivateRoute><CadastrarInquilino /></PrivateRoute>} />
       <Route path="/inquilinos/importar"        element={<PrivateRoute><ImportarPlanilha /></PrivateRoute>} />
       <Route path="/inadimplentes"              element={<PrivateRoute><Inadimplentes /></PrivateRoute>} />
+      <Route path="/inadimplentes/importar"     element={<PrivateRoute><ImportarInadimplencia /></PrivateRoute>} />
       <Route path="/inadimplentes/cadastrar"    element={<PrivateRoute><CadastrarInadimplencia /></PrivateRoute>} />
       <Route path="/inadimplentes/editar/:id"   element={<PrivateRoute><CadastrarInadimplencia /></PrivateRoute>} />
       <Route path="/inadimplentes/timeline/:id" element={<PrivateRoute><TimelineInadimplencia /></PrivateRoute>} />

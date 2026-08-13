@@ -916,6 +916,42 @@ export default function ImoveisTodos() {
                         onFocus={e => (e.target.style.borderColor = '#94a3b8')}
                       />
                     </div>
+
+                    {(() => {
+                      const itemsMes = getItems(modal.inquilino.id, modal.mi)
+                      if (!itemsMes.length) return null
+                      return (
+                        <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 8, marginTop: 4 }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 6 }}>
+                            ⚠️ Inadimplência{itemsMes.length > 1 ? `s cadastradas neste mês (${itemsMes.length})` : ' cadastrada neste mês'}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {itemsMes.map(item => {
+                              const st = STATUS_STYLE[item.status] || STATUS_STYLE.Pendente
+                              return (
+                                <div key={item.id} style={{ background: '#fff', border: `1px solid ${st.border}`, borderRadius: 8, padding: '8px 10px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>{item.tipoDebito || 'Débito'}</span>
+                                    <span style={{ fontSize: 11, fontWeight: 700, borderRadius: 8, padding: '2px 8px', background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>
+                                      {st.icon} {item.status || 'Pendente'}
+                                    </span>
+                                  </div>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                                      {item.dataVencimento ? `Venc. ${new Date(item.dataVencimento).toLocaleDateString('pt-BR')}` : 'Sem vencimento'}
+                                    </span>
+                                    <strong style={{ fontSize: 13, color: '#1e293b' }}>{fmtBRL(item.valorTotal)}</strong>
+                                  </div>
+                                  {item.observacao && (
+                                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>📝 {item.observacao}</div>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               )

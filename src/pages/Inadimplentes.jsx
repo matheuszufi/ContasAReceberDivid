@@ -37,6 +37,20 @@ const SEGURO_LABELS = {
   lado_bom:  'Lado Bom',
 }
 
+const GARANTIA_OPCOES = [
+  { value: 'seguro',       label: 'Seguro' },
+  { value: 'caucao',       label: 'Caução' },
+  { value: 'adiantamento', label: 'Adiantamento' },
+  { value: 'sem_garantia', label: 'Sem Garantia' },
+]
+
+const SEGURO_OPCOES = [
+  { value: 'credaluga', label: 'Credaluga' },
+  { value: 'credpago',  label: 'Credpago' },
+  { value: 'lado_bom',  label: 'Lado Bom Seguros' },
+  { value: 'Avalyst',   label: 'Avalyst' },
+]
+
 const GARANTIA_STYLE = {
   seguro:       { bg: '#ede9fe', color: '#7c3aed', border: '#c4b5fd', icon: '🛡️' },
   caucao:       { bg: '#f0fdf4', color: '#166534', border: '#86efac', icon: '💰' },
@@ -46,6 +60,33 @@ const GARANTIA_STYLE = {
 
 const fmtMoney = (v) =>
   'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+
+const credpagoUrl = (nome) =>
+  `https://credpago.com/imobiliaria/contratos/relatorio.php?search=${encodeURIComponent(nome || '')}`
+
+// A Credaluga guarda o filtro de busca ativo num JSON serializado duas vezes no hash da URL
+const credalugaUrl = (nome) => {
+  const nomeParam = String(nome || '').trim().replace(/\s+/g, '+')
+  const state = {
+    state: {
+      filters: [{
+        type: 'multi',
+        field: 'search',
+        value: nomeParam,
+        includeFields: ['id', 'fullname', 'streetAddress', 'nationalId'],
+        displayValue: nomeParam,
+      }],
+      sortConfig: { field: null, order: null, type: null },
+      currentPage: 1,
+      totalPages: 1,
+      totalItems: 0,
+      itemsPerPage: 0,
+    },
+    version: 0,
+  }
+  const hash = encodeURIComponent(JSON.stringify(JSON.stringify(state))).replace(/%2B/g, '+')
+  return `https://app.credaluga.com.br/contracts/active#activeContracts=${hash}`
+}
 
 const getMonth = (d) =>
   d.mesReferencia || (d.dataVencimento ? d.dataVencimento.substring(0, 7) : null)
@@ -90,10 +131,12 @@ export default function Inadimplentes() {
   const navigate = useNavigate()
   const [debitos, setDebitos] = useState([])
   const [inquilinos, setInquilinos] = useState([])
+  const [imoveis, setImoveis] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [mesSelecionado, setMesSelecionado] = useState(null)
   const [showRankingModal, setShowRankingModal] = useState(false)
+  const [editingGarantiaId, setEditingGarantiaId] = useState(null)
   const [colFilters, setColFilters] = useState({
     inquilino: '',
     imovel: '',
@@ -124,7 +167,12 @@ export default function Inadimplentes() {
       const data = snap.val()
       setInquilinos(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
     })
-    return () => { unsub1(); unsub2() }
+    const r3 = ref(db, 'imoveis')
+    const unsub3 = onValue(r3, snap => {
+      const data = snap.val()
+      setImoveis(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+    return () => { unsub1(); unsub2(); unsub3() }
   }, [])
 
   const getGarantia = (d) => {
@@ -133,6 +181,17 @@ export default function Inadimplentes() {
     const label = GARANTIA_LABELS[g] || g
     const fullLabel = (g === 'seguro' && s) ? `${label} | ${SEGURO_LABELS[s] || s}` : label
     return { key: g, label: fullLabel }
+  }
+
+  // O cadastro do inquilino e do imóvel são as fontes vivas; as cópias gravadas no débito
+  // (inquilinoNome/codigoImovel) podem ficar desatualizadas, então só servem de fallback.
+  const getInquilinoNome = (d) =>
+    inquilinos.find(i => i.id === d.inquilinoId)?.nome || d.inquilinoNome || 'Sem nome'
+
+  const getCodigoImovel = (d) => {
+    const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
+    const imovel = imoveis.find(im => im.id === inquilino?.imovelId)
+    return imovel?.codigo || inquilino?.codigoImovel || d.codigoImovel || ''
   }
 
   const handleDelete = async (id) => {
@@ -154,6 +213,24 @@ export default function Inadimplentes() {
 
   const handleDataSeguroChange = async (id, value) => {
     await update(ref(db, `inadimplencias/${id}`), { dataSeguro: value })
+  }
+
+  // Altera a garantia/seguro no cadastro do inquilino (fonte oficial) e, se o débito
+  // guardar uma cópia própria desses campos, mantém essa cópia sincronizada também.
+  const handleGarantiaChange = async (d, novaGarantia) => {
+    const inquilinoUpdates = { garantia: novaGarantia }
+    if (novaGarantia !== 'seguro') { inquilinoUpdates.seguro = ''; inquilinoUpdates.valorSeguro = '' }
+    if (d.inquilinoId) await update(ref(db, `inquilinos/${d.inquilinoId}`), inquilinoUpdates)
+    if (d.garantia !== undefined) {
+      const debitoUpdates = { garantia: novaGarantia }
+      if (novaGarantia !== 'seguro') debitoUpdates.seguro = ''
+      await update(ref(db, `inadimplencias/${d.id}`), debitoUpdates)
+    }
+  }
+
+  const handleSeguroProviderChange = async (d, novoSeguro) => {
+    if (d.inquilinoId) await update(ref(db, `inquilinos/${d.inquilinoId}`), { seguro: novoSeguro })
+    if (d.seguro !== undefined) await update(ref(db, `inadimplencias/${d.id}`), { seguro: novoSeguro })
   }
 
   const abrirWhatsApp = (d) => {
@@ -178,12 +255,11 @@ export default function Inadimplentes() {
     const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
     if (!inquilino) return alert('Inquilino não encontrado.')
     if (inquilino.garantia === 'seguro' && inquilino.seguro === 'credpago') {
-      const nome = encodeURIComponent(inquilino.nome)
-      window.open(`https://credpago.com/imobiliaria/contratos/relatorio.php?search=${nome}`,'_blank')
+      window.open(credpagoUrl(inquilino.nome), '_blank')
       return
     }
     if (inquilino.garantia === 'seguro' && inquilino.seguro === 'credaluga') {
-      window.open('https://app.credaluga.com.br/dashboard','_blank')
+      window.open(credalugaUrl(inquilino.nome), '_blank')
       return
     }
     alert('Este inquilino não possui Seguro Fiança.')
@@ -207,7 +283,7 @@ export default function Inadimplentes() {
       if (inquilino && inquilino.status === 'Inativo') return
       if (!counts[key]) {
         counts[key] = {
-          nome: d.inquilinoNome || inquilino?.nome || 'Sem nome',
+          nome: getInquilinoNome(d),
           total: 0,
         }
       }
@@ -229,12 +305,12 @@ export default function Inadimplentes() {
 
   const filtered = baseList
     .filter(d =>
-      d.inquilinoNome?.toLowerCase().includes(search.toLowerCase()) ||
-      d.codigoImovel?.toLowerCase().includes(search.toLowerCase()) ||
+      getInquilinoNome(d).toLowerCase().includes(search.toLowerCase()) ||
+      getCodigoImovel(d).toLowerCase().includes(search.toLowerCase()) ||
       d.tipoDebito?.toLowerCase().includes(search.toLowerCase())
     )
-    .filter(d => !colFilters.inquilino || d.inquilinoNome?.toLowerCase().includes(colFilters.inquilino.toLowerCase()))
-    .filter(d => !colFilters.imovel || d.codigoImovel?.toLowerCase().includes(colFilters.imovel.toLowerCase()))
+    .filter(d => !colFilters.inquilino || getInquilinoNome(d).toLowerCase().includes(colFilters.inquilino.toLowerCase()))
+    .filter(d => !colFilters.imovel || getCodigoImovel(d).toLowerCase().includes(colFilters.imovel.toLowerCase()))
     .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
     .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
     .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
@@ -249,6 +325,9 @@ export default function Inadimplentes() {
       <div className="actions-bar">
         <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => navigate('/inadimplentes/cadastrar')}>
           ➕ Registrar Débito
+        </button>
+        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={() => navigate('/inadimplentes/importar')}>
+          📊 Importar Planilha
         </button>
         <input
           type="text"
@@ -486,28 +565,64 @@ export default function Inadimplentes() {
                   </tr>
                 ) : filtered.map(d => (
                   <tr key={d.id}>
-                    <td><strong>{d.inquilinoNome || '—'}</strong></td>
-                    <td>{d.codigoImovel || '—'}</td>
+                    <td><strong>{getInquilinoNome(d)}</strong></td>
+                    <td>{getCodigoImovel(d) || '—'}</td>
                     <td><strong>{fmtMoney(d.valorTotal)}</strong></td>
                     <td>{d.mesReferencia ? formatMonthShort(d.mesReferencia) : '—'}</td>
                     <td>
                       {(() => {
                         const { key: gKey, label: g } = getGarantia(d)
                         const style = GARANTIA_STYLE[gKey] || GARANTIA_STYLE.sem_garantia
-                        const isSeguro = gKey === 'seguro'
+                        const isEditing = editingGarantiaId === d.id
+
+                        if (isEditing) {
+                          const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
+                          const seguroAtual = inquilino?.seguro || d.seguro || ''
+                          return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 130 }}>
+                              <select
+                                autoFocus
+                                value={gKey}
+                                onChange={e => handleGarantiaChange(d, e.target.value)}
+                                style={{ fontSize: 11, padding: '2px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                              >
+                                {GARANTIA_OPCOES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                              </select>
+                              {gKey === 'seguro' && (
+                                <select
+                                  value={seguroAtual}
+                                  onChange={e => handleSeguroProviderChange(d, e.target.value)}
+                                  style={{ fontSize: 11, padding: '2px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                                >
+                                  <option value="">Seguradora...</option>
+                                  {SEGURO_OPCOES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </select>
+                              )}
+                              <button type="button" className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '1px 6px' }} onClick={() => setEditingGarantiaId(null)}>Fechar</button>
+                            </div>
+                          )
+                        }
+
                         return (
-                          <span style={{fontSize: 11, fontWeight: 600, borderRadius: 10, padding: '2px 8px', background: style.bg, whiteSpace: 'nowrap', color: style.color, border: `1px solid ${style.border}`,
-                            cursor: isSeguro ? 'pointer' : 'default'}} onClick={() => {if (!isSeguro) return
-                            const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
-                            if (!inquilino) return
-                            if (inquilino.seguro === 'credpago') {
-                              window.open(`https://credpago.com/imobiliaria/contratos/relatorio.php?search=${encodeURIComponent(inquilino.nome)}`,'_blank')
-                            } else if (inquilino.seguro === 'credaluga') {
-                              window.open('https://app.credaluga.com.br/dashboard','_blank')
-                            }
-                            }} >
-                          {style.icon} {g}
-                        </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <span
+                              style={{fontSize: 11, fontWeight: 600, borderRadius: 10, padding: '2px 8px', background: style.bg, whiteSpace: 'nowrap', color: style.color, border: `1px solid ${style.border}`, cursor: 'pointer'}}
+                              title="Clique para alterar a garantia"
+                              onClick={() => setEditingGarantiaId(d.id)}
+                            >
+                            {style.icon} {g}
+                          </span>
+                            {gKey === 'seguro' && (
+                              <button
+                                type="button"
+                                title="Abrir portal da seguradora"
+                                onClick={() => abrirGarantia(d)}
+                                style={{ fontSize: 11, lineHeight: 1, padding: '3px 5px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}
+                              >
+                                🔗
+                              </button>
+                            )}
+                          </div>
                         )
                       })()}
                     </td>
