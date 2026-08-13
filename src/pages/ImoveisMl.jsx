@@ -341,9 +341,9 @@ export default function ImoveisMl() {
           <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={() => setYear(y => y + 1)}>{year + 1} ›</button>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-primary"   style={{ width: 'auto' }} onClick={() => navigate('/imoveis/cadastrar')}>➕ Imóvel</button>
-          <button className="btn btn-success"   style={{ width: 'auto' }} onClick={() => navigate('/inquilinos/cadastrar')}>👤 Inquilino</button>
-          <button className="btn btn-secondary" style={{ width: 'auto', background: '#fef9c3', borderColor: '#fde047', color: '#854d0e' }} onClick={() => navigate('/inadimplentes/cadastrar')}>📋 Registrar Conta</button>
+          <button className="btn btn-primary"   style={{ width: 'auto' }} onClick={() => navigate('/imoveis/cadastrar')}> + Imóvel</button>
+          <button className="btn btn-success"   style={{ width: 'auto' }} onClick={() => navigate('/inquilinos/cadastrar')}> + Inquilino</button>
+          {/* <button className="btn btn-secondary" style={{ width: 'auto', background: '#fef9c3', borderColor: '#fde047', color: '#854d0e' }} onClick={() => navigate('/inadimplentes/cadastrar')}>📋 Registrar Conta</button> */}
         </div>
       </div>
  
