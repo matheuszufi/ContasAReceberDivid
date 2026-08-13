@@ -493,6 +493,15 @@ export default function Inquilinos() {
     await update(ref(db, `inquilinos/${inq.id}/contasValores`), { [key]: isNaN(n) ? 0 : n })
   }
 
+  // Marca/desmarca se a conta é variável, direto na planilha.
+  // Ao marcar como variável, limpa o valor fixo, já que passa a ser lançado manualmente todo mês.
+  const handleToggleContaVariavel = async (inq, key) => {
+    const novo = !inq.contasVariavel?.[key]
+    const updates = { [`contasVariavel/${key}`]: novo }
+    if (novo) updates[`contasValores/${key}`] = null
+    await update(ref(db, `inquilinos/${inq.id}`), updates)
+  }
+
   // Marca/desmarca quem paga a conta: "cobrar no boleto" = o inquilino paga (contasPagador = 'inquilino');
   // desmarcado = a imobiliária paga (contasPagador = 'imobiliaria'). Mesmo campo usado no cadastro do inquilino.
   const handleToggleContaPagador = async (inq, key, variavel) => {
@@ -775,7 +784,9 @@ export default function Inquilinos() {
     }
 
     // Colunas das contas (Água, Energia, etc.) — checkbox "Sim/Não" da conta inclusa
-    // + checkbox "Cobrar no boleto" (= contasPagador: 'inquilino' paga / 'imobiliaria' paga) + valor, quando aplicável.
+    // + checkbox "Cobrar no boleto" (= contasPagador: 'inquilino' paga / 'imobiliaria' paga)
+    // + checkbox "Variável" (alterna contasVariavel, limpando o valor fixo quando marcado)
+    // + valor, quando a conta não é variável.
     CONTAS_OPCOES.forEach(opt => {
       const incluida = (inq.contasInclusas || []).includes(opt.value)
       const variavel = !!inq.contasVariavel?.[opt.value]
@@ -808,9 +819,20 @@ export default function Inquilinos() {
             </label>
           )}
 
-          {incluida && variavel && (
-            <span className="mini-tag mini-tag-variavel">variável</span>
+          {incluida && (
+            <label
+              className={`conta-cell-variavel ${variavel ? 'checked' : ''}`}
+              title="Marcar como conta variável (valor lançado manualmente todo mês)"
+            >
+              <input
+                type="checkbox"
+                checked={variavel}
+                onChange={() => handleToggleContaVariavel(inq, opt.value)}
+              />
+              <span>Variável</span>
+            </label>
           )}
+
           {incluida && !variavel && (
             <EditableValue
               value={valor ?? ''}
