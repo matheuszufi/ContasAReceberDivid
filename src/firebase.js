@@ -13,7 +13,19 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getDatabase(app);
+let app = null;
+let auth = null;
+let db = null;
+let firebaseError = null;
+
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getDatabase(app);
+} catch (error) {
+  firebaseError = error;
+  console.error('Firebase initialization failed:', error);
+}
+
+export { firebaseError, auth, db };
 

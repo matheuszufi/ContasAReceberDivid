@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth } from './firebase';
+import { auth, firebaseError } from './firebase';
 import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
@@ -14,6 +14,12 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth) {
+      setUser(null);
+      setLoading(false);
+      return undefined;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -22,14 +28,25 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = (email, password) => {
+    if (!auth) {
+      return Promise.reject(firebaseError || new Error('Firebase indisponível.'));
+    }
     return signInWithEmailAndPassword(auth, email, password);
   };
 
   const register = (email, password) => {
+    if (!auth) {
+      return Promise.reject(firebaseError || new Error('Firebase indisponível.'));
+    }
     return createUserWithEmailAndPassword(auth, email, password);
   };
 
-  const signOut = () => fbSignOut(auth);
+  const signOut = () => {
+    if (!auth) {
+      return Promise.resolve();
+    }
+    return fbSignOut(auth);
+  };
 
   return (
     <AuthContext.Provider value={{ user, loading, login, register, signOut }}>

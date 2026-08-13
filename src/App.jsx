@@ -18,6 +18,7 @@ import Inadimplentes from './pages/Inadimplentes'
 import CadastrarInadimplencia from './pages/CadastrarInadimplencia'
 import TimelineInadimplencia from './pages/TimelineInadimplencia'
 import { useAuth } from './auth'
+import { firebaseError } from './firebase'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -25,7 +26,43 @@ function PrivateRoute({ children }) {
   return user ? children : <Navigate to="/" replace />
 }
 
+function FirebaseErrorScreen() {
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: '#f8fafc',
+      color: '#0f172a',
+      fontFamily: 'sans-serif',
+      padding: '24px'
+    }}>
+      <div style={{ maxWidth: '640px', textAlign: 'center' }}>
+        <h2 style={{ marginBottom: '12px' }}>Não foi possível conectar ao Firebase</h2>
+        <p style={{ margin: '0 0 12px', lineHeight: 1.6 }}>
+          Verifique a configuração do projeto Firebase e atualize as chaves do app antes de publicar novamente.
+        </p>
+        <pre style={{
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          background: '#e2e8f0',
+          padding: '12px',
+          borderRadius: '8px',
+          textAlign: 'left'
+        }}>
+          {firebaseError?.message || 'Erro desconhecido de configuração do Firebase.'}
+        </pre>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
+  if (firebaseError) {
+    return <FirebaseErrorScreen />
+  }
+
   return (
     <Routes>
       <Route path="/" element={<Login />} />
