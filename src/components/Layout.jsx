@@ -12,8 +12,8 @@ const navSections = [
   {
     label: 'Cadastros',
     items: [
-      { path: '/imoveis',       icon: '', label: 'Imóveis' },
       { path: '/proprietarios', icon: '', label: 'Proprietários' },
+      { path: '/imoveis',       icon: '', label: 'Imóveis' },
       { path: '/inquilinos',    icon: '', label: 'Inquilinos' },
     ]
   },
