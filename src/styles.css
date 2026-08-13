@@ -746,19 +746,18 @@
   /* ===================== Month Group Cards ===================== */
   .month-group-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 8px;
   }
   .month-card {
     background: var(--card);
     border: 1.5px solid var(--border);
-    border-radius: 14px;
-    padding: 12px;
+    border-radius: 12px;
+    padding: 8px 10px;
     cursor: pointer;
     text-align: left;
     transition: all 0.18s ease;
     width: 100%;
-    /* min-height: 96px; */
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -799,19 +798,19 @@
     color: var(--accent);
   }
   .mc-month {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 12px;
-    padding-bottom: 10px;
+    margin-bottom: 6px;
+    padding-bottom: 5px;
     border-bottom: 1px solid var(--border);
   }
   .month-card.active .mc-month { color: var(--accent); }
   .mc-stats {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    margin-bottom: 10px;
+    gap: 3px;
+    margin-bottom: 5px;
   }
   .year-controls {
     display: flex;
@@ -1031,26 +1030,35 @@
   .mc-stat {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
   }
-  .mc-stat-icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+  .mc-stat-icon { font-size: 11px; line-height: 1; }
   .mc-stat-value {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
     color: var(--text-primary);
     line-height: 1.2;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .mc-stat-label {
+    display: flex;
+    align-items: center;
+    gap: 3px;
     font-size: 10px;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.3px;
     font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .mc-total {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-secondary);
-    padding-top: 8px;
+    padding-top: 5px;
     border-top: 1px solid var(--border);
     text-align: right;
   }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ref, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
@@ -127,6 +127,12 @@ function monthStats(list) {
   }
 }
 
+// Por padrão o filtro de status mostra tudo, exceto os débitos já pagos
+const DEFAULT_STATUS_FILTRO = STATUS_OPCOES.filter(o => o.value !== 'pago').map(o => o.value)
+
+const isDefaultStatusFiltro = (arr) =>
+  arr.length === DEFAULT_STATUS_FILTRO.length && DEFAULT_STATUS_FILTRO.every(v => arr.includes(v))
+
 export default function Inadimplentes() {
   const navigate = useNavigate()
   const [debitos, setDebitos] = useState([])
@@ -137,23 +143,40 @@ export default function Inadimplentes() {
   const [mesSelecionado, setMesSelecionado] = useState(null)
   const [showRankingModal, setShowRankingModal] = useState(false)
   const [editingGarantiaId, setEditingGarantiaId] = useState(null)
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false)
+  const statusFilterRef = useRef(null)
   const [colFilters, setColFilters] = useState({
     inquilino: '',
     imovel: '',
     garantia: '',
     seguroAcionado: '',
     mesReferencia: '',
-    status: 'nao_pago',
+    status: DEFAULT_STATUS_FILTRO,
   })
 
   const setColFilter = (field, value) =>
     setColFilters(prev => ({ ...prev, [field]: value }))
 
+  const toggleStatusFiltro = (value) =>
+    setColFilters(prev => ({
+      ...prev,
+      status: prev.status.includes(value) ? prev.status.filter(v => v !== value) : [...prev.status, value],
+    }))
+
   const limparColFilters = () =>
     setColFilters({
       inquilino: '', imovel: '', garantia: '', seguroAcionado: '',
-      mesReferencia: '', status: 'nao_pago',
+      mesReferencia: '', status: DEFAULT_STATUS_FILTRO,
     })
+
+  useEffect(() => {
+    if (!statusFilterOpen) return
+    const handler = (e) => {
+      if (statusFilterRef.current && !statusFilterRef.current.contains(e.target)) setStatusFilterOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [statusFilterOpen])
 
   useEffect(() => {
     const r1 = ref(db, 'inadimplencias')
@@ -314,11 +337,7 @@ export default function Inadimplentes() {
     .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
     .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
     .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
-    .filter(d => {
-      if (!colFilters.status) return true
-      if (colFilters.status === 'nao_pago') return d.status !== 'pago'
-      return d.status === colFilters.status
-    })
+    .filter(d => colFilters.status.includes(STATUS_OPCOES.find(o => o.value === d.status)?.value || 'selecione'))
 
   return (
     <Layout title="⚠️ Inadimplentes" subtitle="Controle de clientes com débitos pendentes">
@@ -416,25 +435,16 @@ export default function Inadimplentes() {
                     <div className="mc-month">{formatMonthLabel(ym)}</div>
                     <div className="mc-stats">
                       <div className="mc-stat">
-                        <span className="mc-stat-icon">👤</span>
-                        <div>
-                          <div className="mc-stat-value">{s.totalInadimplentes}</div>
-                          <div className="mc-stat-label">Inadimplentes</div>
-                        </div>
+                        <span className="mc-stat-label"><span className="mc-stat-icon">👤</span> Inadimplentes</span>
+                        <span className="mc-stat-value">{s.totalInadimplentes}</span>
                       </div>
                       <div className="mc-stat">
-                        <span className="mc-stat-icon">💸</span>
-                        <div>
-                          <div className="mc-stat-value" style={{ fontSize: '12px' }}>{fmtMoney(s.valorAberto)}</div>
-                          <div className="mc-stat-label">Em Aberto</div>
-                        </div>
+                        <span className="mc-stat-label"><span className="mc-stat-icon">💸</span> Em Aberto</span>
+                        <span className="mc-stat-value">{fmtMoney(s.valorAberto)}</span>
                       </div>
                       <div className="mc-stat">
-                        <span className="mc-stat-icon">✅</span>
-                        <div>
-                          <div className="mc-stat-value" style={{ fontSize: '12px' }}>{fmtMoney(s.valorRecuperado)}</div>
-                          <div className="mc-stat-label">Recuperado</div>
-                        </div>
+                        <span className="mc-stat-label"><span className="mc-stat-icon">✅</span> Recuperado</span>
+                        <span className="mc-stat-value">{fmtMoney(s.valorRecuperado)}</span>
                       </div>
                     </div>
                     <div className="mc-total">{s.totalDebitos} débito{s.totalDebitos !== 1 ? 's' : ''}</div>
@@ -454,7 +464,7 @@ export default function Inadimplentes() {
               ? `Débitos — ${formatMonthLabel(mesSelecionado)} (${filtered.length})`
               : `Todos os Débitos (${filtered.length})`}
           </h3>
-          {Object.values(colFilters).some(v => v) && (
+          {(colFilters.inquilino || colFilters.imovel || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || !isDefaultStatusFiltro(colFilters.status)) && (
             <button className="btn btn-sm btn-secondary" onClick={limparColFilters}>
               Limpar filtros
             </button>
@@ -535,18 +545,36 @@ export default function Inadimplentes() {
                     </select>
                   </th>
                   <th></th>
-                  <th>
-                    <select
-                      value={colFilters.status}
-                      onChange={e => setColFilter('status', e.target.value)}
-                      style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                  <th ref={statusFilterRef} style={{ position: 'relative' }}>
+                    <button
+                      type="button"
+                      onClick={() => setStatusFilterOpen(o => !o)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', textAlign: 'left', cursor: 'pointer' }}
                     >
-                      <option value="">Todos</option>
-                      <option value="nao_pago">Todos menos Pago</option>
-                      {STATUS_OPCOES.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
+                      {colFilters.status.length === 0
+                        ? 'Nenhum'
+                        : colFilters.status.length === STATUS_OPCOES.length
+                        ? 'Todos'
+                        : `${colFilters.status.length} selecionado(s)`} ▾
+                    </button>
+                    {statusFilterOpen && (
+                      <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 20, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', padding: 8, minWidth: 190, marginTop: 4 }}>
+                        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                          <button type="button" className="btn btn-sm" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColFilter('status', STATUS_OPCOES.map(o => o.value))}>Todos</button>
+                          <button type="button" className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColFilter('status', [])}>Nenhum</button>
+                        </div>
+                        {STATUS_OPCOES.map(o => (
+                          <label key={o.value} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '3px 2px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            <input
+                              type="checkbox"
+                              checked={colFilters.status.includes(o.value)}
+                              onChange={() => toggleStatusFiltro(o.value)}
+                            />
+                            {o.label}
+                          </label>
+                        ))}
+                      </div>
+                    )}
                   </th>
                   <th></th>
                   <th></th>
