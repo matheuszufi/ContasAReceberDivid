@@ -6,30 +6,30 @@ const navSections = [
   {
     label: 'Principal',
     items: [
-      { path: '/dashboard', icon: '📊', label: 'Dashboard' },
+      { path: '/dashboard', icon: '', label: 'Dashboard' },
     ]
   },
   {
     label: 'Cadastros',
     items: [
-      { path: '/imoveis',       icon: '🏠', label: 'Imóveis' },
-      { path: '/proprietarios', icon: '👥', label: 'Proprietários' },
-      { path: '/inquilinos',    icon: '👤', label: 'Inquilinos' },
+      { path: '/imoveis',       icon: '', label: 'Imóveis' },
+      { path: '/proprietarios', icon: '', label: 'Proprietários' },
+      { path: '/inquilinos',    icon: '', label: 'Inquilinos' },
     ]
   },
   {
     label: 'Controle',
     items: [
-      { path: '/inadimplentes', icon: '⚠️', label: 'Inadimplentes' },
+      { path: '/inadimplentes', icon: '', label: 'Inadimplentes' },
     ]
   },
   {
     label: 'Categorias',
     items: [
-      { path: '/imoveis-todos', icon: '🗂️', label: 'Todos Imóveis' },
-      { path: '/imoveis-me', icon: '🏠', label: 'Imóveis ME' },
-      { path: '/imoveis-ma', icon: '🏢', label: 'Imóveis MA' },
-      { path: '/imoveis-ml', icon: '🏗️', label: 'Imóveis ML' },
+      { path: '/imoveis-todos', icon: '', label: 'Todos Imóveis' },
+      { path: '/imoveis-me', icon: '', label: 'Imóveis ME' },
+      { path: '/imoveis-ma', icon: '', label: 'Imóveis MA' },
+      { path: '/imoveis-ml', icon: '', label: 'Imóveis ML' },
     ]
   }
 ]
