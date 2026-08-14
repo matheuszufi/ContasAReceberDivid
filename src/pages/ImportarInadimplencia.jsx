@@ -100,9 +100,12 @@ const formatMonthLabel = (ym) => {
     .replace(/^./, c => c.toUpperCase())
 }
 
+const MODELOS_IMOVEL = ['MA', 'ME', 'ML']
+
 export default function ImportarInadimplencia() {
   const navigate = useNavigate()
   const [inquilinos, setInquilinos] = useState([])
+  const [imoveis, setImoveis] = useState([])
   const [fileName, setFileName] = useState('')
   const [headers, setHeaders] = useState([])
   const [allRows, setAllRows] = useState([])
@@ -114,10 +117,28 @@ export default function ImportarInadimplencia() {
   const [importing, setImporting] = useState(false)
   const [resultado, setResultado] = useState(null)
 
+  // Modal de cadastro rápido de inquilino (usado quando a planilha traz um nome sem correspondência no sistema)
+  const [modalRow, setModalRow] = useState(null)
+  const [novoNome, setNovoNome] = useState('')
+  const [imovelModo, setImovelModo] = useState('existente')
+  const [imovelExistenteId, setImovelExistenteId] = useState('')
+  const [buscaImovelModal, setBuscaImovelModal] = useState('')
+  const [novoImovelCodigo, setNovoImovelCodigo] = useState('')
+  const [novoImovelModelo, setNovoImovelModelo] = useState('')
+  const [salvandoInquilino, setSalvandoInquilino] = useState(false)
+  const [modalError, setModalError] = useState(null)
+
   useEffect(() => {
     return onValue(ref(db, 'inquilinos'), snap => {
       const data = snap.val()
       setInquilinos(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+  }, [])
+
+  useEffect(() => {
+    return onValue(ref(db, 'imoveis'), snap => {
+      const data = snap.val()
+      setImoveis(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
     })
   }, [])
 
@@ -198,6 +219,72 @@ export default function ImportarInadimplencia() {
 
   const handleOverride = (index, inquilinoId) => {
     setOverrides(prev => ({ ...prev, [index]: inquilinoId }))
+  }
+
+  const imoveisFiltradosModal = imoveis.filter(im => {
+    const t = `${im.codigo || ''} ${im.endereco?.rua || ''} ${im.endereco?.numero || ''}`.toLowerCase()
+    return t.includes(buscaImovelModal.toLowerCase())
+  })
+
+  const abrirModalNovoInquilino = (p) => {
+    setModalRow(p.index)
+    setNovoNome(p.nomeInformado || '')
+    setImovelModo('existente')
+    setImovelExistenteId('')
+    setBuscaImovelModal('')
+    setNovoImovelCodigo('')
+    setNovoImovelModelo('')
+    setModalError(null)
+  }
+
+  const fecharModalNovoInquilino = () => {
+    if (salvandoInquilino) return
+    setModalRow(null)
+  }
+
+  const handleSalvarNovoInquilino = async () => {
+    if (!novoNome.trim()) {
+      setModalError('Informe o nome do inquilino.')
+      return
+    }
+    if (imovelModo === 'novo' && (!novoImovelCodigo.trim() || !novoImovelModelo)) {
+      setModalError('Informe o nome e o modelo do imóvel.')
+      return
+    }
+    setSalvandoInquilino(true)
+    setModalError(null)
+    try {
+      let imovelId = ''
+      let codigoImovel = ''
+      if (imovelModo === 'existente' && imovelExistenteId) {
+        const imovel = imoveis.find(im => im.id === imovelExistenteId)
+        imovelId = imovelExistenteId
+        codigoImovel = imovel?.codigo || ''
+      } else if (imovelModo === 'novo') {
+        const novoImovelRef = await push(ref(db, 'imoveis'), {
+          codigo: novoImovelCodigo.trim(),
+          modelo: novoImovelModelo,
+          status: 'Ocupado',
+          criadoEm: new Date().toISOString(),
+        })
+        imovelId = novoImovelRef.key
+        codigoImovel = novoImovelCodigo.trim()
+      }
+      const novoInquilinoRef = await push(ref(db, 'inquilinos'), {
+        nome: novoNome.trim(),
+        status: 'Ativo',
+        imovelId,
+        codigoImovel,
+        criadoEm: new Date().toISOString(),
+      })
+      handleOverride(modalRow, novoInquilinoRef.key)
+      setModalRow(null)
+    } catch (err) {
+      console.error(err)
+      setModalError('Erro ao cadastrar. Tente novamente.')
+    } finally {
+      setSalvandoInquilino(false)
+    }
   }
 
   const handleImportar = async () => {
@@ -383,6 +470,7 @@ export default function ImportarInadimplencia() {
                   <table>
                     <thead>
                       <tr>
+                        <th></th>
                         <th>Nome na Planilha</th>
                         <th>Inquilino (sistema)</th>
                         <th>Valor</th>
@@ -394,6 +482,19 @@ export default function ImportarInadimplencia() {
                     <tbody>
                       {preview.map(p => (
                         <tr key={p.index}>
+                          <td>
+                            {!p.inquilinoId && (
+                              <button
+                                type="button"
+                                className="btn btn-secondary"
+                                style={{ width: 'auto', padding: '3px 8px', fontSize: 12 }}
+                                title="Cadastrar novo inquilino"
+                                onClick={() => abrirModalNovoInquilino(p)}
+                              >
+                                ➕ Novo
+                              </button>
+                            )}
+                          </td>
                           <td>{p.nomeInformado || '—'}</td>
                           <td>
                             <select
@@ -445,6 +546,89 @@ export default function ImportarInadimplencia() {
             </p>
           )}
         </>
+      )}
+
+      {/* ── Modal: cadastro rápido de inquilino ── */}
+      {modalRow !== null && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={fecharModalNovoInquilino}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 480, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>➕ Cadastrar Inquilino</h3>
+              <button className="btn btn-secondary" style={{ width: 'auto', padding: '4px 10px' }} onClick={fecharModalNovoInquilino}>✕</button>
+            </div>
+
+            {modalError && <div className="error-msg">{modalError}</div>}
+
+            <div className="form-group">
+              <label>Nome do Inquilino *</label>
+              <input value={novoNome} onChange={e => setNovoNome(e.target.value)} placeholder="Nome completo" />
+            </div>
+
+            <div className="form-group" style={{ marginTop: 12 }}>
+              <label>Imóvel</label>
+              <div className="radio-group">
+                <label className="radio-item">
+                  <input type="radio" name="imovelModo" value="existente" checked={imovelModo === 'existente'} onChange={() => setImovelModo('existente')} />
+                  <span>Selecionar imóvel existente</span>
+                </label>
+                <label className="radio-item">
+                  <input type="radio" name="imovelModo" value="novo" checked={imovelModo === 'novo'} onChange={() => setImovelModo('novo')} />
+                  <span>Cadastrar novo imóvel</span>
+                </label>
+                <label className="radio-item">
+                  <input type="radio" name="imovelModo" value="nenhum" checked={imovelModo === 'nenhum'} onChange={() => setImovelModo('nenhum')} />
+                  <span>Sem imóvel por enquanto</span>
+                </label>
+              </div>
+            </div>
+
+            {imovelModo === 'existente' && (
+              <div className="form-group" style={{ marginTop: 12 }}>
+                <label>Buscar imóvel</label>
+                <input value={buscaImovelModal} onChange={e => setBuscaImovelModal(e.target.value)} placeholder="Filtrar por código..." style={{ marginBottom: 8 }} />
+                <select value={imovelExistenteId} onChange={e => setImovelExistenteId(e.target.value)}>
+                  <option value="">— Selecione —</option>
+                  {imoveisFiltradosModal.map(im => (
+                    <option key={im.id} value={im.id}>{im.codigo}{im.modelo ? ` — ${im.modelo}` : ''}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {imovelModo === 'novo' && (
+              <>
+                <div className="form-group" style={{ marginTop: 12 }}>
+                  <label>Nome do Imóvel *</label>
+                  <input value={novoImovelCodigo} onChange={e => setNovoImovelCodigo(e.target.value)} placeholder="Ex: IMO-001" />
+                </div>
+                <div className="form-group" style={{ marginTop: 12 }}>
+                  <label>Modelo *</label>
+                  <div className="radio-group">
+                    {MODELOS_IMOVEL.map(m => (
+                      <label key={m} className="radio-item">
+                        <input type="radio" name="novoImovelModelo" value={m} checked={novoImovelModelo === m} onChange={e => setNovoImovelModelo(e.target.value)} />
+                        <span><strong>{m}</strong></span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 20 }}>
+              <button className="btn btn-primary" style={{ width: 'auto' }} disabled={salvandoInquilino} onClick={handleSalvarNovoInquilino}>
+                {salvandoInquilino ? 'Salvando...' : '💾 Salvar'}
+              </button>
+              <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={fecharModalNovoInquilino}>Cancelar</button>
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   )
