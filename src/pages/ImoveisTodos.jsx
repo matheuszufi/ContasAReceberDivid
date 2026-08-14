@@ -67,6 +67,10 @@ const getMesRange = (inquilino) => {
   return { mesInicio, mesFim }
 }
  
+// Verifica se um mês (YYYY-MM) está dentro do período de cobrança configurado para o seguro (fiança ou incêndio)
+const isMesDentroRange = (mesKey, mesInicio, mesFim) =>
+  (!mesInicio || mesKey >= mesInicio) && (!mesFim || mesKey <= mesFim)
+ 
 const thL = { padding: '10px 12px', textAlign: 'left',   fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0', background: '#f8fafc' }
 const thC = { padding: '10px 6px',  textAlign: 'center', fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0', minWidth: 88, background: '#f8fafc' }
 const tdL = { padding: '10px 12px', textAlign: 'left',   verticalAlign: 'middle', borderBottom: '1px solid #f1f5f9' }
@@ -180,15 +184,17 @@ export default function ImoveisTodos() {
     const vv = valoresVariaveis[inquilino.id]?.[cellKey] || {}
     const { extras: cellExtras, ...cellVarVals } = vv
     const aluguel      = '_aluguel' in cellVarVals ? Number(cellVarVals._aluguel) || 0 : Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
-    const valorSeguro  = '_seguro'  in cellVarVals ? Number(cellVarVals._seguro)  || 0 : (inquilino.garantia === 'seguro' ? Number(inquilino.valorSeguro) || 0 : 0)
+    const valorSeguro  = '_seguro'  in cellVarVals ? Number(cellVarVals._seguro)  || 0 : ((inquilino.garantia === 'seguro' && isMesDentroRange(cellKey, inquilino.seguroFiancaMesInicio, inquilino.seguroFiancaMesFim)) ? Number(inquilino.valorSeguro) || 0 : 0)
     const valorGaragem = '_garagem' in cellVarVals ? Number(cellVarVals._garagem) || 0 : (Number(inquilino.vagas) || 0) * (Number(inquilino.valorVaga) || 0)
+    const valorGarantia = (inquilino.garantia === 'caucao' || inquilino.garantia === 'adiantamento') && cellKey === mesInicio ? Number(inquilino.valorGarantia) || 0 : 0
     const despesas = (inquilino.contasInclusas || []).reduce((s, k) => {
       if (isContaPagaImobiliaria(inquilino, k)) return s
+      if (k === 'seguro_incendio' && !isMesDentroRange(cellKey, inquilino.seguroIncendioMesInicio, inquilino.seguroIncendioMesFim)) return s
       if (k in cellVarVals) return s + (Number(cellVarVals[k]) || 0)
       return s + (Number(inquilino.contasValores?.[k]) || 0)
     }, 0)
     const extrasTotal = cellExtras ? Object.values(cellExtras).reduce((s, e) => s + (Number(e.valor) || 0), 0) : 0
-    return aluguel + despesas + valorSeguro + valorGaragem + extrasTotal
+    return aluguel + despesas + valorSeguro + valorGaragem + valorGarantia + extrasTotal
   }
  
   const monthTotals = MESES.map((_, mi) =>
@@ -539,17 +545,19 @@ export default function ImoveisTodos() {
                         const vv          = valoresVariaveis[inquilino.id]?.[cellKey] || {}
                         const { extras: cellExtras, ...cellVarVals } = vv
                         const aluguel      = '_aluguel' in cellVarVals ? Number(cellVarVals._aluguel) || 0 : Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
-                        const valorSeguro  = '_seguro'  in cellVarVals ? Number(cellVarVals._seguro)  || 0 : (inquilino.garantia === 'seguro' ? Number(inquilino.valorSeguro) || 0 : 0)
+                        const valorSeguro  = '_seguro'  in cellVarVals ? Number(cellVarVals._seguro)  || 0 : ((inquilino.garantia === 'seguro' && isMesDentroRange(cellKey, inquilino.seguroFiancaMesInicio, inquilino.seguroFiancaMesFim)) ? Number(inquilino.valorSeguro) || 0 : 0)
                         const valorGaragem = '_garagem' in cellVarVals ? Number(cellVarVals._garagem) || 0 : (Number(inquilino.vagas) || 0) * (Number(inquilino.valorVaga) || 0)
+                        const valorGarantia = (inquilino.garantia === 'caucao' || inquilino.garantia === 'adiantamento') && cellKey === mesInicio ? Number(inquilino.valorGarantia) || 0 : 0
                         const despesas    = (inquilino.contasInclusas || []).reduce((s, k) => {
                           if (isContaPagaImobiliaria(inquilino, k)) return s
+                          if (k === 'seguro_incendio' && !isMesDentroRange(cellKey, inquilino.seguroIncendioMesInicio, inquilino.seguroIncendioMesFim)) return s
                           if (k in cellVarVals) return s + (Number(cellVarVals[k]) || 0)
                           return s + (Number(inquilino.contasValores?.[k]) || 0)
                         }, 0)
                         const extrasTotal = cellExtras
                           ? Object.values(cellExtras).reduce((s, e) => s + (Number(e.valor) || 0), 0)
                           : 0
-                        const totalMes    = aluguel + despesas + valorSeguro + valorGaragem + extrasTotal
+                        const totalMes    = aluguel + despesas + valorSeguro + valorGaragem + valorGarantia + extrasTotal
  
                         let isReajuste = false
                         if (mesInicio) {
@@ -626,7 +634,7 @@ export default function ImoveisTodos() {
                                   {fmtBRL(aluguel)}
                                 </span>
                               </div>
-                              {(despesas > 0 || extrasTotal > 0 || valorSeguro > 0) && (
+                              {(despesas > 0 || extrasTotal > 0 || valorSeguro > 0 || valorGaragem > 0 || valorGarantia > 0) && (
                                 <div style={{ fontSize: 10, color: '#334155', fontWeight: 700, whiteSpace: 'nowrap' }}>
                                   = {fmtBRL(totalMes)}
                                 </div>
@@ -725,7 +733,9 @@ export default function ImoveisTodos() {
             </div>
  
             {(() => {
-              const contasInclusas = (modal.inquilino.contasInclusas || []).filter(k => !isContaPagaImobiliaria(modal.inquilino, k))
+              const contasInclusas = (modal.inquilino.contasInclusas || [])
+                .filter(k => !isContaPagaImobiliaria(modal.inquilino, k))
+                .filter(k => k !== 'seguro_incendio' || isMesDentroRange(modal.key, modal.inquilino.seguroIncendioMesInicio, modal.inquilino.seguroIncendioMesFim))
               const allContas = contasInclusas.map(k => ({
                 key:        k,
                 label:      CONTAS_OPCOES.find(c => c.value === k)?.label || k,
@@ -734,15 +744,18 @@ export default function ImoveisTodos() {
                 origem:     modal.inquilino.contasOrigem?.[k] || '',
               }))
               const aluguelBase    = Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
-              const seguroBase     = modal.inquilino.garantia === 'seguro' ? Number(modal.inquilino.valorSeguro) || 0 : 0
+              const seguroBase     = (modal.inquilino.garantia === 'seguro' && isMesDentroRange(modal.key, modal.inquilino.seguroFiancaMesInicio, modal.inquilino.seguroFiancaMesFim)) ? Number(modal.inquilino.valorSeguro) || 0 : 0
               const garagemBase    = (Number(modal.inquilino.vagas) || 0) * (Number(modal.inquilino.valorVaga) || 0)
+              const { mesInicio: modalMesInicio } = getMesRange(modal.inquilino)
+              const garantiaBase   = (modal.inquilino.garantia === 'caucao' || modal.inquilino.garantia === 'adiantamento') && modal.key === modalMesInicio ? Number(modal.inquilino.valorGarantia) || 0 : 0
               const aluguel        = '_aluguel' in varValues ? Number(varValues._aluguel)  || 0 : aluguelBase
               const valorSeguro    = '_seguro'   in varValues ? Number(varValues._seguro)   || 0 : seguroBase
               const valorGaragem   = '_garagem'  in varValues ? Number(varValues._garagem)  || 0 : garagemBase
+              const valorGarantia  = '_garantia' in varValues ? Number(varValues._garantia) || 0 : garantiaBase
               const despesas       = allContas.reduce((s, { key, value }) =>
                 s + (key in varValues ? Number(varValues[key]) || 0 : value), 0)
               const extrasTotal    = extraContas.reduce((s, e) => s + (parseFloat(e.valor) || 0), 0)
-              const totalMes       = aluguel + despesas + valorSeguro + valorGaragem + extrasTotal
+              const totalMes       = aluguel + despesas + valorSeguro + valorGaragem + valorGarantia + extrasTotal
               const temVariavel    = allContas.some(c => c.isVariavel)
               const varPreenchido  = allContas.filter(c => c.isVariavel).every(c => Number(varValues[c.key]) > 0)
  
@@ -839,6 +852,9 @@ export default function ImoveisTodos() {
                     )}
                     {garagemBase > 0 && (
                       <EditableRow icon="🚗" label={`Garagem (${modal.inquilino.vagas} vaga${Number(modal.inquilino.vagas) > 1 ? 's' : ''})`} baseVal={garagemBase} vKey="_garagem" />
+                    )}
+                    {garantiaBase > 0 && (
+                      <EditableRow icon="🔒" label={modal.inquilino.garantia === 'caucao' ? 'Caução' : 'Adiantamento'} baseVal={garantiaBase} vKey="_garantia" />
                     )}
                     {extraContas.map((extra, idx) => (
                       <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -1056,15 +1072,18 @@ export default function ImoveisTodos() {
                     const _aluguel     = '_aluguel' in varValues ? Number(varValues._aluguel) || 0 : Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
                     const _allContas   = (modal.inquilino.contasInclusas || [])
                       .filter(k => !isContaPagaImobiliaria(modal.inquilino, k))
+                      .filter(k => k !== 'seguro_incendio' || isMesDentroRange(modal.key, modal.inquilino.seguroIncendioMesInicio, modal.inquilino.seguroIncendioMesFim))
                       .map(k => ({
                         key: k, value: Number(modal.inquilino.contasValores?.[k]) || 0,
                       }))
                     const _despesas    = _allContas.reduce((s, { key, value }) =>
                       s + (key in varValues ? Number(varValues[key]) || 0 : value), 0)
-                    const _seguro      = '_seguro'  in varValues ? Number(varValues._seguro)  || 0 : (modal.inquilino.garantia === 'seguro' ? Number(modal.inquilino.valorSeguro) || 0 : 0)
+                    const _seguro      = '_seguro'  in varValues ? Number(varValues._seguro)  || 0 : ((modal.inquilino.garantia === 'seguro' && isMesDentroRange(modal.key, modal.inquilino.seguroFiancaMesInicio, modal.inquilino.seguroFiancaMesFim)) ? Number(modal.inquilino.valorSeguro) || 0 : 0)
                     const _garagem     = '_garagem' in varValues ? Number(varValues._garagem) || 0 : (Number(modal.inquilino.vagas) || 0) * (Number(modal.inquilino.valorVaga) || 0)
+                    const { mesInicio: _modalMesInicio } = getMesRange(modal.inquilino)
+                    const _garantia    = '_garantia' in varValues ? Number(varValues._garantia) || 0 : ((modal.inquilino.garantia === 'caucao' || modal.inquilino.garantia === 'adiantamento') && modal.key === _modalMesInicio ? Number(modal.inquilino.valorGarantia) || 0 : 0)
                     const _extrasTotal = extraContas.reduce((s, e) => s + (parseFloat(e.valor) || 0), 0)
-                    const _totalMes    = _aluguel + _despesas + _seguro + _garagem + _extrasTotal
+                    const _totalMes    = _aluguel + _despesas + _seguro + _garagem + _garantia + _extrasTotal
                     setRegForm({
                       tipoDebito:     'Aluguel',
                       dataVencimento: '',

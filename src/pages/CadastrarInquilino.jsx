@@ -72,6 +72,11 @@ const initialForm = {
   garantia: '',
   seguro: '',
   valorSeguro: '',
+  valorGarantia: '',
+  seguroFiancaMesInicio: '',
+  seguroFiancaMesFim: '',
+  seguroIncendioMesInicio: '',
+  seguroIncendioMesFim: '',
   observacao: '',
 }
 
@@ -133,8 +138,14 @@ export default function CadastrarInquilino() {
       setForm(prev => ({ ...prev, cpf: formatCPF(value) }))
     } else if (name === 'telefone') {
       setForm(prev => ({ ...prev, telefone: formatPhone(value) }))
-    } else if (name === 'garantia' && value !== 'seguro') {
-      setForm(prev => ({ ...prev, garantia: value, seguro: '', valorSeguro: '' }))
+    } else if (name === 'garantia') {
+      setForm(prev => ({
+        ...prev,
+        garantia: value,
+        seguro: value === 'seguro' ? prev.seguro : '',
+        valorSeguro: value === 'seguro' ? prev.valorSeguro : '',
+        valorGarantia: (value === 'caucao' || value === 'adiantamento') ? prev.valorGarantia : '',
+      }))
     } else {
       setForm(prev => ({ ...prev, [name]: value }))
     }
@@ -210,6 +221,7 @@ export default function CadastrarInquilino() {
       vagas: parseInt(form.vagas) || 0,
       valorVaga: parseFloat(form.valorVaga) || 0,
       valorSeguro: parseFloat(form.valorSeguro) || 0,
+      valorGarantia: parseFloat(form.valorGarantia) || 0,
     }
 
 
@@ -519,6 +531,29 @@ required
                 <span>Cobrar no boleto do inquilino</span>
               </label>
 
+              {opt.value === 'seguro_incendio' && (
+                <div className="form-grid-2">
+                  <div className="form-group">
+                    <label>Primeiro mês de cobrança</label>
+                    <input
+                      type="month"
+                      name="seguroIncendioMesInicio"
+                      value={form.seguroIncendioMesInicio}
+                      onChange={handleChange}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Último mês de cobrança</label>
+                    <input
+                      type="month"
+                      name="seguroIncendioMesFim"
+                      value={form.seguroIncendioMesFim}
+                      onChange={handleChange}
+                    />
+                  </div>
+                </div>
+              )}
+
               {!isVariavel && (
                 <div className="conta-card-valor">
                   <input
@@ -601,6 +636,35 @@ required
                     placeholder="0,00"
                   />
                 </div>
+                <div className="form-group">
+                  <label>Primeiro mês de cobrança</label>
+                  <input
+                    type="month"
+                    name="seguroFiancaMesInicio"
+                    value={form.seguroFiancaMesInicio}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Último mês de cobrança</label>
+                  <input
+                    type="month"
+                    name="seguroFiancaMesFim"
+                    value={form.seguroFiancaMesFim}
+                    onChange={handleChange}
+                  />
+                </div>
+              </div>
+            )}
+
+            {(form.garantia === 'caucao' || form.garantia === 'adiantamento') && (
+              <div className="form-group" style={{ marginBottom: '20px' }}>
+                <label>{`Valor d${form.garantia === 'caucao' ? 'a Caução' : 'o Adiantamento'} (R$)`}</label>
+                <input
+                  name="valorGarantia" type="number" step="0.01" min="0"
+                  value={form.valorGarantia} onChange={handleChange}
+                  placeholder="0,00"
+                />
               </div>
             )}
 

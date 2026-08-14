@@ -21,6 +21,8 @@ const navSections = [
     label: 'Controle',
     items: [
       { path: '/inadimplentes', icon: '', label: 'Inadimplentes' },
+      { path: '/seguro-fianca', icon: '', label: 'Seguro Fiança' },
+      { path: '/seguro-incendio', icon: '', label: 'Seguro Incêndio' },
     ]
   },
   {

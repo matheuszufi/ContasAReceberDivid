@@ -387,8 +387,8 @@ export default function Inadimplentes() {
           </div>
         </div>
 
-        <div className="card" style={{ flex: '1 1 260px', maxWidth: 320, display: 'flex', flexDirection: 'column' }}>
-          <div className="card-header">
+        <div className="card" style={{ flex: '1 1 260px', maxWidth: 500, display: 'flex', flexDirection: 'row' }}>
+          <div className="card-header" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }} >
             <h3>🔝 Top 5 Inadimplentes</h3>
             {rankingInadimplentes.length > 5 && (
               <button className="btn btn-sm btn-secondary" style={{ width: 'auto' }} onClick={() => setShowRankingModal(true)}>
