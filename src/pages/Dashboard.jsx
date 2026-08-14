@@ -40,10 +40,12 @@ const buildMonthlyTotals = (items, year) => {
     if (!monthKey?.startsWith(year)) return
     const value = parseFloat(item.valorTotal) || parseFloat(item.valorOriginal) || 0
     if (!map[monthKey]) {
-      map[monthKey] = { inadimplente: 0, recuperado: 0 }
+      map[monthKey] = { inadimplente: 0, recuperado: 0, aprovadoSeguradora: 0 }
     }
     if (item.status === 'pago') {
       map[monthKey].recuperado += value
+    } else if (item.seguroAcionado === 'pagamento_aprovado') {
+      map[monthKey].aprovadoSeguradora += value
     } else {
       map[monthKey].inadimplente += value
     }
@@ -51,14 +53,14 @@ const buildMonthlyTotals = (items, year) => {
   return map
 }
 
-const getPieSegments = (value, recovered) => {
-  const total = Math.max(value, recovered)
-  const recoveredValue = Math.max(0, recovered)
-  const remaining = Math.max(0, total - recoveredValue)
+const getPieSegments = (inadimplente, recuperado, aprovadoSeguradora) => {
+  const total = inadimplente + recuperado + aprovadoSeguradora
+  const recoveredPercent = total > 0 ? Math.round((recuperado / total) * 100) : 0
+  const approvedPercent = total > 0 ? Math.round((aprovadoSeguradora / total) * 100) : 0
   return {
-    recovered: recoveredValue,
-    remaining,
-    percentage: total > 0 ? Math.round((recoveredValue / total) * 100) : 0,
+    recoveredPercent,
+    approvedPercent,
+    percentage: recoveredPercent,
   }
 }
 
@@ -139,15 +141,18 @@ export default function Dashboard() {
 
   const monthCards = useMemo(() => MONTH_FULL_LABELS.map((label, index) => {
     const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
-    const totals = yearMonthTotals[key] || { inadimplente: 0, recuperado: 0 }
-    const total = totals.inadimplente + totals.recuperado
+    const totals = yearMonthTotals[key] || { inadimplente: 0, recuperado: 0, aprovadoSeguradora: 0 }
+    const total = totals.inadimplente + totals.recuperado + totals.aprovadoSeguradora
     const recoveredPercent = total > 0 ? Math.round((totals.recuperado / total) * 100) : 0
+    const approvedPercent = total > 0 ? Math.round((totals.aprovadoSeguradora / total) * 100) : 0
     return {
       key,
       label,
       inadimplente: totals.inadimplente,
       recuperado: totals.recuperado,
+      aprovadoSeguradora: totals.aprovadoSeguradora,
       recoveredPercent,
+      approvedPercent,
       active: periodMode === 'month' && selectedMonth === key,
     }
   }), [selectedYear, selectedMonth, yearMonthTotals, periodMode])
@@ -190,12 +195,13 @@ export default function Dashboard() {
 
   const selectedMonthTotals = useMemo(() => {
     return periodMonthKeys.reduce((acc, key) => {
-      const totals = yearMonthTotals[key] || { inadimplente: 0, recuperado: 0 }
+      const totals = yearMonthTotals[key] || { inadimplente: 0, recuperado: 0, aprovadoSeguradora: 0 }
       return {
         inadimplente: acc.inadimplente + totals.inadimplente,
         recuperado: acc.recuperado + totals.recuperado,
+        aprovadoSeguradora: acc.aprovadoSeguradora + (totals.aprovadoSeguradora || 0),
       }
-    }, { inadimplente: 0, recuperado: 0 })
+    }, { inadimplente: 0, recuperado: 0, aprovadoSeguradora: 0 })
   }, [periodMonthKeys, yearMonthTotals])
 
   const topInadimplentes = useMemo(() => {
@@ -220,8 +226,9 @@ export default function Dashboard() {
   }, [periodDebts, inquilinoMap, topFilter])
 
   const pie = getPieSegments(
-    selectedMonthTotals.inadimplente + selectedMonthTotals.recuperado,
-    selectedMonthTotals.recuperado
+    selectedMonthTotals.inadimplente,
+    selectedMonthTotals.recuperado,
+    selectedMonthTotals.aprovadoSeguradora
   )
 
   const handleYearChange = (direction) => {
@@ -297,9 +304,21 @@ export default function Dashboard() {
                     fill="none"
                     stroke="#22c55e"
                     strokeWidth="24"
-                    strokeDasharray={`${(pie.percentage / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.percentage / 100) * DONUT_CIRCUMFERENCE}`}
+                    strokeDasharray={`${(pie.recoveredPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.recoveredPercent / 100) * DONUT_CIRCUMFERENCE}`}
                     strokeDashoffset="0"
                     transform="rotate(90 60 60)"
+                    strokeLinecap="butt"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="40"
+                    fill="none"
+                    stroke="#eab308"
+                    strokeWidth="24"
+                    strokeDasharray={`${(pie.approvedPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.approvedPercent / 100) * DONUT_CIRCUMFERENCE}`}
+                    strokeDashoffset="0"
+                    transform={`rotate(${90 + (pie.recoveredPercent / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
                   />
                 </svg>
@@ -312,6 +331,10 @@ export default function Dashboard() {
                 <div>
                   <span className="dot dot-paid"></span>
                   Recuperado: {fmtMoney(selectedMonthTotals.recuperado)}
+                </div>
+                <div>
+                  <span className="dot dot-approved"></span>
+                  Aprovado seguradora: {fmtMoney(selectedMonthTotals.aprovadoSeguradora)}
                 </div>
                 <div>
                   <span className="dot dot-pending"></span>
@@ -374,15 +397,34 @@ export default function Dashboard() {
                         zIndex: 0,
                       }}
                     />
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        bottom: `${card.recoveredPercent}%`,
+                        height: `${card.approvedPercent}%`,
+                        background: 'rgba(234, 179, 8, 0.3)',
+                        borderTop: card.approvedPercent > 0 ? '2px solid #eab308' : 'none',
+                        transition: 'height 0.3s ease, bottom 0.3s ease',
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                      }}
+                    />
                     <div style={{ position: 'relative', zIndex: 1 }}>
                       <div className="mc-top-row">
                         <span>{MONTH_LABELS[Number(card.key.slice(-2)) - 1]}</span>
-                        <strong>{fmtMoney(card.inadimplente + card.recuperado)}</strong>
+                        <strong>{fmtMoney(card.inadimplente + card.recuperado + card.aprovadoSeguradora)}</strong>
                       </div>
                       <div className="mc-values-row">
                         <div className="mc-value-group">
                           <span className="mc-value-label">Recuperado</span>
                           <strong>{fmtMoney(card.recuperado)}</strong>
+                        </div>
+                        <div className="mc-value-group">
+                          <span className="mc-value-label">Aprovado seguradora</span>
+                          <strong>{fmtMoney(card.aprovadoSeguradora)}</strong>
                         </div>
                         <div className="mc-value-group">
                           <span className="mc-value-label">Em aberto</span>
