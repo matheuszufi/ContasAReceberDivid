@@ -1328,11 +1328,19 @@
     max-width: 100%; /* garante que o scroll horizontal fique preso a esta div */
   }
 
-  /* Cabeçalho sempre visível ao rolar verticalmente */
-  .inquilinos-table thead th {
+  /* Cabeçalho (título + linha de filtros) sempre visível ao rolar verticalmente.
+    O sticky é aplicado ao <thead> inteiro para que as duas linhas fiquem
+    grudadas juntas no topo, sem precisar calcular a altura de cada uma. */
+  .inquilinos-table thead {
     position: sticky;
     top: 0;
     z-index: 3;
+  }
+
+  .inquilinos-table thead tr.filter-row th {
+    padding: 4px 6px;
+    background: #fff;
+    border-bottom: 2px solid var(--border);
   }
 
   /* Coluna "Nome" sempre visível ao rolar horizontalmente */
@@ -1355,7 +1363,40 @@
     z-index: 2; 
   }
 
+  /* A célula de filtro da coluna travada "Nome" acompanha o resto da linha de filtros */
+  .inquilinos-table thead tr.filter-row th.col-sticky-th {
+    background: #fff;
+  }
+
   /* Mantém a cor de hover da linha também na célula travada */
   .inquilinos-table tbody tr:hover .col-sticky-td {
     background: #f8fafc;
+  }
+
+  /* ===================== Filtros por coluna (planilha de Inquilinos) ===================== */
+  .col-filter-input,
+  .col-filter-select {
+    width: 100%;
+    min-width: 90px;
+    font-size: 11px;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: normal;
+    padding: 4px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    background: #fff;
+  }
+  .col-filter-input:focus,
+  .col-filter-select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .col-filter-range {
+    display: flex;
+    gap: 4px;
+  }
+  .col-filter-range .col-filter-input {
+    min-width: 0;
   }

@@ -74,6 +74,54 @@ const COLUMNS_BY_KEY = Object.fromEntries(DEFAULT_COLUMNS.map(c => [c.key, c]))
 const DEFAULT_COLUMN_ORDER = DEFAULT_COLUMNS.map(c => c.key).filter(k => k !== 'nome')
 const COLUMN_ORDER_STORAGE_KEY = 'inquilinos_column_order_v2'
 
+const MODELO_OPCOES = [
+  { value: 'MA', label: 'MA' },
+  { value: 'ME', label: 'ME' },
+  { value: 'ML', label: 'ML' },
+]
+
+const POSSUI_OPCOES = [
+  { value: 'sim', label: 'Possui' },
+  { value: 'nao', label: 'Não possui' },
+]
+
+// Colunas com filtro de texto livre (contém, sem diferenciar maiúsculas/minúsculas)
+const TEXT_FILTER_KEYS = [
+  'nome', 'locatario', 'email', 'cpf', 'telefone',
+  'imovel', 'quarto', 'codigoContrato', 'vagas', 'observacao',
+]
+// Colunas com filtro de seleção (valor exato)
+const SELECT_FILTER_KEYS = ['status', 'modelo', 'metodoPagamento', 'garantia', 'seguro']
+// Colunas monetárias com filtro por faixa (mínimo/máximo)
+const MONEY_RANGE_FILTER_KEYS = ['valorAluguel', 'valorVaga', 'valorSeguro']
+// Colunas de data com filtro por período (de/até)
+const DATE_RANGE_FILTER_KEYS = ['dataEntrada', 'dataSaida']
+// Colunas de conta (Água, Energia, etc.) com filtro "possui/não possui"
+const CONTA_FILTER_KEYS = CONTAS_OPCOES.map(o => `conta_${o.value}`)
+
+const SELECT_FILTER_OPTIONS = {
+  status: [{ value: 'Ativo', label: 'Ativo' }, { value: 'Inativo', label: 'Inativo' }],
+  modelo: MODELO_OPCOES,
+  metodoPagamento: METODO_PAGAMENTO_OPCOES,
+  garantia: GARANTIA_OPCOES,
+  seguro: SEGURO_OPCOES,
+}
+
+const DEFAULT_COL_FILTERS = {
+  ...Object.fromEntries(TEXT_FILTER_KEYS.map(k => [k, ''])),
+  ...Object.fromEntries(SELECT_FILTER_KEYS.map(k => [k, ''])),
+  ...Object.fromEntries(MONEY_RANGE_FILTER_KEYS.map(k => [k, { min: '', max: '' }])),
+  ...Object.fromEntries(DATE_RANGE_FILTER_KEYS.map(k => [k, { from: '', to: '' }])),
+  ...Object.fromEntries(CONTA_FILTER_KEYS.map(k => [k, ''])),
+}
+
+const isColFiltersEmpty = (filters) =>
+  Object.entries(filters).every(([key, value]) => {
+    if (MONEY_RANGE_FILTER_KEYS.includes(key)) return !value.min && !value.max
+    if (DATE_RANGE_FILTER_KEYS.includes(key)) return !value.from && !value.to
+    return !value
+  })
+
 const formatCPF = (v) =>
   v.replace(/\D/g, '')
     .replace(/(\d{3})(\d)/, '$1.$2')
@@ -259,6 +307,17 @@ export default function Inquilinos() {
   const [columnOrder, setColumnOrder] = useState(loadColumnOrder)
   const [draggingKey, setDraggingKey] = useState(null)
   const [dragOverKey, setDragOverKey] = useState(null)
+
+  // Filtros por coluna da planilha
+  const [colFilters, setColFilters] = useState(DEFAULT_COL_FILTERS)
+
+  const setColFilter = (key, value) =>
+    setColFilters(prev => ({ ...prev, [key]: value }))
+
+  const setColFilterRange = (key, field, value) =>
+    setColFilters(prev => ({ ...prev, [key]: { ...prev[key], [field]: value } }))
+
+  const limparColFilters = () => setColFilters(DEFAULT_COL_FILTERS)
 
   useEffect(() => {
     const inquilinosRef = ref(db, 'inquilinos')
@@ -595,10 +654,73 @@ export default function Inquilinos() {
     XLSX.writeFile(workbook, `inquilinos_${dataAtual}.xlsx`)
   }
 
+  // Extrai, para um inquilino, o valor "bruto" de cada coluna filtrável
+  const getColValue = (inq, key) => {
+    const imovel = imoveisById[inq.imovelId]
+    switch (key) {
+      case 'nome':           return inq.nome || ''
+      case 'locatario':      return inq.locatario || ''
+      case 'status':         return inq.status || 'Ativo'
+      case 'email':          return inq.email || ''
+      case 'cpf':            return inq.cpf || ''
+      case 'telefone':       return inq.telefone || ''
+      case 'imovel':         return imovel?.codigo || inq.codigoImovel || ''
+      case 'modelo':         return imovel?.modelo || ''
+      case 'quarto':         return inq.numeroQuarto || ''
+      case 'codigoContrato': return inq.codigoContrato || ''
+      case 'dataEntrada':    return inq.dataEntrada || ''
+      case 'dataSaida':      return inq.dataSaida || ''
+      case 'metodoPagamento': return inq.metodoPagamento || ''
+      case 'valorAluguel':   return Number(inq.valorAluguel) || 0
+      case 'vagas':          return inq.vagas ?? ''
+      case 'valorVaga':      return Number(inq.valorVaga) || 0
+      case 'garantia':       return inq.garantia || 'sem_garantia'
+      case 'seguro':         return inq.seguro || ''
+      case 'valorSeguro':    return Number(inq.valorSeguro) || 0
+      case 'observacao':     return inq.observacao || ''
+      default:               return ''
+    }
+  }
+
+  // Aplica todos os filtros de coluna ativos sobre um inquilino
+  const matchesColFilters = (inq) => {
+    for (const key of TEXT_FILTER_KEYS) {
+      const f = colFilters[key]
+      if (f && !String(getColValue(inq, key)).toLowerCase().includes(f.toLowerCase())) return false
+    }
+    for (const key of SELECT_FILTER_KEYS) {
+      const f = colFilters[key]
+      if (f && getColValue(inq, key) !== f) return false
+    }
+    for (const key of MONEY_RANGE_FILTER_KEYS) {
+      const { min, max } = colFilters[key]
+      const val = getColValue(inq, key)
+      if (min !== '' && val < parseFloat(min)) return false
+      if (max !== '' && val > parseFloat(max)) return false
+    }
+    for (const key of DATE_RANGE_FILTER_KEYS) {
+      const { from, to } = colFilters[key]
+      const val = getColValue(inq, key)
+      if (from && (!val || val < from)) return false
+      if (to && (!val || val > to)) return false
+    }
+    for (const contaKey of CONTA_FILTER_KEYS) {
+      const f = colFilters[contaKey]
+      if (!f) continue
+      const opt = contaKey.replace('conta_', '')
+      const incluida = (inq.contasInclusas || []).includes(opt)
+      if (f === 'sim' && !incluida) return false
+      if (f === 'nao' && incluida) return false
+    }
+    return true
+  }
+
   const filtered = inquilinos.filter(i =>
-    i.nome?.toLowerCase().includes(search.toLowerCase()) ||
-    i.cpf?.includes(search) ||
-    (imoveisById[i.imovelId]?.codigo || i.codigoImovel)?.toLowerCase().includes(search.toLowerCase())
+    (
+      i.nome?.toLowerCase().includes(search.toLowerCase()) ||
+      i.cpf?.includes(search) ||
+      (imoveisById[i.imovelId]?.codigo || i.codigoImovel)?.toLowerCase().includes(search.toLowerCase())
+    ) && matchesColFilters(i)
   )
 
   const ativos   = inquilinos.filter(i => i.status === 'Ativo').length
@@ -895,6 +1017,98 @@ export default function Inquilinos() {
     return cells
   }
 
+  // Renderiza a célula de filtro de uma coluna, de acordo com o tipo de filtro configurado
+  const renderFilterCell = (key) => {
+    if (SELECT_FILTER_KEYS.includes(key)) {
+      return (
+        <th key={key}>
+          <select
+            className="col-filter-select"
+            value={colFilters[key]}
+            onChange={e => setColFilter(key, e.target.value)}
+          >
+            <option value="">Todos</option>
+            {SELECT_FILTER_OPTIONS[key].map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </th>
+      )
+    }
+
+    if (CONTA_FILTER_KEYS.includes(key)) {
+      return (
+        <th key={key}>
+          <select
+            className="col-filter-select"
+            value={colFilters[key]}
+            onChange={e => setColFilter(key, e.target.value)}
+          >
+            <option value="">Todos</option>
+            {POSSUI_OPCOES.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </th>
+      )
+    }
+
+    if (MONEY_RANGE_FILTER_KEYS.includes(key)) {
+      return (
+        <th key={key}>
+          <div className="col-filter-range">
+            <input
+              type="number" step="0.01" placeholder="Mín."
+              className="col-filter-input"
+              value={colFilters[key].min}
+              onChange={e => setColFilterRange(key, 'min', e.target.value)}
+            />
+            <input
+              type="number" step="0.01" placeholder="Máx."
+              className="col-filter-input"
+              value={colFilters[key].max}
+              onChange={e => setColFilterRange(key, 'max', e.target.value)}
+            />
+          </div>
+        </th>
+      )
+    }
+
+    if (DATE_RANGE_FILTER_KEYS.includes(key)) {
+      return (
+        <th key={key}>
+          <div className="col-filter-range">
+            <input
+              type="date"
+              className="col-filter-input"
+              value={colFilters[key].from}
+              onChange={e => setColFilterRange(key, 'from', e.target.value)}
+            />
+            <input
+              type="date"
+              className="col-filter-input"
+              value={colFilters[key].to}
+              onChange={e => setColFilterRange(key, 'to', e.target.value)}
+            />
+          </div>
+        </th>
+      )
+    }
+
+    // Padrão: filtro de texto livre (contém)
+    return (
+      <th key={key}>
+        <input
+          type="text"
+          placeholder="Filtrar..."
+          className="col-filter-input"
+          value={colFilters[key]}
+          onChange={e => setColFilter(key, e.target.value)}
+        />
+      </th>
+    )
+  }
+
   return (
     <Layout title="Inquilinos" subtitle="Gestão de inquilinos cadastrados">
       <div className="actions-bar">
@@ -940,7 +1154,14 @@ export default function Inquilinos() {
       <div className="card">
         <div className="card-header">
           <h3>Todos os Inquilinos ({filtered.length})</h3>
-          <span className="hint-text">Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas · "Nome" fica sempre travada</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span className="hint-text">Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas · "Nome" fica sempre travada</span>
+            {!isColFiltersEmpty(colFilters) && (
+              <button className="btn btn-sm btn-secondary" onClick={limparColFilters}>
+                Limpar filtros
+              </button>
+            )}
+          </div>
         </div>
         <div className="table-container table-scroll-x inquilinos-scroll-area">
           {loading ? (
@@ -965,6 +1186,19 @@ export default function Inquilinos() {
                     </th>
                   ))}
                   <th>Ações</th>
+                </tr>
+                <tr className="filter-row">
+                  <th className="col-sticky-th">
+                    <input
+                      type="text"
+                      placeholder="Filtrar..."
+                      className="col-filter-input"
+                      value={colFilters.nome}
+                      onChange={e => setColFilter('nome', e.target.value)}
+                    />
+                  </th>
+                  {columnOrder.map(key => renderFilterCell(key))}
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
