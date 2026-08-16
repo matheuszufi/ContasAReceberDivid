@@ -27,6 +27,7 @@ const SEGURO_OPCOES = [
   { value: 'credpago',  label: 'Credpago' },
   { value: 'lado_bom',  label: 'Lado Bom Seguros' },
   { value: 'Avalyst',   label: 'Avalyst' },
+  { value: 'Imovpago',  label: 'ImovPago' },
 ]
 
 const METODO_PAGAMENTO_OPCOES = [

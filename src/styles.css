@@ -1129,6 +1129,27 @@
     color: #64748b;
   }
 
+.conta-cell-periodo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.conta-cell-periodo-linha {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.conta-cell-periodo-label {
+  color: #64748b;
+  font-weight: 600;
+}
+
+
+
   /* Tags pequenas usadas para exibir as "Contas Inclusas" do inquilino */
   .mini-tag {
     display: inline-block;

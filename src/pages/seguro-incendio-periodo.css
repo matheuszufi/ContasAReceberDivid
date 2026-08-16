@@ -1,0 +1,17 @@
+/* Adicionar ao seu CSS global (junto das demais classes .conta-cell-*)
+   Estilo do bloco "Início / Fim" que substitui o checkbox "Variável"
+   apenas na coluna de Seguro Incêndio. */
+
+.conta-cell-periodo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.conta-cell-periodo-label {
+  color: #64748b;
+  font-weight: 600;
+}
