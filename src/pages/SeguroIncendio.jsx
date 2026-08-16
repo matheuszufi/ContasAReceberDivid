@@ -111,7 +111,7 @@ export default function SeguroIncendio() {
                   <th>Imóvel</th>
                   <th>Modelo</th>
                   <th>Valor</th>
-                  <th>Quem Paga</th>
+                  {/* <th>Quem Paga</th> */}
                   <th>1º Mês de Cobrança</th>
                   <th>Último Mês de Cobrança</th>
                   <th>Ações</th>
@@ -141,11 +141,11 @@ export default function SeguroIncendio() {
                           ? <span className="badge badge-yellow">Variável</span>
                           : fmtMoney(inq.contasValores?.seguro_incendio)}
                       </td>
-                      <td>
+                      {/* <td>
                         <span className={`badge ${pagador === 'inquilino' ? 'badge-blue' : 'badge-gray'}`}>
                           {pagador === 'inquilino' ? 'Inquilino' : 'Imobiliária'}
                         </span>
-                      </td>
+                      </td> */}
                       <td>
                         <input
                           type="month"
