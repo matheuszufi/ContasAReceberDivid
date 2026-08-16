@@ -20,6 +20,7 @@ import ImportarInadimplencia from './pages/ImportarInadimplencia'
 import TimelineInadimplencia from './pages/TimelineInadimplencia'
 import SeguroFianca from './pages/SeguroFianca'
 import SeguroIncendio from './pages/SeguroIncendio'
+import Desocupacoes from './pages/Desocupacoes'
 import { useAuth } from './auth'
 import { firebaseError } from './firebase'
 
@@ -92,6 +93,7 @@ export default function App() {
       <Route path="/inadimplentes/timeline/:id" element={<PrivateRoute><TimelineInadimplencia /></PrivateRoute>} />
       <Route path="/seguro-fianca"               element={<PrivateRoute><SeguroFianca /></PrivateRoute>} />
       <Route path="/seguro-incendio"             element={<PrivateRoute><SeguroIncendio /></PrivateRoute>} />
+      <Route path="/desocupacoes"                element={<PrivateRoute><Desocupacoes /></PrivateRoute>} />
     </Routes>
   )
 }
