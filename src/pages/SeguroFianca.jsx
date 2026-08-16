@@ -46,6 +46,17 @@ export default function SeguroFianca() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
+  // Filtros por coluna
+  const [filtroNome, setFiltroNome] = useState('')
+  const [filtroStatus, setFiltroStatus] = useState('')
+  const [filtroImovel, setFiltroImovel] = useState('')
+  const [filtroModelo, setFiltroModelo] = useState('')
+  const [filtroSeguradora, setFiltroSeguradora] = useState('')
+  const [filtroValorMin, setFiltroValorMin] = useState('')
+  const [filtroValorMax, setFiltroValorMax] = useState('')
+  const [filtroMesInicio, setFiltroMesInicio] = useState('')
+  const [filtroMesFim, setFiltroMesFim] = useState('')
+
   useEffect(() => {
     const r1 = ref(db, 'inquilinos')
     const unsub1 = onValue(r1, snap => {
@@ -72,18 +83,91 @@ export default function SeguroFianca() {
     [inquilinos]
   )
 
+  // Opções únicas para os selects (Status, Modelo e Seguradora), geradas a partir dos dados reais
+  const statusOptions = useMemo(() => {
+    const set = new Set(seguradosFianca.map(i => i.status).filter(Boolean))
+    return Array.from(set).sort()
+  }, [seguradosFianca])
+
+  const modeloOptions = useMemo(() => {
+    const set = new Set(
+      seguradosFianca
+        .map(i => imovelMap[i.imovelId]?.modelo)
+        .filter(Boolean)
+    )
+    return Array.from(set).sort()
+  }, [seguradosFianca, imovelMap])
+
+  const seguradoraOptions = useMemo(() => {
+    const set = new Set(seguradosFianca.map(i => i.seguro).filter(Boolean))
+    return Array.from(set).sort((a, b) =>
+      (SEGURO_LABELS[a] || a).localeCompare(SEGURO_LABELS[b] || b)
+    )
+  }, [seguradosFianca])
+
   const filtered = useMemo(() => {
-    const termo = search.toLowerCase()
+    const termoGeral = search.toLowerCase()
+    const termoNome = filtroNome.toLowerCase()
+    const termoImovel = filtroImovel.toLowerCase()
+    const valorMin = filtroValorMin !== '' ? Number(filtroValorMin) : null
+    const valorMax = filtroValorMax !== '' ? Number(filtroValorMax) : null
+
     return seguradosFianca.filter(i => {
       const imovel = imovelMap[i.imovelId]
-      const seguradora = SEGURO_LABELS[i.seguro] || i.seguro || ''
-      return (
-        (i.nome || '').toLowerCase().includes(termo) ||
-        (imovel?.codigo || i.codigoImovel || '').toLowerCase().includes(termo) ||
-        seguradora.toLowerCase().includes(termo)
-      )
+      const nome = (i.nome || '').toLowerCase()
+      const codigoImovel = (imovel?.codigo || i.codigoImovel || '').toLowerCase()
+      const seguradora = (SEGURO_LABELS[i.seguro] || i.seguro || '').toLowerCase()
+      const valor = Number(i.valorSeguro) || 0
+
+      // Busca geral (mantida)
+      const passaBuscaGeral =
+        !termoGeral ||
+        nome.includes(termoGeral) ||
+        codigoImovel.includes(termoGeral) ||
+        seguradora.includes(termoGeral)
+      if (!passaBuscaGeral) return false
+
+      // Nome
+      if (termoNome && !nome.includes(termoNome)) return false
+
+      // Status
+      if (filtroStatus && i.status !== filtroStatus) return false
+
+      // Imóvel
+      if (termoImovel && !codigoImovel.includes(termoImovel)) return false
+
+      // Modelo
+      if (filtroModelo && imovel?.modelo !== filtroModelo) return false
+
+      // Seguradora
+      if (filtroSeguradora && i.seguro !== filtroSeguradora) return false
+
+      // Valor do Seguro (faixa min/max)
+      if (valorMin !== null && valor < valorMin) return false
+      if (valorMax !== null && valor > valorMax) return false
+
+      // 1º Mês de Cobrança
+      if (filtroMesInicio && (i.seguroFiancaMesInicio || '') !== filtroMesInicio) return false
+
+      // Último Mês de Cobrança
+      if (filtroMesFim && (i.seguroFiancaMesFim || '') !== filtroMesFim) return false
+
+      return true
     })
-  }, [seguradosFianca, imovelMap, search])
+  }, [
+    seguradosFianca,
+    imovelMap,
+    search,
+    filtroNome,
+    filtroStatus,
+    filtroImovel,
+    filtroModelo,
+    filtroSeguradora,
+    filtroValorMin,
+    filtroValorMax,
+    filtroMesInicio,
+    filtroMesFim
+  ])
 
   const totalMensal = seguradosFianca.reduce((s, i) => s + (Number(i.valorSeguro) || 0), 0)
   const ativos = seguradosFianca.filter(i => i.status === 'Ativo').length
@@ -97,6 +181,22 @@ export default function SeguroFianca() {
   const handleMesChange = (inquilinoId, campo, valor) => {
     update(ref(db, `inquilinos/${inquilinoId}`), { [campo]: valor })
   }
+
+  const limparFiltros = () => {
+    setFiltroNome('')
+    setFiltroStatus('')
+    setFiltroImovel('')
+    setFiltroModelo('')
+    setFiltroSeguradora('')
+    setFiltroValorMin('')
+    setFiltroValorMax('')
+    setFiltroMesInicio('')
+    setFiltroMesFim('')
+  }
+
+  const temFiltroAtivo =
+    filtroNome || filtroStatus || filtroImovel || filtroModelo || filtroSeguradora ||
+    filtroValorMin || filtroValorMax || filtroMesInicio || filtroMesFim
 
   return (
     <Layout title="Seguro Fiança" subtitle="Inquilinos com seguro fiança incluído nas contas">
@@ -131,6 +231,15 @@ export default function SeguroFianca() {
       <div className="card">
         <div className="card-header">
           <h3>Inquilinos ({filtered.length})</h3>
+          {temFiltroAtivo && (
+            <button
+              className="btn btn-secondary"
+              style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}
+              onClick={limparFiltros}
+            >
+              Limpar filtros
+            </button>
+          )}
         </div>
         <div className="table-container">
           {loading ? (
@@ -150,6 +259,99 @@ export default function SeguroFianca() {
                   <th>1º Mês de Cobrança</th>
                   <th>Último Mês de Cobrança</th>
                   <th>Ações</th>
+                </tr>
+                <tr className="filter-row">
+                  <th>
+                    <input
+                      type="text"
+                      placeholder="Filtrar nome..."
+                      value={filtroNome}
+                      onChange={e => setFiltroNome(e.target.value)}
+                      className="search-input"
+                      style={{ fontSize: 12, padding: '4px 8px' }}
+                    />
+                  </th>
+                  <th>
+                    <select
+                      value={filtroStatus}
+                      onChange={e => setFiltroStatus(e.target.value)}
+                      style={{ fontSize: 12, padding: '4px 8px', width: '100%' }}
+                    >
+                      <option value="">Todos</option>
+                      {statusOptions.map(s => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
+                  </th>
+                  <th>
+                    <input
+                      type="text"
+                      placeholder="Filtrar imóvel..."
+                      value={filtroImovel}
+                      onChange={e => setFiltroImovel(e.target.value)}
+                      className="search-input"
+                      style={{ fontSize: 12, padding: '4px 8px' }}
+                    />
+                  </th>
+                  <th>
+                    <select
+                      value={filtroModelo}
+                      onChange={e => setFiltroModelo(e.target.value)}
+                      style={{ fontSize: 12, padding: '4px 8px', width: '100%' }}
+                    >
+                      <option value="">Todos</option>
+                      {modeloOptions.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </th>
+                  <th>
+                    <select
+                      value={filtroSeguradora}
+                      onChange={e => setFiltroSeguradora(e.target.value)}
+                      style={{ fontSize: 12, padding: '4px 8px', width: '100%' }}
+                    >
+                      <option value="">Todas</option>
+                      {seguradoraOptions.map(s => (
+                        <option key={s} value={s}>{SEGURO_LABELS[s] || s}</option>
+                      ))}
+                    </select>
+                  </th>
+                  <th>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <input
+                        type="number"
+                        placeholder="Mín."
+                        value={filtroValorMin}
+                        onChange={e => setFiltroValorMin(e.target.value)}
+                        style={{ fontSize: 12, padding: '4px 6px', width: '50%' }}
+                      />
+                      <input
+                        type="number"
+                        placeholder="Máx."
+                        value={filtroValorMax}
+                        onChange={e => setFiltroValorMax(e.target.value)}
+                        style={{ fontSize: 12, padding: '4px 6px', width: '50%' }}
+                      />
+                    </div>
+                  </th>
+                  <th>
+                    <input
+                      type="month"
+                      value={filtroMesInicio}
+                      onChange={e => setFiltroMesInicio(e.target.value)}
+                      style={{ fontSize: 12, padding: '4px 8px', width: '100%' }}
+                    />
+                  </th>
+                  <th>
+                    <input
+                      type="month"
+                      value={filtroMesFim}
+                      onChange={e => setFiltroMesFim(e.target.value)}
+                      style={{ fontSize: 12, padding: '4px 8px', width: '100%' }}
+                    />
+                  </th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>

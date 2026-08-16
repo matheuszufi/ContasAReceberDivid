@@ -591,17 +591,17 @@ export default function ImoveisTodos() {
                         const rentBadge = isCellGreen
                           ? { bg: '#dcfce7', border: '#86efac', color: '#166534', icon: '✅' }
                           : isCellYellow
-                            ? { bg: '#fef9c3', border: '#fde047', color: '#92400e', icon: '' }
+                            ? { bg: '#fee2e2', border: '#fca5a5', color: '#991b1b', icon: '' }
                             : { bg: '#f1f5f9', border: '#e2e8f0', color: '#94a3b8', icon: '' }
  
                         const cellBg = isDesocupacao
-                          ? '#fee2e8'
+                          ? '#cbd5e1'
                           : variavelAlerta
                             ? '#ede9fe'
                             : isCellGreen
                               ? '#dcfce7'
                               : isCellYellow
-                                ? '#fef9c3'
+                                ? '#fee2e2'
                                 : summary
                                   ? STATUS_STYLE[summary]?.bg
                                   : isReajuste
@@ -665,7 +665,13 @@ export default function ImoveisTodos() {
                                 </span>
                               )}
                               {isDesocupacao && (
-                                <span style={{ fontSize: 9, fontWeight: 700, color: '#991b1b', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 4, padding: '1px 4px', whiteSpace: 'nowrap' }}>
+                                <span style={{ 
+                                  fontSize: 9, 
+                                  fontWeight: 700, 
+                                  color: '#1e293b', 
+                                  background: '#e2e8f0', 
+                                  border: '1px solid #94a3b8', 
+                                  borderRadius: 4, padding: '1px 4px', whiteSpace: 'nowrap' }}>
                                   🚪 saída
                                 </span>
                               )}
@@ -700,9 +706,13 @@ export default function ImoveisTodos() {
           <span style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>📅</span>
           12º aluguel (reajuste)
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#991b1b' }}>
-          <span style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>🚪</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#1e293b' }}>
+          <span style={{ background: '#cbd5e1', border: '1px solid #94a3b8', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>🚪</span>
           Mês de desocupação
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#991b1b' }}>
+          <span style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>⚠️</span>
+          Inadimplência pendente no mês
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#7c3aed' }}>
           <span style={{ background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>🟣</span>
