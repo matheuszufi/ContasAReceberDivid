@@ -17,6 +17,7 @@ export default function SeguroIncendio() {
   const navigate = useNavigate()
   const [inquilinos, setInquilinos] = useState([])
   const [imoveis, setImoveis] = useState([])
+  const [contasCatalogo, setContasCatalogo] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
@@ -41,7 +42,12 @@ export default function SeguroIncendio() {
       const data = snap.val()
       setImoveis(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
     })
-    return () => { unsub1(); unsub2() }
+    const r3 = ref(db, 'contas')
+    const unsub3 = onValue(r3, snap => {
+      const data = snap.val()
+      setContasCatalogo(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+    return () => { unsub1(); unsub2(); unsub3() }
   }, [])
 
   const imovelMap = useMemo(
@@ -49,10 +55,23 @@ export default function SeguroIncendio() {
     [imoveis]
   )
 
-  // Só entram aqui inquilinos com a conta "seguro_incendio" marcada como incluída
+  // Identifica a conta "Seguro Incendio" tanto no formato antigo (chave fixa 'seguro_incendio')
+  // quanto no catalogo novo (resolve pelo nome), igual as demais paginas do sistema.
+  const isSeguroIncendioKey = useMemo(() => (k) => {
+    if (k === 'seguro_incendio') return true
+    const nome = (contasCatalogo.find(c => c.id === k)?.nome || '').toLowerCase()
+    return nome.includes('incêndio') || nome.includes('incendio')
+  }, [contasCatalogo])
+
+  // Resolve, no imóvel do inquilino, qual conta do catálogo é a de Seguro Incêndio
+  const findSeguroIncendioContaId = (imovel) =>
+    (imovel?.contasInclusas || []).find(cid => isSeguroIncendioKey(cid)) || null
+
+  // Agora considera que o imóvel tem seguro incêndio, e não mais o inquilino: a lista
+  // passa a ser "todo inquilino cujo imóvel possui a conta Seguro Incêndio cadastrada".
   const comSeguroIncendio = useMemo(
-    () => inquilinos.filter(i => (i.contasInclusas || []).includes('seguro_incendio')),
-    [inquilinos]
+    () => inquilinos.filter(i => !!findSeguroIncendioContaId(imovelMap[i.imovelId])),
+    [inquilinos, imovelMap, isSeguroIncendioKey]
   )
 
   // Opções únicas para os selects (Status e Modelo), geradas a partir dos dados reais
@@ -77,9 +96,10 @@ export default function SeguroIncendio() {
 
     return comSeguroIncendio.filter(i => {
       const imovel = imovelMap[i.imovelId]
+      const contaId = findSeguroIncendioContaId(imovel)
       const nome = (i.nome || '').toLowerCase()
       const codigoImovel = (imovel?.codigo || i.codigoImovel || '').toLowerCase()
-      const variavel = !!i.contasVariavel?.seguro_incendio
+      const variavel = !!imovel?.contasVariavel?.[contaId]
 
       // Busca geral (mantida)
       const passaBuscaGeral =
@@ -125,8 +145,9 @@ export default function SeguroIncendio() {
 
   const ativos = comSeguroIncendio.filter(i => i.status === 'Ativo').length
   const totalMensal = comSeguroIncendio.reduce((s, i) => {
-    if (i.contasVariavel?.seguro_incendio) return s
-    return s + (Number(i.contasValores?.seguro_incendio) || 0)
+    const contaId = findSeguroIncendioContaId(imovelMap[i.imovelId])
+    if (imovelMap[i.imovelId]?.contasVariavel?.[contaId]) return s
+    return s + (Number(i.contasValores?.[contaId] ?? i.contasValores?.seguro_incendio) || 0)
   }, 0)
 
   const handleMesChange = (inquilinoId, campo, valor) => {
@@ -303,7 +324,8 @@ export default function SeguroIncendio() {
               <tbody>
                 {filtered.map(inq => {
                   const imovel = imovelMap[inq.imovelId]
-                  const variavel = !!inq.contasVariavel?.seguro_incendio
+                  const contaId = findSeguroIncendioContaId(imovel)
+                  const variavel = !!imovel?.contasVariavel?.[contaId]
                   return (
                     <tr key={inq.id}>
                       <td>{inq.nome}</td>
@@ -321,7 +343,7 @@ export default function SeguroIncendio() {
                       <td>
                         {variavel
                           ? <span className="badge badge-yellow">Variável</span>
-                          : fmtMoney(inq.contasValores?.seguro_incendio)}
+                          : fmtMoney(inq.contasValores?.[contaId] ?? inq.contasValores?.seguro_incendio)}
                       </td>
                       <td>
                         <input

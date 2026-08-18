@@ -24,7 +24,16 @@ const CONTAS_OPCOES = [
   { value: 'fundo_reserva',   label: 'Fundo de Reserva' },
 ]
 
-const CONTA_LABELS = Object.fromEntries(CONTAS_OPCOES.map(o => [o.value, o.label]))
+const CONTA_ICONS = {
+  agua:            '💧',
+  energia:         '⚡',
+  condominio:      '🏢',
+  gas:             '🔥',
+  iptu:            '🏛️',
+  lixo:            '🗑️',
+  seguro_incendio: '🧯',
+  fundo_reserva:   '💰',
+}
 
 const METODO_PAGAMENTO_OPCOES = [
   { value: 'pre_pago', label: 'Pré-pago' },
@@ -63,7 +72,7 @@ const DEFAULT_COLUMNS = [
   { key: 'dataEntrada',     label: 'Data Entrada' },
   { key: 'dataSaida',       label: 'Data Saída' },
   { key: 'metodoPagamento', label: 'Método Pgto.' },
-  ...CONTAS_OPCOES.map(o => ({ key: `conta_${o.value}`, label: o.label })),
+  { key: 'contas', label: 'Contas' },
   { key: 'valorAluguel', label: 'Valor Aluguel' },
   { key: 'vagas',        label: 'Vagas' },
   { key: 'valorVaga',    label: 'Valor Vaga' },
@@ -84,15 +93,10 @@ const MODELO_OPCOES = [
   { value: 'ML', label: 'ML' },
 ]
 
-const POSSUI_OPCOES = [
-  { value: 'sim', label: 'Possui' },
-  { value: 'nao', label: 'Não possui' },
-]
-
 // Colunas com filtro de texto livre (contém, sem diferenciar maiúsculas/minúsculas)
 const TEXT_FILTER_KEYS = [
   'nome', 'locatario', 'email', 'cpf', 'telefone',
-  'imovel', 'quarto', 'codigoContrato', 'vagas', 'observacao',
+  'imovel', 'quarto', 'codigoContrato', 'vagas', 'observacao', 'contas',
 ]
 // Colunas com filtro de seleção (valor exato)
 const SELECT_FILTER_KEYS = ['status', 'modelo', 'metodoPagamento', 'garantia', 'seguro']
@@ -100,8 +104,6 @@ const SELECT_FILTER_KEYS = ['status', 'modelo', 'metodoPagamento', 'garantia', '
 const MONEY_RANGE_FILTER_KEYS = ['valorAluguel', 'valorVaga', 'valorSeguro']
 // Colunas de data com filtro por período (de/até)
 const DATE_RANGE_FILTER_KEYS = ['dataEntrada', 'dataSaida']
-// Colunas de conta (Água, Energia, etc.) com filtro "possui/não possui"
-const CONTA_FILTER_KEYS = CONTAS_OPCOES.map(o => `conta_${o.value}`)
 
 const SELECT_FILTER_OPTIONS = {
   status: [{ value: 'Ativo', label: 'Ativo' }, { value: 'Inativo', label: 'Inativo' }],
@@ -116,7 +118,6 @@ const DEFAULT_COL_FILTERS = {
   ...Object.fromEntries(SELECT_FILTER_KEYS.map(k => [k, ''])),
   ...Object.fromEntries(MONEY_RANGE_FILTER_KEYS.map(k => [k, { min: '', max: '' }])),
   ...Object.fromEntries(DATE_RANGE_FILTER_KEYS.map(k => [k, { from: '', to: '' }])),
-  ...Object.fromEntries(CONTA_FILTER_KEYS.map(k => [k, ''])),
 }
 
 const isColFiltersEmpty = (filters) =>
@@ -307,6 +308,7 @@ export default function Inquilinos() {
   const [desocExtras, setDesocExtras] = useState([])
   const [desocSaving, setDesocSaving] = useState(false)
   const [clearingContas, setClearingContas] = useState(false)
+  const [contasCatalogo, setContasCatalogo] = useState([])
 
   // Ordem das colunas da planilha (arrastável) — persistida no navegador do usuário
   const [columnOrder, setColumnOrder] = useState(loadColumnOrder)
@@ -346,7 +348,31 @@ export default function Inquilinos() {
     })
   }, [])
 
+  useEffect(() => {
+    return onValue(ref(db, 'contas'), snap => {
+      const data = snap.val()
+      setContasCatalogo(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+  }, [])
+
   const imoveisById = Object.fromEntries(imoveis.map(im => [im.id, im]))
+
+  // Resolve nome/icone de uma conta tanto pelo catalogo novo (Firebase) quanto pelo
+  // esquema antigo de chave fixa (dados legados que ainda usam 'agua', 'energia', etc.)
+  const getContaMeta = (k) => {
+    const catalogConta = contasCatalogo.find(c => c.id === k)
+    if (catalogConta) return { label: catalogConta.nome, icone: catalogConta.icone || '📄' }
+    const legacy = CONTAS_OPCOES.find(o => o.value === k)
+    return { label: legacy?.label || k, icone: CONTA_ICONS[k] || '📄' }
+  }
+
+  // Identifica a conta "Seguro Incendio" tanto no formato antigo (chave fixa) quanto no
+  // catalogo novo (resolve pelo nome), para preservar o controle de periodo de cobranca.
+  const isSeguroIncendioKey = (k) => {
+    if (k === 'seguro_incendio') return true
+    const nome = (getContaMeta(k).label || '').toLowerCase()
+    return nome.includes('incêndio') || nome.includes('incendio')
+  }
 
   // ---------- Reordenação de colunas (arrastar para a coluna desejada) ----------
   // Usa Pointer Events (em vez do drag-and-drop nativo do HTML, que costuma falhar
@@ -564,43 +590,31 @@ export default function Inquilinos() {
     await update(ref(db, `inquilinos/${id}`), { [campo]: isNaN(n) ? 0 : n })
   }
 
-  // Marca/desmarca se uma conta está inclusa no aluguel, direto na planilha.
-  // Ao desmarcar, limpa os dados auxiliares dessa conta (valor, variável, origem, pagador, cobrar no boleto).
-  const handleToggleConta = async (inq, key) => {
+  // Marca/desmarca se o inquilino usa uma das contas disponiveis no imovel, direto na planilha.
+  // Variavel e "cobrado no boleto" sempre vem do cadastro do imovel (nao sao escolhidos aqui).
+  // Ao desmarcar, limpa os dados auxiliares dessa conta (valor, variavel, origem, pagador).
+  const handleToggleContaInquilino = async (inq, imovel, contaId) => {
     const contasInclusas = inq.contasInclusas || []
-    const isActive = contasInclusas.includes(key)
-    const novaLista = isActive ? contasInclusas.filter(k => k !== key) : [...contasInclusas, key]
-    const updates = { contasInclusas: novaLista }
+    const isActive = contasInclusas.includes(contaId)
+    const updates = {}
     if (isActive) {
-      updates[`contasValores/${key}`]       = null
-      updates[`contasVariavel/${key}`]      = null
-      updates[`contasOrigem/${key}`]        = null
-      updates[`contasPagador/${key}`]       = null
+      updates.contasInclusas = contasInclusas.filter(k => k !== contaId)
+      updates[`contasValores/${contaId}`]  = null
+      updates[`contasVariavel/${contaId}`] = null
+      updates[`contasOrigem/${contaId}`]   = null
+      updates[`contasPagador/${contaId}`]  = null
+    } else {
+      updates.contasInclusas = [...contasInclusas, contaId]
+      updates[`contasVariavel/${contaId}`] = !!imovel?.contasVariavel?.[contaId]
+      updates[`contasPagador/${contaId}`]  = imovel?.contasCobradoBoleto?.[contaId] ? 'inquilino' : 'imobiliaria'
     }
     await update(ref(db, `inquilinos/${inq.id}`), updates)
   }
 
-  // Edita o valor de uma conta inclusa (não variável) direto na planilha
+  // Edita o valor de uma conta inclusa (nao variavel) direto na planilha
   const handleContaValorChange = async (inq, key, valor) => {
     const n = parseFloat(valor)
     await update(ref(db, `inquilinos/${inq.id}/contasValores`), { [key]: isNaN(n) ? 0 : n })
-  }
-
-  // Marca/desmarca se a conta é variável, direto na planilha.
-  // Ao marcar como variável, limpa o valor fixo, já que passa a ser lançado manualmente todo mês.
-  const handleToggleContaVariavel = async (inq, key) => {
-    const novo = !inq.contasVariavel?.[key]
-    const updates = { [`contasVariavel/${key}`]: novo }
-    if (novo) updates[`contasValores/${key}`] = null
-    await update(ref(db, `inquilinos/${inq.id}`), updates)
-  }
-
-  // Marca/desmarca quem paga a conta: "cobrar no boleto" = o inquilino paga (contasPagador = 'inquilino');
-  // desmarcado = a imobiliária paga (contasPagador = 'imobiliaria'). Mesmo campo usado no cadastro do inquilino.
-  const handleToggleContaPagador = async (inq, key, variavel) => {
-    const atual = inq.contasPagador?.[key] || (variavel ? 'imobiliaria' : 'inquilino')
-    const novo = atual === 'inquilino' ? 'imobiliaria' : 'inquilino'
-    await update(ref(db, `inquilinos/${inq.id}/contasPagador`), { [key]: novo })
   }
 
   // Troca de imóvel direto na planilha: atualiza vínculo e status Ocupado/Disponível dos imóveis envolvidos
@@ -634,33 +648,15 @@ export default function Inquilinos() {
       'Data Entrada': inq.dataEntrada || '',
       'Data Saída': inq.dataSaida || '',
       'Método Pagamento': METODO_PAGAMENTO_OPCOES.find(o => o.value === inq.metodoPagamento)?.label || '',
-      ...Object.fromEntries(CONTAS_OPCOES.map(opt => {
-        const incluida = (inq.contasInclusas || []).includes(opt.value)
-        const variavel = !!inq.contasVariavel?.[opt.value]
-        const valor = inq.contasValores?.[opt.value]
-        const pagador = inq.contasPagador?.[opt.value] || (variavel ? 'imobiliaria' : 'inquilino')
-
-        // Seguro Incêndio não usa mais o conceito de "conta variável" — em vez disso,
-        // exibe o período de cobrança (mês/ano de início e fim) cadastrado no inquilino.
-        if (opt.value === 'seguro_incendio') {
-          let texto = 'Não'
-          if (incluida) {
-            texto = `Sim — R$ ${Number(valor || 0).toFixed(2)}`
-            texto += pagador === 'inquilino' ? ' [Cobrar no boleto]' : ' [Imobiliária paga]'
-            const inicio = inq.seguroIncendioMesInicio || '—'
-            const fim = inq.seguroIncendioMesFim || '—'
-            texto += ` [Período: ${inicio} a ${fim}]`
-          }
-          return [opt.label, texto]
-        }
-
-        let texto = 'Não'
-        if (incluida) {
-          texto = variavel ? 'Sim (variável)' : `Sim — R$ ${Number(valor || 0).toFixed(2)}`
-          texto += pagador === 'inquilino' ? ' [Cobrar no boleto]' : ' [Imobiliária paga]'
-        }
-        return [opt.label, texto]
-      })),
+      'Contas': (inq.contasInclusas || []).map(contaId => {
+        const { label } = getContaMeta(contaId)
+        const variavel = !!inq.contasVariavel?.[contaId]
+        const valor = inq.contasValores?.[contaId]
+        const pagador = inq.contasPagador?.[contaId] || (variavel ? 'imobiliaria' : 'inquilino')
+        let texto = variavel ? `${label} (variavel)` : `${label} - R$ ${Number(valor || 0).toFixed(2)}`
+        texto += pagador === 'inquilino' ? ' [Cobrar no boleto]' : ' [Imobiliaria paga]'
+        return texto
+      }).join('; '),
       'Valor do Aluguel': Number(inq.valorAluguel || 0),
       'Vagas': Number(inq.vagas || 0),
       'Valor da Vaga': Number(inq.valorVaga || 0),
@@ -675,8 +671,7 @@ export default function Inquilinos() {
     worksheet['!cols'] = [
       { wch: 28 }, { wch: 22 }, { wch: 10 }, { wch: 26 }, { wch: 16 },
       { wch: 16 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 16 },
-      { wch: 13 }, { wch: 13 }, { wch: 16 },
-      ...CONTAS_OPCOES.map(() => ({ wch: 22 })),
+      { wch: 13 }, { wch: 13 }, { wch: 16 }, { wch: 40 },
       { wch: 16 }, { wch: 8 },  { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 30 },
     ]
 
@@ -704,6 +699,7 @@ export default function Inquilinos() {
       case 'dataEntrada':    return inq.dataEntrada || ''
       case 'dataSaida':      return inq.dataSaida || ''
       case 'metodoPagamento': return inq.metodoPagamento || ''
+      case 'contas':          return (inq.contasInclusas || []).map(cid => getContaMeta(cid).label).join(' ')
       case 'valorAluguel':   return Number(inq.valorAluguel) || 0
       case 'vagas':          return inq.vagas ?? ''
       case 'valorVaga':      return Number(inq.valorVaga) || 0
@@ -736,14 +732,6 @@ export default function Inquilinos() {
       const val = getColValue(inq, key)
       if (from && (!val || val < from)) return false
       if (to && (!val || val > to)) return false
-    }
-    for (const contaKey of CONTA_FILTER_KEYS) {
-      const f = colFilters[contaKey]
-      if (!f) continue
-      const opt = contaKey.replace('conta_', '')
-      const incluida = (inq.contasInclusas || []).includes(opt)
-      if (f === 'sim' && !incluida) return false
-      if (f === 'nao' && incluida) return false
     }
     return true
   }
@@ -954,98 +942,107 @@ export default function Inquilinos() {
       ),
     }
 
-    // Colunas das contas (Água, Energia, etc.) — checkbox "Sim/Não" da conta inclusa
-    // + checkbox "Cobrar no boleto" (= contasPagador: 'inquilino' paga / 'imobiliaria' paga)
-    // + checkbox "Variável" (alterna contasVariavel, limpando o valor fixo quando marcado)
-    //   -- EXCETO em "Seguro Incêndio", que no lugar do checkbox "Variável" mostra o
-    //      período de cobrança (mês/ano de início e fim), cadastrado no formulário do inquilino.
-    // + valor, quando a conta não é variável (ou quando é Seguro Incêndio, que sempre mostra valor).
-    CONTAS_OPCOES.forEach(opt => {
-      const incluida = (inq.contasInclusas || []).includes(opt.value)
-      const variavel = !!inq.contasVariavel?.[opt.value]
-      const valor = inq.contasValores?.[opt.value]
-      const pagador = inq.contasPagador?.[opt.value] || (variavel ? 'imobiliaria' : 'inquilino')
-      const cobraNoBoleto = pagador === 'inquilino'
-      const isSeguroIncendio = opt.value === 'seguro_incendio'
+    // Coluna única "Contas": mostra as contas cadastradas no imóvel vinculado (catálogo novo),
+    // com checkbox para o inquilino usar ou não cada uma. Variável/cobrado no boleto vêm sempre
+    // do cadastro do imóvel (só se herdam aqui, igual ao formulário de cadastro do inquilino).
+    const contasDoImovel = imovel?.contasInclusas || []
+    const contasOrfas = (inq.contasInclusas || []).filter(cid => !contasDoImovel.includes(cid))
 
-      cells[`conta_${opt.value}`] = (
-        <td key={`conta_${opt.value}`} className="conta-cell">
-          <label className="conta-cell-check" title={incluida ? 'Clique para remover' : 'Clique para incluir'}>
-            <input
-              type="checkbox"
-              checked={incluida}
-              onChange={() => handleToggleConta(inq, opt.value)}
-            />
-            <span>{incluida ? 'Sim' : 'Não'}</span>
-          </label>
+    cells.contas = (
+      <td key="contas" className="conta-cell">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 240 }}>
+          {!imovel ? (
+            <span className="cell-empty">—</span>
+          ) : contasDoImovel.length === 0 && contasOrfas.length === 0 ? (
+            <span className="cell-empty">Imóvel sem contas</span>
+          ) : null}
 
-          {incluida && (
-            <label
-              className={`conta-cell-boleto ${cobraNoBoleto ? 'checked' : ''}`}
-              title="Marcado = inquilino paga (cobrar no boleto). Desmarcado = imobiliária paga."
-            >
-              <input
-                type="checkbox"
-                checked={cobraNoBoleto}
-                onChange={() => handleToggleContaPagador(inq, opt.value, variavel)}
-              />
-              <span>Cobrar no boleto</span>
-            </label>
-          )}
+          {contasDoImovel.map(contaId => {
+            const { label, icone } = getContaMeta(contaId)
+            const incluida = (inq.contasInclusas || []).includes(contaId)
+            const variavel = !!imovel.contasVariavel?.[contaId]
+            const cobradoBoleto = !!imovel.contasCobradoBoleto?.[contaId]
+            const valor = inq.contasValores?.[contaId]
+            const isSeguroIncendio = isSeguroIncendioKey(contaId)
+            return (
+              <div
+                key={contaId}
+                style={{
+                  border: '1px solid #e2e8f0', borderRadius: 8, padding: '4px 8px',
+                  background: incluida ? '#f8fafc' : '#fff',
+                }}
+              >
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12 }} onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    checked={incluida}
+                    onChange={() => handleToggleContaInquilino(inq, imovel, contaId)}
+                  />
+                  <span>{icone} {label}</span>
+                  {variavel && (
+                    <span style={{ fontSize: 10, fontWeight: 700, background: '#ede9fe', color: '#6d28d9', borderRadius: 8, padding: '1px 6px' }}>
+                      variável
+                    </span>
+                  )}
+                  {incluida && (
+                    <span style={{ fontSize: 10, fontWeight: 600, color: cobradoBoleto ? '#1d4ed8' : '#94a3b8' }}>
+                      {cobradoBoleto ? 'boleto' : 'imob.'}
+                    </span>
+                  )}
+                </label>
 
-          {/* Todas as contas, exceto Seguro Incêndio, mantêm o toggle "Variável" */}
-          {incluida && !isSeguroIncendio && (
-            <label
-              className={`conta-cell-variavel ${variavel ? 'checked' : ''}`}
-              title="Marcar como conta variável (valor lançado manualmente todo mês)"
-            >
-              <input
-                type="checkbox"
-                checked={variavel}
-                onChange={() => handleToggleContaVariavel(inq, opt.value)}
-              />
-              <span>Variável</span>
-            </label>
-          )}
+                {incluida && isSeguroIncendio && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 11, color: '#64748b' }}>
+                    <span>Início:</span>
+                    <EditableValue
+                      value={inq.seguroIncendioMesInicio || ''}
+                      inputType="month"
+                      placeholder="—"
+                      onSave={v => handleCampoChange(inq.id, 'seguroIncendioMesInicio', v)}
+                    />
+                    <span>Fim:</span>
+                    <EditableValue
+                      value={inq.seguroIncendioMesFim || ''}
+                      inputType="month"
+                      placeholder="—"
+                      onSave={v => handleCampoChange(inq.id, 'seguroIncendioMesFim', v)}
+                    />
+                  </div>
+                )}
 
-          {/* Seguro Incêndio: em vez do toggle "Variável", mostra o período de cobrança
-              (mês/ano de início e fim), editável direto na planilha e sincronizado com
-              os campos seguroIncendioMesInicio / seguroIncendioMesFim do cadastro. */}
-          {incluida && isSeguroIncendio && (
-            <div className="conta-cell-periodo">
-              <div className="conta-cell-periodo-linha">
-                <span className="conta-cell-periodo-label">Início:</span>
-                <EditableValue
-                  value={inq.seguroIncendioMesInicio || ''}
-                  inputType="month"
-                  placeholder="—"
-                  onSave={v => handleCampoChange(inq.id, 'seguroIncendioMesInicio', v)}
-                />
+                {incluida && !variavel && (
+                  <div style={{ marginTop: 4 }}>
+                    <EditableValue
+                      value={valor ?? ''}
+                      display={valor ? `R$ ${Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined}
+                      inputType="number"
+                      placeholder="R$ 0,00"
+                      onSave={v => handleContaValorChange(inq, contaId, v)}
+                    />
+                  </div>
+                )}
               </div>
-              <div className="conta-cell-periodo-linha">
-                <span className="conta-cell-periodo-label">Fim:</span>
-                <EditableValue
-                  value={inq.seguroIncendioMesFim || ''}
-                  inputType="month"
-                  placeholder="—"
-                  onSave={v => handleCampoChange(inq.id, 'seguroIncendioMesFim', v)}
-                />
-              </div>
-            </div>
-          )}
+            )
+          })}
 
-          {incluida && (isSeguroIncendio || !variavel) && (
-            <EditableValue
-              value={valor ?? ''}
-              display={valor ? `R$ ${Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined}
-              inputType="number"
-              placeholder="R$ 0,00"
-              onSave={v => handleContaValorChange(inq, opt.value, v)}
-            />
-          )}
-        </td>
-      )
-    })
+          {/* Contas que o inquilino tem mas que não fazem mais parte do imóvel (imóvel trocado ou conta removida) */}
+          {contasOrfas.map(contaId => {
+            const { label, icone } = getContaMeta(contaId)
+            return (
+              <div key={contaId} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#94a3b8' }}>
+                <span>{icone} {label} (fora do imóvel atual)</span>
+                <button
+                  type="button"
+                  title="Remover"
+                  onClick={() => handleToggleContaInquilino(inq, imovel, contaId)}
+                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#b91c1c', fontSize: 12, lineHeight: 1 }}
+                >✕</button>
+              </div>
+            )
+          })}
+        </div>
+      </td>
+    )
 
     return cells
   }
@@ -1062,23 +1059,6 @@ export default function Inquilinos() {
           >
             <option value="">Todos</option>
             {SELECT_FILTER_OPTIONS[key].map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </th>
-      )
-    }
-
-    if (CONTA_FILTER_KEYS.includes(key)) {
-      return (
-        <th key={key}>
-          <select
-            className="col-filter-select"
-            value={colFilters[key]}
-            onChange={e => setColFilter(key, e.target.value)}
-          >
-            <option value="">Todos</option>
-            {POSSUI_OPCOES.map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
@@ -1355,7 +1335,7 @@ export default function Inquilinos() {
                   </div>
                   {(desocModal.contasInclusas || []).map(k => (
                     <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, color: '#374151' }}>📄 {CONTA_LABELS[k] || k}</span>
+                      <span style={{ fontSize: 13, color: '#374151' }}>{getContaMeta(k).icone} {getContaMeta(k).label}</span>
                       <input
                         type="number" step="0.01" min="0" placeholder="0,00"
                         value={desocValues[k] ?? ''}
