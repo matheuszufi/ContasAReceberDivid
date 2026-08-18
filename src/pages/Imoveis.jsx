@@ -4,6 +4,10 @@ import { ref, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import * as XLSX from 'xlsx'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Building2, KeyRound, CircleCheck, Wrench, Plus, Upload, RotateCcw, Search, Pencil, Trash2 } from 'lucide-react'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 const MODELOS = ['MA', 'ME', 'ML']
@@ -404,53 +408,81 @@ export default function Imoveis() {
 
   return (
     <Layout title="Imóveis" subtitle="Lista e gerenciamento de todos os imóveis">
-      <div className="actions-bar">
-        <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => navigate('/imoveis/cadastrar')}>
-          <b>+</b> Cadastrar Imóvel
-        </button>
-        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={handleExport}>
-          📤 Exportar Planilha
-        </button>
-        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={handleResetColumnOrder} title="Restaura a ordem original das colunas">
-          ↺ Restaurar Ordem das Colunas
-        </button>
-        <input
-          type="text"
-          placeholder="Buscar por código, endereço ou proprietário..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="search-input"
-        />
-      </div>
-
-      <div className="stats-grid" style={{ marginBottom: '24px' }}>
-        <div className="stat-card">
-          <div className="stat-icon">🏠</div>
-          <div className="stat-value">{imoveis.length}</div>
-          <div className="stat-label">Total de Imóveis</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">🔑</div>
-          <div className="stat-value">{imoveis.filter(i => i.status === 'Disponível').length}</div>
-          <div className="stat-label">Disponíveis</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">✅</div>
-          <div className="stat-value">{imoveis.filter(i => i.status === 'Ocupado').length}</div>
-          <div className="stat-label">Ocupados</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">🔧</div>
-          <div className="stat-value">{imoveis.filter(i => i.status === 'Em Manutenção').length}</div>
-          <div className="stat-label">Em Manutenção</div>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <Button onClick={() => navigate('/imoveis/cadastrar')}>
+          <Plus /> Cadastrar Imóvel
+        </Button>
+        <Button variant="outline" onClick={handleExport}>
+          <Upload /> Exportar Planilha
+        </Button>
+        <Button variant="outline" onClick={handleResetColumnOrder} title="Restaura a ordem original das colunas">
+          <RotateCcw /> Restaurar Ordem das Colunas
+        </Button>
+        <div className="relative ml-auto w-full max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Buscar por código, endereço ou proprietário..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-8"
+          />
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h3>Todos os Imóveis ({filtered.length})</h3>
-          <span className="hint-text">Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas</span>
-        </div>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+              <Building2 className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{imoveis.length}</p>
+              <p className="truncate text-sm text-muted-foreground">Total de Imóveis</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
+              <KeyRound className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{imoveis.filter(i => i.status === 'Disponível').length}</p>
+              <p className="truncate text-sm text-muted-foreground">Disponíveis</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+              <CircleCheck className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{imoveis.filter(i => i.status === 'Ocupado').length}</p>
+              <p className="truncate text-sm text-muted-foreground">Ocupados</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+              <Wrench className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{imoveis.filter(i => i.status === 'Em Manutenção').length}</p>
+              <p className="truncate text-sm text-muted-foreground">Em Manutenção</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="text-lg">Todos os Imóveis ({filtered.length})</CardTitle>
+          <CardDescription>Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas</CardDescription>
+        </CardHeader>
+        <CardContent className="px-0">
         <div className="table-container table-scroll-x inquilinos-scroll-area">
           {loading ? (
             <div className="empty-state"><div className="es-icon">⏳</div><p>Carregando...</p></div>
@@ -494,9 +526,13 @@ export default function Imoveis() {
                       {cells.codigo}
                       {columnOrder.map(key => cells[key])}
                       <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button className="btn btn-sm" onClick={() => navigate(`/imoveis/editar/${im.id}`)}>Editar</button>
-                          <button className="btn btn-sm btn-danger" onClick={() => handleDelete(im.id)}>Excluir</button>
+                        <div className="flex gap-1.5">
+                          <Button variant="outline" size="sm" onClick={() => navigate(`/imoveis/editar/${im.id}`)}>
+                            <Pencil /> Editar
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleDelete(im.id)}>
+                            <Trash2 /> Excluir
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -506,7 +542,8 @@ export default function Imoveis() {
             </table>
           )}
         </div>
-      </div>
+        </CardContent>
+      </Card>
     </Layout>
   )
 }

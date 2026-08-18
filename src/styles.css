@@ -951,10 +951,12 @@
     display: grid;
     place-items: center;
     padding: 24px 0 16px;
+    width: 100%;
   }
   .donut-svg {
-    width: 320px;
-    height: 320px;
+    width: 100%;
+    height: auto;
+    max-width: 280px;
   }
   .donut-center {
     position: absolute;

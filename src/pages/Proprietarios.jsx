@@ -4,6 +4,10 @@ import { ref, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import * as XLSX from 'xlsx'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Users, UserCheck, UserX, Plus, Upload, RotateCcw, Search, Pencil, Trash2 } from 'lucide-react'
 
 const DEFAULT_COLUMNS = [
   { key: 'nome', label: 'Nome' },
@@ -368,48 +372,70 @@ export default function Proprietarios() {
 
   return (
     <Layout title="Proprietários" subtitle="Gestão de proprietários de imóveis">
-      <div className="actions-bar">
-        <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => navigate('/proprietarios/cadastrar')}>
-          <b>+</b> Cadastrar Proprietário
-        </button>
-        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={handleExport}>
-          📤 Exportar Planilha
-        </button>
-        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={handleResetColumnOrder} title="Restaura a ordem original das colunas">
-          ↺ Restaurar Ordem das Colunas
-        </button>
-        <input
-          type="text"
-          placeholder="Buscar por nome, CPF/CNPJ ou email..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="search-input"
-        />
-      </div>
-
-      <div className="stats-grid" style={{ marginBottom: '24px' }}>
-        <div className="stat-card">
-          <div className="stat-icon">👥</div>
-          <div className="stat-value">{proprietarios.length}</div>
-          <div className="stat-label">Total de Proprietários</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">✅</div>
-          <div className="stat-value">{proprietarios.filter(p => p.status === 'Ativo').length}</div>
-          <div className="stat-label">Ativos</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">❌</div>
-          <div className="stat-value">{proprietarios.filter(p => p.status === 'Inativo').length}</div>
-          <div className="stat-label">Inativos</div>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <Button onClick={() => navigate('/proprietarios/cadastrar')}>
+          <Plus /> Cadastrar Proprietário
+        </Button>
+        <Button variant="outline" onClick={handleExport}>
+          <Upload /> Exportar Planilha
+        </Button>
+        <Button variant="outline" onClick={handleResetColumnOrder} title="Restaura a ordem original das colunas">
+          <RotateCcw /> Restaurar Ordem das Colunas
+        </Button>
+        <div className="relative ml-auto w-full max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Buscar por nome, CPF/CNPJ ou email..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-8"
+          />
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h3>Todos os Proprietários ({filtered.length})</h3>
-          <span className="hint-text">Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas</span>
-        </div>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+              <Users className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{proprietarios.length}</p>
+              <p className="truncate text-sm text-muted-foreground">Total de Proprietários</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+              <UserCheck className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{proprietarios.filter(p => p.status === 'Ativo').length}</p>
+              <p className="truncate text-sm text-muted-foreground">Ativos</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600">
+              <UserX className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{proprietarios.filter(p => p.status === 'Inativo').length}</p>
+              <p className="truncate text-sm text-muted-foreground">Inativos</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="text-lg">Todos os Proprietários ({filtered.length})</CardTitle>
+          <CardDescription>Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas</CardDescription>
+        </CardHeader>
+        <CardContent className="px-0">
         <div className="table-container table-scroll-x inquilinos-scroll-area">
           {loading ? (
             <div className="empty-state"><div className="es-icon">⏳</div><p>Carregando...</p></div>
@@ -453,9 +479,13 @@ export default function Proprietarios() {
                       {cells.nome}
                       {columnOrder.map(key => cells[key])}
                       <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button className="btn btn-sm" onClick={() => navigate(`/proprietarios/editar/${p.id}`)}>Editar</button>
-                          <button className="btn btn-sm btn-danger" onClick={() => handleDelete(p.id)}>Excluir</button>
+                        <div className="flex gap-1.5">
+                          <Button variant="outline" size="sm" onClick={() => navigate(`/proprietarios/editar/${p.id}`)}>
+                            <Pencil /> Editar
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleDelete(p.id)}>
+                            <Trash2 /> Excluir
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -465,7 +495,8 @@ export default function Proprietarios() {
             </table>
           )}
         </div>
-      </div>
+        </CardContent>
+      </Card>
     </Layout>
   )
 }

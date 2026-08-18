@@ -3,6 +3,20 @@ import { useNavigate } from 'react-router-dom'
 import { ref, onValue } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Building2,
+  Users,
+  TriangleAlert,
+  Wallet,
+  ChevronLeft,
+  ChevronRight,
+  Trophy,
+} from 'lucide-react'
 
 const MONTH_LABELS = [
   'Jan', 'Fev', 'Mar', 'Abr',
@@ -250,49 +264,77 @@ export default function Dashboard() {
 
   return (
     <Layout title="Dashboard" subtitle="Visão geral do sistema de gestão">
-      <div className="stats-grid" style={{ marginBottom: '24px' }}>
-        <div className="stat-card">
-          <div className="stat-icon">🏠</div>
-          <div className="stat-value">{totalImoveis}</div>
-          <div className="stat-label">Total de Imóveis</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">👤</div>
-          <div className="stat-value">{totalInquilinosAtivos}</div>
-          <div className="stat-label">Inquilinos Ativos</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">⚠️</div>
-          <div className="stat-value">{uniqueInadimplentes}</div>
-          <div className="stat-label">Inadimplentes</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">💰</div>
-          <div className="stat-value">{fmtMoney(receitaMensal)}</div>
-          <div className="stat-label">Receita Mensal</div>
-        </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+              <Building2 className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{totalImoveis}</p>
+              <p className="truncate text-sm text-muted-foreground">Total de Imóveis</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+              <Users className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{totalInquilinosAtivos}</p>
+              <p className="truncate text-sm text-muted-foreground">Inquilinos Ativos</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+              <TriangleAlert className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{uniqueInadimplentes}</p>
+              <p className="truncate text-sm text-muted-foreground">Inadimplentes</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
+              <Wallet className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-2xl font-semibold tracking-tight">{fmtMoney(receitaMensal)}</p>
+              <p className="truncate text-sm text-muted-foreground">Receita Mensal</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="card" style={{ marginBottom: '24px' }}>
-        <div className="card-header" style={{ alignItems: 'center' }}>
+      <Card className="mb-6">
+        <CardHeader className="flex-row items-center justify-between gap-4 border-b pb-4">
           <div>
-            <h3>Inadimplência por Período</h3>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>
+            <CardTitle className="text-lg">Inadimplência por Período</CardTitle>
+            <CardDescription>
               Navegue por ano e filtre por mês para ver valores e recuperação.
-            </p>
+            </CardDescription>
           </div>
-          <div className="year-controls">
-            <button className="year-btn" type="button" onClick={() => handleYearChange(-1)}>{'←'}</button>
-            <span className="year-label">{selectedYear}</span>
-            <button className="year-btn" type="button" onClick={() => handleYearChange(1)}>{'→'}</button>
+          <div className="flex items-center gap-1.5">
+            <Button variant="outline" size="icon" onClick={() => handleYearChange(-1)} aria-label="Ano anterior">
+              <ChevronLeft />
+            </Button>
+            <Badge variant="secondary" className="h-8 min-w-14 justify-center text-sm">{selectedYear}</Badge>
+            <Button variant="outline" size="icon" onClick={() => handleYearChange(1)} aria-label="Próximo ano">
+              <ChevronRight />
+            </Button>
           </div>
-        </div>
-        <div className="card-body">
-          <div className="chart-row">
-            <div className="chart-card">
-              <div className="chart-card-header">
-                <h4>Recuperação de Inadimplência</h4>
-                <small>{selectedPeriodLabel}</small>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.5fr_0.8fr_300px]">
+            <div className="flex min-w-0 flex-col rounded-lg border bg-card p-4">
+              <div className="mb-3">
+                <h4 className="font-medium">Recuperação de Inadimplência</h4>
+                <p className="text-xs text-muted-foreground">{selectedPeriodLabel}</p>
               </div>
               <div className="donut-chart" aria-label="Gráfico de pizza de recuperação">
                 <svg viewBox="0 0 120 120" className="donut-svg">
@@ -327,51 +369,44 @@ export default function Dashboard() {
                   <span>recuperado</span>
                 </div>
               </div>
-              <div className="donut-legend">
-                <div>
-                  <span className="dot dot-paid"></span>
-                  Recuperado: {fmtMoney(selectedMonthTotals.recuperado)}
+              <div className="mt-3 space-y-2 text-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                    <span className="dot dot-paid shrink-0"></span>
+                    <span className="truncate">Recuperado</span>
+                  </span>
+                  <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.recuperado)}</span>
                 </div>
-                <div>
-                  <span className="dot dot-approved"></span>
-                  Aprovado seguradora: {fmtMoney(selectedMonthTotals.aprovadoSeguradora)}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                    <span className="dot dot-approved shrink-0"></span>
+                    <span className="truncate">Aprovado seguradora</span>
+                  </span>
+                  <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.aprovadoSeguradora)}</span>
                 </div>
-                <div>
-                  <span className="dot dot-pending"></span>
-                  Aberto: {fmtMoney(selectedMonthTotals.inadimplente)}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                    <span className="dot dot-pending shrink-0"></span>
+                    <span className="truncate">Aberto</span>
+                  </span>
+                  <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.inadimplente)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="chart-card">
-              <div className="chart-card-header chart-card-header-right">
+            <div className="flex min-w-0 flex-col rounded-lg border bg-card p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h4>Pagamentos por mês</h4>
-                  <small>Ano {selectedYear}</small>
+                  <h4 className="font-medium">Pagamentos por mês</h4>
+                  <p className="text-xs text-muted-foreground">Ano {selectedYear}</p>
                 </div>
-                <div className="top-filter-group">
-                  <button
-                    type="button"
-                    className={`top-filter-btn ${periodMode === 'ano' ? 'active' : ''}`}
-                    onClick={() => setPeriodMode('ano')}
-                  >
-                    Ano todo
-                  </button>
-                  <button
-                    type="button"
-                    className={`top-filter-btn ${periodMode === 'h1' ? 'active' : ''}`}
-                    onClick={() => setPeriodMode('h1')}
-                  >
-                    1º semestre
-                  </button>
-                  <button
-                    type="button"
-                    className={`top-filter-btn ${periodMode === 'h2' ? 'active' : ''}`}
-                    onClick={() => setPeriodMode('h2')}
-                  >
-                    2º semestre
-                  </button>
-                </div>
+                <Tabs value={periodMode === 'month' ? '' : periodMode} onValueChange={setPeriodMode}>
+                  <TabsList>
+                    <TabsTrigger value="ano">Ano todo</TabsTrigger>
+                    <TabsTrigger value="h1">1º semestre</TabsTrigger>
+                    <TabsTrigger value="h2">2º semestre</TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
               <div className="month-grid month-grid-compact">
                 {monthCards.map(card => (
@@ -437,49 +472,43 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="chart-card chart-card-right">
-              <div className="chart-card-header chart-card-header-right">
+            <div className="flex min-w-0 flex-col rounded-lg border bg-card p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h4>Maiores inadimplentes</h4>
-                  <small>{selectedPeriodLabel}</small>
+                  <h4 className="font-medium">Maiores inadimplentes</h4>
+                  <p className="text-xs text-muted-foreground">{selectedPeriodLabel}</p>
                 </div>
-                <div className="top-filter-group">
-                  <button
-                    type="button"
-                    className={`top-filter-btn ${topFilter === 'valor' ? 'active' : ''}`}
-                    onClick={() => setTopFilter('valor')}
-                  >
-                    Maior valor
-                  </button>
-                  <button
-                    type="button"
-                    className={`top-filter-btn ${topFilter === 'quantidade' ? 'active' : ''}`}
-                    onClick={() => setTopFilter('quantidade')}
-                  >
-                    Mais inadimplências
-                  </button>
-                </div>
+                <Tabs value={topFilter} onValueChange={setTopFilter}>
+                  <TabsList>
+                    <TabsTrigger value="valor">Maior valor</TabsTrigger>
+                    <TabsTrigger value="quantidade">Mais inadimplências</TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </div>
-              <div className="top-list">
+              <div className="flex flex-col gap-1">
                 {topInadimplentes.length === 0 ? (
-                  <div className="empty-state">Nenhum inadimplente no período.</div>
+                  <p className="py-8 text-center text-sm text-muted-foreground">Nenhum inadimplente no período.</p>
                 ) : (
                   topInadimplentes.map((item, index) => (
-                    <div key={item.id} className="top-list-item">
-                      <div>
-                        <span className="top-list-rank">#{index + 1}</span>
-                        <strong>{item.name}</strong>
-                        <span className="top-list-count">{item.count} inadimplência{item.count === 1 ? '' : 's'}</span>
+                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-muted/50">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Badge variant={index === 0 ? 'default' : 'secondary'} className="h-6 w-6 justify-center rounded-full p-0">
+                          {index === 0 ? <Trophy className="size-3.5" /> : `#${index + 1}`}
+                        </Badge>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.count} inadimplência{item.count === 1 ? '' : 's'}</p>
+                        </div>
                       </div>
-                      <strong>{fmtMoney(item.total)}</strong>
+                      <strong className="shrink-0 text-sm">{fmtMoney(item.total)}</strong>
                     </div>
                   ))
                 )}
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </Layout>
   )
 }
