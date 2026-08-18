@@ -110,6 +110,7 @@ export default function ImoveisTodos() {
   const [obsModal, setObsModal]       = useState('')
   const [filterNome, setFilterNome]           = useState('')
   const [filterImovel, setFilterImovel]       = useState('')
+  const [filterModelo, setFilterModelo]       = useState('')
   const [filterInadimplentes, setFilterInadimplentes] = useState(false)
   const [filterContasVariaveis, setFilterContasVariaveis] = useState(false)
   const [sortBy, setSortBy]   = useState(null)
@@ -165,6 +166,7 @@ export default function ImoveisTodos() {
   const filteredRows = rows.filter(({ imovel, inquilino }) => {
     if (filterNome && !inquilino.nome?.toLowerCase().includes(filterNome.toLowerCase())) return false
     if (filterImovel && !imovel.codigo?.toLowerCase().includes(filterImovel.toLowerCase())) return false
+    if (filterModelo && imovel.modelo !== filterModelo) return false
     if (filterInadimplentes) {
       const hasInadimplente = MESES.some((_, mi) => {
         const mk = `${year}-${padM(mi + 1)}`
@@ -424,6 +426,16 @@ export default function ImoveisTodos() {
             onChange={e => setFilterImovel(e.target.value)}
             style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, width: 150, outline: 'none' }}
           />
+          <select
+            value={filterModelo}
+            onChange={e => setFilterModelo(e.target.value)}
+            style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, outline: 'none', background: '#fff', color: '#334155' }}
+          >
+            <option value="">Todos os modelos</option>
+            <option value="MA">MA</option>
+            <option value="ME">ME</option>
+            <option value="ML">ML</option>
+          </select>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
             <input
               type="checkbox"
@@ -440,12 +452,12 @@ export default function ImoveisTodos() {
             />
             Apenas com contas variáveis
           </label>
-          {(filterNome || filterImovel || filterInadimplentes || filterContasVariaveis) && (
+          {(filterNome || filterImovel || filterModelo || filterInadimplentes || filterContasVariaveis) && (
             <Button
               variant="ghost"
               size="sm"
               className="ml-auto text-muted-foreground"
-              onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterInadimplentes(false); setFilterContasVariaveis(false) }}
+              onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterModelo(''); setFilterInadimplentes(false); setFilterContasVariaveis(false) }}
             >
               <X /> Limpar ({filteredRows.length}/{rows.length})
             </Button>
@@ -497,7 +509,7 @@ export default function ImoveisTodos() {
                     <th style={{ ...thL, textAlign: 'center', width: 44 }}></th>
                     <th style={{ ...thL, cursor: 'pointer' }} onClick={() => toggleSort('imovel')}>Imóvel{sortArrow('imovel')}</th>
                     <th style={{ ...thL, cursor: 'pointer' }} onClick={() => toggleSort('inquilino')}>Inquilino{sortArrow('inquilino')}</th>
-                    <th style={{ ...thL, textAlign: 'right' }}>Aluguel</th>
+                    <th style={{ ...thL, textAlign: 'center' }}>Modelo</th>
                     {MESES.map((m, i) => (
                       <th key={i} style={{
                         ...thC,
@@ -555,8 +567,8 @@ export default function ImoveisTodos() {
                       >
                         {inquilino.nome || '—'}
                       </td>
-                      <td style={{ ...tdL, textAlign: 'right', fontWeight: 600 }}>
-                        {fmtBRL(inquilino.valorAluguel || imovel.valorAluguel)}
+                      <td style={{ ...tdL, textAlign: 'center' }}>
+                        {imovel.modelo ? <Badge variant="outline">{imovel.modelo}</Badge> : '—'}
                       </td>
                       {MESES.map((_, mi) => {
                         const items    = getItems(inquilino.id, mi)

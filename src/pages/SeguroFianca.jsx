@@ -177,8 +177,9 @@ export default function SeguroFianca() {
   const ativos = seguradosFianca.filter(i => i.status === 'Ativo').length
 
   const abrirPortal = (inquilino) => {
-    if (inquilino.seguro === 'credpago') { window.open(credpagoUrl(inquilino.nome), '_blank'); return }
-    if (inquilino.seguro === 'credaluga') { window.open(credalugaUrl(inquilino.nome), '_blank'); return }
+    const nomeSeguro = String(inquilino.seguro || '').toLowerCase()
+    if (nomeSeguro.includes('credpago')) { window.open(credpagoUrl(inquilino.nome), '_blank'); return }
+    if (nomeSeguro.includes('credaluga')) { window.open(credalugaUrl(inquilino.nome), '_blank'); return }
     alert('Esta seguradora não possui portal integrado.')
   }
 

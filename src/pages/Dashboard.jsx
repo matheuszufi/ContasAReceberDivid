@@ -458,10 +458,6 @@ export default function Dashboard() {
                           <strong>{fmtMoney(card.recuperado)}</strong>
                         </div>
                         <div className="mc-value-group">
-                          <span className="mc-value-label">Aprovado seguradora</span>
-                          <strong>{fmtMoney(card.aprovadoSeguradora)}</strong>
-                        </div>
-                        <div className="mc-value-group">
                           <span className="mc-value-label">Em aberto</span>
                           <strong>{fmtMoney(card.inadimplente)}</strong>
                         </div>

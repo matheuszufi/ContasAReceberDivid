@@ -6,9 +6,6 @@ import Dashboard from './pages/Dashboard'
 import Imoveis from './pages/Imoveis'
 import ImoveisTodos from './pages/ImoveisTodos'
 import CadastrarImovel from './pages/CadastrarImovel'
-import ImoveisMe from './pages/ImoveisMe'
-import ImoveisMa from './pages/ImoveisMa'
-import ImoveisMl from './pages/ImoveisMl'
 import Proprietarios from './pages/Proprietarios'
 import CadastrarProprietario from './pages/CadastrarProprietario'
 import Inquilinos from './pages/Inquilinos'
@@ -16,6 +13,8 @@ import CadastrarInquilino from './pages/CadastrarInquilino'
 import ImportarPlanilha from './pages/ImportarPlanilha'
 import Inadimplentes from './pages/Inadimplentes'
 import CadastrarInadimplencia from './pages/CadastrarInadimplencia'
+import CadastrarConta from './pages/CadastrarConta'
+import CadastrarSeguro from './pages/CadastrarSeguro'
 import ImportarInadimplencia from './pages/ImportarInadimplencia'
 import TimelineInadimplencia from './pages/TimelineInadimplencia'
 import SeguroFianca from './pages/SeguroFianca'
@@ -76,9 +75,6 @@ export default function App() {
       <Route path="/imoveis-todos"              element={<PrivateRoute><ImoveisTodos /></PrivateRoute>} />
       <Route path="/imoveis/cadastrar"          element={<PrivateRoute><CadastrarImovel /></PrivateRoute>} />
       <Route path="/imoveis/editar/:id"         element={<PrivateRoute><CadastrarImovel /></PrivateRoute>} />
-      <Route path="/imoveis-me"                 element={<PrivateRoute><ImoveisMe /></PrivateRoute>} />
-      <Route path="/imoveis-ma"                 element={<PrivateRoute><ImoveisMa /></PrivateRoute>} />
-      <Route path="/imoveis-ml"                 element={<PrivateRoute><ImoveisMl /></PrivateRoute>} />
       <Route path="/proprietarios"              element={<PrivateRoute><Proprietarios /></PrivateRoute>} />
       <Route path="/proprietarios/cadastrar"    element={<PrivateRoute><CadastrarProprietario /></PrivateRoute>} />
       <Route path="/proprietarios/editar/:id"   element={<PrivateRoute><CadastrarProprietario /></PrivateRoute>} />
@@ -91,6 +87,8 @@ export default function App() {
       <Route path="/inadimplentes/cadastrar"    element={<PrivateRoute><CadastrarInadimplencia /></PrivateRoute>} />
       <Route path="/inadimplentes/editar/:id"   element={<PrivateRoute><CadastrarInadimplencia /></PrivateRoute>} />
       <Route path="/inadimplentes/timeline/:id" element={<PrivateRoute><TimelineInadimplencia /></PrivateRoute>} />
+      <Route path="/contas/cadastrar"           element={<PrivateRoute><CadastrarConta /></PrivateRoute>} />
+      <Route path="/seguros/cadastrar"          element={<PrivateRoute><CadastrarSeguro /></PrivateRoute>} />
       <Route path="/seguro-fianca"               element={<PrivateRoute><SeguroFianca /></PrivateRoute>} />
       <Route path="/seguro-incendio"             element={<PrivateRoute><SeguroIncendio /></PrivateRoute>} />
       <Route path="/desocupacoes"                element={<PrivateRoute><Desocupacoes /></PrivateRoute>} />

@@ -14,6 +14,9 @@ const initialForm = {
   proprietarioId: '',
   ucEnergia: '', ucAgua: '',
   endereco: { cep: '', rua: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '' },
+  contasInclusas: [],
+  contasVariavel: {},
+  contasCobradoBoleto: {},
   observacao: '',
 }
 
@@ -24,6 +27,8 @@ export default function CadastrarImovel() {
   const [form, setForm] = useState(initialForm)
   const [proprietarios, setProprietarios] = useState([])
   const [inquilinos, setInquilinos] = useState([])
+  const [contasCatalogo, setContasCatalogo] = useState([])
+  const [contaParaAdicionar, setContaParaAdicionar] = useState('')
   const [loading, setLoading] = useState(false)
   const [cepLoading, setCepLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -36,6 +41,15 @@ export default function CadastrarImovel() {
   }, [])
 
   useEffect(() => {
+    return onValue(ref(db, 'contas'), snap => {
+      const data = snap.val()
+      const lista = data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : []
+      lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'))
+      setContasCatalogo(lista)
+    })
+  }, [])
+
+  useEffect(() => {
     if (!isEdit) return
     return onValue(ref(db, 'inquilinos'), snap => {
       const data = snap.val()
@@ -43,6 +57,9 @@ export default function CadastrarImovel() {
       setInquilinos(lista.filter(inq => inq.imovelId === id))
     })
   }, [id, isEdit])
+
+  const inquilinosAtivos = inquilinos.filter(inq => inq.status === 'Ativo')
+  const inquilinosInativos = inquilinos.filter(inq => inq.status !== 'Ativo')
 
   useEffect(() => {
     if (!isEdit) return
@@ -52,6 +69,9 @@ export default function CadastrarImovel() {
         setForm({
           ...initialForm, ...data,
           endereco: { ...initialForm.endereco, ...(data.endereco || {}) },
+          contasInclusas: data.contasInclusas || [],
+          contasVariavel: data.contasVariavel || {},
+          contasCobradoBoleto: data.contasCobradoBoleto || {},
         })
       }
     })
@@ -60,6 +80,37 @@ export default function CadastrarImovel() {
   const handleChange = (e) => {
     const { name, value } = e.target
     setForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  const handleAddConta = () => {
+    if (!contaParaAdicionar) return
+    setForm(prev => prev.contasInclusas.includes(contaParaAdicionar)
+      ? prev
+      : { ...prev, contasInclusas: [...prev.contasInclusas, contaParaAdicionar] })
+    setContaParaAdicionar('')
+  }
+
+  const handleRemoveConta = (contaId) => {
+    setForm(prev => {
+      const contasVariavel = { ...prev.contasVariavel }
+      const contasCobradoBoleto = { ...prev.contasCobradoBoleto }
+      delete contasVariavel[contaId]
+      delete contasCobradoBoleto[contaId]
+      return {
+        ...prev,
+        contasInclusas: prev.contasInclusas.filter(v => v !== contaId),
+        contasVariavel,
+        contasCobradoBoleto,
+      }
+    })
+  }
+
+  const handleContaVariavelToggle = (contaId, checked) => {
+    setForm(prev => ({ ...prev, contasVariavel: { ...prev.contasVariavel, [contaId]: checked } }))
+  }
+
+  const handleContaBoletoToggle = (contaId, checked) => {
+    setForm(prev => ({ ...prev, contasCobradoBoleto: { ...prev.contasCobradoBoleto, [contaId]: checked } }))
   }
 
   const handleEndereco = (e) => {
@@ -266,6 +317,95 @@ export default function CadastrarImovel() {
           </div>
         </div>
 
+        {/* ── Contas do Imóvel ── */}
+        <div className="form-section">
+          <div className="form-section-header">
+            <span className="form-section-icon">📋</span>
+            <h3>Contas do Imóvel</h3>
+          </div>
+          <div className="form-section-body">
+            {contasCatalogo.length === 0 ? (
+              <div className="info-banner">
+                <p style={{ margin: 0 }}>Nenhuma conta cadastrada. <button type="button" className="link-btn" onClick={() => navigate('/contas/cadastrar')}>Cadastrar agora</button></p>
+              </div>
+            ) : (
+              <>
+                <div className="form-grid-2" style={{ marginBottom: '16px' }}>
+                  <div className="form-group">
+                    <label>Adicionar conta</label>
+                    <select value={contaParaAdicionar} onChange={e => setContaParaAdicionar(e.target.value)}>
+                      <option value="">Selecione uma conta...</option>
+                      {contasCatalogo
+                        .filter(conta => !form.contasInclusas.includes(conta.id))
+                        .map(conta => (
+                          <option key={conta.id} value={conta.id}>{conta.nome}</option>
+                        ))}
+                    </select>
+                  </div>
+                  <div className="form-group" style={{ justifyContent: 'flex-end' }}>
+                    <button type="button" className="btn btn-secondary" style={{ marginTop: 8 }} disabled={!contaParaAdicionar} onClick={handleAddConta}>
+                      + Adicionar
+                    </button>
+                  </div>
+                </div>
+
+                {form.contasInclusas.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="es-icon">📋</div>
+                    <h3>Nenhuma conta adicionada</h3>
+                    <p>Selecione uma conta acima para anexá-la a este imóvel.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {form.contasInclusas.map(contaId => {
+                      const conta = contasCatalogo.find(c => c.id === contaId)
+                      return (
+                        <div
+                          key={contaId}
+                          style={{
+                            display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 14px',
+                            border: '1px solid #e2e8f0', borderRadius: 8, background: '#f8fafc',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <strong>{conta?.nome || 'Conta removida do catálogo'}</strong>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ width: 'auto', color: '#b91c1c' }}
+                              onClick={() => handleRemoveConta(contaId)}
+                            >
+                              🗑️ Remover
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', gap: 20 }}>
+                            <label className="conta-variavel-toggle">
+                              <input
+                                type="checkbox"
+                                checked={!!form.contasVariavel[contaId]}
+                                onChange={e => handleContaVariavelToggle(contaId, e.target.checked)}
+                              />
+                              <span>Conta variável</span>
+                            </label>
+                            <label className="conta-variavel-toggle">
+                              <input
+                                type="checkbox"
+                                checked={!!form.contasCobradoBoleto[contaId]}
+                                onChange={e => handleContaBoletoToggle(contaId, e.target.checked)}
+                              />
+                              <span>Cobrado no boleto do inquilino</span>
+                            </label>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
         {/* ── Inquilinos ── */}
         {isEdit && (
           <div className="form-section">
@@ -274,11 +414,11 @@ export default function CadastrarImovel() {
               <h3>Inquilinos Morando Neste Imóvel</h3>
             </div>
             <div className="form-section-body">
-              {inquilinos.length === 0 ? (
+              {inquilinosAtivos.length === 0 ? (
                 <p style={{ margin: 0, color: '#64748b' }}>Nenhum inquilino vinculado a este imóvel.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {inquilinos.map(inq => (
+                  {inquilinosAtivos.map(inq => (
                     <div
                       key={inq.id}
                       onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}
@@ -301,6 +441,41 @@ export default function CadastrarImovel() {
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Antigos Inquilinos ── */}
+        {isEdit && inquilinosInativos.length > 0 && (
+          <div className="form-section">
+            <div className="form-section-header">
+              <span className="form-section-icon">🕒</span>
+              <h3>Antigos Inquilinos do Imóvel</h3>
+            </div>
+            <div className="form-section-body">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {inquilinosInativos.map(inq => (
+                  <div
+                    key={inq.id}
+                    onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}
+                    style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      gap: 10, padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 8,
+                      cursor: 'pointer', background: '#f8fafc',
+                    }}
+                  >
+                    <div>
+                      <strong>{inq.nome || '—'}</strong>
+                      {inq.numeroQuarto && (
+                        <span style={{ marginLeft: 8, fontSize: 12, color: '#475569', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 5, padding: '1px 7px' }}>
+                          Quarto {inq.numeroQuarto}
+                        </span>
+                      )}
+                    </div>
+                    <span className="badge badge-gray">{inq.status || '—'}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}

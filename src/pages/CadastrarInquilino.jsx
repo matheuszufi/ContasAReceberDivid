@@ -22,14 +22,6 @@ const GARANTIA_OPCOES = [
   { value: 'sem_garantia', label: 'Sem Garantia' },
 ]
 
-const SEGURO_OPCOES = [
-  { value: 'credaluga', label: 'Credaluga' },
-  { value: 'credpago',  label: 'Credpago' },
-  { value: 'lado_bom',  label: 'Lado Bom Seguros' },
-  { value: 'Avalyst',   label: 'Avalyst' },
-  { value: 'Imovpago',  label: 'ImovPago' },
-]
-
 const METODO_PAGAMENTO_OPCOES = [
   { value: 'pre_pago', label: 'Pré-pago', hint: 'Contas exibidas no mês de uso' },
   { value: 'pos_pago', label: 'Pós-pago', hint: 'Contas exibidas um mês após o uso' },
@@ -87,6 +79,7 @@ export default function CadastrarInquilino() {
   const isEdit = Boolean(id)
   const [form, setForm] = useState(initialForm)
   const [imoveis, setImoveis] = useState([])
+  const [segurosCatalogo, setSegurosCatalogo] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [buscaImovel, setBuscaImovel] = useState('')
@@ -95,6 +88,14 @@ export default function CadastrarInquilino() {
     return onValue(ref(db, 'imoveis'), snap => {
       const data = snap.val()
       setImoveis(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+  }, [])
+
+  useEffect(() => {
+    return onValue(ref(db, 'seguros'), snap => {
+      const data = snap.val()
+      const lista = data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : []
+      setSegurosCatalogo(lista.filter(s => s.tipo === 'Seguro Fiança').sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')))
     })
   }, [])
 
@@ -624,10 +625,15 @@ required
                   <label>Seguradora *</label>
                   <select name="seguro" value={form.seguro} onChange={handleChange} required>
                     <option value="">Selecione a seguradora...</option>
-                    {SEGURO_OPCOES.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    {segurosCatalogo.map(opt => (
+                      <option key={opt.id} value={opt.nome}>{opt.nome}</option>
                     ))}
                   </select>
+                  {segurosCatalogo.length === 0 && (
+                    <div className="info-banner" style={{ marginTop: '10px' }}>
+                      <p style={{ margin: 0 }}>Nenhuma seguradora cadastrada. <button type="button" className="link-btn" onClick={() => navigate('/seguros/cadastrar')}>Cadastrar agora</button></p>
+                    </div>
+                  )}
                 </div>
                 <div className="form-group">
                   <label>Valor Mensal do Seguro (R$)</label>
