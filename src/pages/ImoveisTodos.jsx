@@ -118,6 +118,7 @@ export default function ImoveisTodos() {
   const [varValues, setVarValues]   = useState({})
   const [registradoVar, setRegistradoVar] = useState({})
   const [extraContas, setExtraContas] = useState([])
+  const [saveError, setSaveError] = useState('')
   const [regForm, setRegForm]         = useState(null)
   const [regSaving, setRegSaving]     = useState(false)
   const [obsModal, setObsModal]       = useState('')
@@ -140,7 +141,7 @@ export default function ImoveisTodos() {
 
   const sortArrow = (field) => sortBy === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
  
-  const closeModal = () => { setModal(null); setVarValues({}); setRegistradoVar({}); setExtraContas([]); setRegForm(null); setObsModal('') }
+  const closeModal = () => { setModal(null); setVarValues({}); setRegistradoVar({}); setExtraContas([]); setSaveError(''); setRegForm(null); setObsModal('') }
  
   const goInquilino = (inquilinoId) => navigate(`/inquilinos/editar/${inquilinoId}`)
   const goImovel = (imovelId) => navigate(`/imoveis/editar/${imovelId}`)
@@ -207,7 +208,8 @@ export default function ImoveisTodos() {
       if (!hasInadimplente) return false
     }
     if (filterContasVariaveis) {
-      const hasContaVariavel = (inquilino.contasInclusas || []).some(k => inquilino.contasVariavel?.[k] && !isContaPagaImobiliaria(inquilino, k))
+      const contasDoImovel = (imovel.contasInclusas || inquilino.contasInclusas || []).filter(k => !isContaPagaImobiliaria(inquilino, k))
+      const hasContaVariavel = contasDoImovel.some(k => inquilino.contasVariavel?.[k] || imovel.contasVariavel?.[k])
       if (!hasContaVariavel) return false
     }
     return true
@@ -236,7 +238,8 @@ export default function ImoveisTodos() {
     const valorSeguro  = '_seguro'  in cellVarVals ? Number(cellVarVals._seguro)  || 0 : ((inquilino.garantia === 'seguro' && isMesDentroRange(cellKey, inquilino.seguroFiancaMesInicio, inquilino.seguroFiancaMesFim)) ? Number(inquilino.valorSeguro) || 0 : 0)
     const valorGaragem = '_garagem' in cellVarVals ? Number(cellVarVals._garagem) || 0 : (Number(inquilino.vagas) || 0) * (Number(inquilino.valorVaga) || 0)
     const valorGarantia = (inquilino.garantia === 'caucao' || inquilino.garantia === 'adiantamento') && cellKey === mesInicio ? Number(inquilino.valorGarantia) || 0 : 0
-    const despesas = (inquilino.contasInclusas || []).reduce((s, k) => {
+    const contasDoImovel = (imovel.contasInclusas || inquilino.contasInclusas || [])
+    const despesas = contasDoImovel.reduce((s, k) => {
       if (isContaPagaImobiliaria(inquilino, k)) return s
       if (isSeguroIncendioKey(k) && !isMesDentroRange(cellKey, inquilino.seguroIncendioMesInicio, inquilino.seguroIncendioMesFim)) return s
       if (k in cellVarVals) return s + (Number(cellVarVals[k]) || 0)
@@ -266,7 +269,7 @@ export default function ImoveisTodos() {
     if (modal?.inquilino?.id && modal?.key) {
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), {
         [contaKey]: parseFloat(rawValue) || 0,
-      })
+      }).catch(err => { console.error('Erro ao salvar valor:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
     }
   }
  
@@ -274,6 +277,7 @@ export default function ImoveisTodos() {
     setVarValues(prev => { const n = { ...prev }; delete n[contaKey]; return n })
     if (modal?.inquilino?.id && modal?.key) {
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), { [contaKey]: null })
+        .catch(err => { console.error('Erro ao reverter valor:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
     }
   }
  
@@ -282,21 +286,37 @@ export default function ImoveisTodos() {
     setExtraContas(prev => [...prev, { id: newId, contaId: '', nome: '', valor: '', registrado: false }])
   }
 
-  const handleExtraChange = (idx, field, value) => {
-    setExtraContas(prev => {
-      const next = prev.map((e, i) => i === idx ? { ...e, [field]: value } : e)
-      if (['valor', 'contaId', 'nome'].includes(field)) saveExtra(idx, next[idx])
-      return next
-    })
-  }
-
   const saveExtra = async (idx, extra) => {
-    if (!extra || !extra.id || (!extra.contaId && !extra.nome) || !modal?.inquilino?.id || !modal?.key) return
+    if (!extra || !modal?.inquilino?.id || !modal?.key) return
+    const hasIdentity = Boolean(extra.id || extra.contaId || extra.nome)
+    if (!hasIdentity) return
     const numVal = extra.valor === '' || extra.valor === undefined || extra.valor === null ? 0 : parseFloat(extra.valor)
     if (Number.isNaN(numVal)) return
     const basePath = `valoresVariaveis/${modal.inquilino.id}/${modal.key}/extras`
+    const finalId = extra.id || push(ref(db, basePath)).key
     const payload = { contaId: extra.contaId || '', nome: extra.nome || '', valor: numVal, registrado: !!extra.registrado }
-    await set(ref(db, `${basePath}/${extra.id}`), payload)
+    try {
+      await set(ref(db, `${basePath}/${finalId}`), payload)
+      setSaveError('')
+      if (finalId !== extra.id) {
+        setExtraContas(prev => prev.map((e, i) => i === idx ? { ...e, id: finalId } : e))
+      }
+    } catch (err) {
+      console.error('Erro ao salvar conta extra:', err)
+      setSaveError(`Erro ao salvar conta: ${err.message}`)
+    }
+  }
+
+  const handleExtraChange = (idx, field, value) => {
+    let updatedExtra = null
+    setExtraContas(prev => {
+      const next = prev.map((e, i) => i === idx ? { ...e, [field]: value } : e)
+      updatedExtra = next[idx]
+      return next
+    })
+    if (['valor', 'contaId', 'nome'].includes(field) && updatedExtra) {
+      saveExtra(idx, updatedExtra)
+    }
   }
 
   const handleExtraSave = (idx) => saveExtra(idx, extraContas[idx])
@@ -304,27 +324,36 @@ export default function ImoveisTodos() {
   const handleExtraContaChange = (idx, contaId) => {
     const conta = contasCatalogo.find(c => c.id === contaId)
     const nome = conta?.nome || ''
+    let updatedExtra = null
     setExtraContas(prev => {
       const next = prev.map((e, i) => i === idx ? { ...e, contaId, nome } : e)
-      saveExtra(idx, next[idx])
+      updatedExtra = next[idx]
       return next
     })
+    if (updatedExtra) saveExtra(idx, updatedExtra)
   }
 
   const handleRemoveExtra = async (idx) => {
     const extra = extraContas[idx]
     if (extra?.id && modal?.inquilino?.id && modal?.key) {
-      await remove(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/extras/${extra.id}`))
+      try {
+        await remove(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/extras/${extra.id}`))
+      } catch (err) {
+        console.error('Erro ao remover conta extra:', err)
+        setSaveError(`Erro ao remover conta: ${err.message}`)
+      }
     }
     setExtraContas(prev => prev.filter((_, i) => i !== idx))
   }
 
   const handleExtraToggleRegistrado = (idx) => {
+    let updatedExtra = null
     setExtraContas(prev => {
       const next = prev.map((e, i) => i === idx ? { ...e, registrado: !e.registrado } : e)
-      saveExtra(idx, next[idx])
+      updatedExtra = next[idx]
       return next
     })
+    if (updatedExtra) saveExtra(idx, updatedExtra)
   }
 
   const handleToggleRegistradoVar = (k) => {
@@ -332,6 +361,7 @@ export default function ImoveisTodos() {
     setRegistradoVar(prev => ({ ...prev, [k]: novo }))
     if (modal?.inquilino?.id && modal?.key) {
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/_registrado`), { [k]: novo })
+        .catch(err => { console.error('Erro ao registrar conta:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
     }
   }
 
@@ -353,17 +383,20 @@ export default function ImoveisTodos() {
     const allRegistrado = extraContas.every(e => e.registrado) && allKeys.every(k => registradoVar[k])
     const novoValor = !allRegistrado
 
+    let updatedExtras = []
     setExtraContas(prev => {
       const next = prev.map(e => ({ ...e, registrado: novoValor }))
-      next.forEach((e, i) => saveExtra(i, e))
+      updatedExtras = next
       return next
     })
+    updatedExtras.forEach((e, i) => saveExtra(i, e))
 
     if (allKeys.length && modal?.inquilino?.id && modal?.key) {
       const patch = {}
       allKeys.forEach(k => { patch[k] = novoValor })
       setRegistradoVar(prev => ({ ...prev, ...patch }))
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/_registrado`), patch)
+        .catch(err => { console.error('Erro ao marcar todas:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
     }
   }
  
@@ -712,7 +745,7 @@ export default function ImoveisTodos() {
                           isReajuste = elapsed >= 0 && elapsed % 12 === 11
                         }
  
-                        const contasVariaveisKeys = (inquilino.contasInclusas || []).filter(k => inquilino.contasVariavel?.[k] && !isContaPagaImobiliaria(inquilino, k))
+                        const contasVariaveisKeys = (imovel.contasInclusas || inquilino.contasInclusas || []).filter(k => (inquilino.contasVariavel?.[k] || imovel.contasVariavel?.[k]) && !isContaPagaImobiliaria(inquilino, k))
                         const contasVariaveisPendentes = contasVariaveisKeys.filter(k => !cellRegistradoVar?.[k])
                         const variavelPendente = contasVariaveisPendentes.length > 0 && contasVariaveisPendentes.some(k => !(k in cellVarVals))
                         const variavelZerada   = contasVariaveisPendentes.length > 0 && contasVariaveisPendentes.some(k => (k in cellVarVals) && (Number(cellVarVals[k]) === 0))
@@ -925,7 +958,7 @@ export default function ImoveisTodos() {
             </div>
  
             {(() => {
-              const contasInclusas = (modal.inquilino.contasInclusas || [])
+              const contasInclusas = (modal.imovel.contasInclusas || modal.inquilino.contasInclusas || [])
                 .filter(k => !isContaPagaImobiliaria(modal.inquilino, k))
                 .filter(k => !isSeguroIncendioKey(k) || isMesDentroRange(modal.key, modal.inquilino.seguroIncendioMesInicio, modal.inquilino.seguroIncendioMesFim))
               const allContas = contasInclusas.map(k => {
@@ -999,6 +1032,12 @@ export default function ImoveisTodos() {
                   <div style={{ fontWeight: 700, fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Composição do Valor Mensal
                   </div>
+                  {saveError && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 6, padding: '6px 10px', fontSize: 12, marginBottom: 10 }}>
+                      ⚠️ {saveError}
+                      <button onClick={() => setSaveError('')} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: '#991b1b', fontWeight: 700 }}>✕</button>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <EditableRow icon="🏠" label="Aluguel"       baseVal={aluguelBase}  vKey="_aluguel" />
                     {allContas.map(({ key, label, icone, value, isVariavel, origem }) => {
@@ -1332,7 +1371,7 @@ export default function ImoveisTodos() {
                     const { mesInicio: _modalMesInicio } = getMesRange(modal.inquilino)
                     const _aluguelCheio = Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
                     const _aluguel     = '_aluguel' in varValues ? Number(varValues._aluguel) || 0 : (modal.key === _modalMesInicio ? _aluguelCheio * getFracaoEntrada(modal.inquilino) : _aluguelCheio)
-                    const _allContas   = (modal.inquilino.contasInclusas || [])
+                    const _allContas   = (modal.imovel.contasInclusas || modal.inquilino.contasInclusas || [])
                       .filter(k => !isContaPagaImobiliaria(modal.inquilino, k))
                       .filter(k => !isSeguroIncendioKey(k) || isMesDentroRange(modal.key, modal.inquilino.seguroIncendioMesInicio, modal.inquilino.seguroIncendioMesFim))
                       .map(k => ({
