@@ -330,72 +330,66 @@ export default function CadastrarImovel() {
               </div>
             ) : (
               <>
-                <div className="form-grid-2" style={{ marginBottom: '16px' }}>
-                  <div className="form-group">
-                    <label>Adicionar conta</label>
-                    <select value={contaParaAdicionar} onChange={e => setContaParaAdicionar(e.target.value)}>
-                      <option value="">Selecione uma conta...</option>
-                      {contasCatalogo
-                        .filter(conta => !form.contasInclusas.includes(conta.id))
-                        .map(conta => (
-                          <option key={conta.id} value={conta.id}>{conta.nome}</option>
-                        ))}
-                    </select>
-                  </div>
-                  <div className="form-group" style={{ justifyContent: 'flex-end' }}>
-                    <button type="button" className="btn btn-secondary" style={{ marginTop: 8 }} disabled={!contaParaAdicionar} onClick={handleAddConta}>
-                      + Adicionar
-                    </button>
-                  </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: '12px' }}>
+                  <select
+                    value={contaParaAdicionar}
+                    onChange={e => setContaParaAdicionar(e.target.value)}
+                    style={{ flex: 1 }}
+                  >
+                    <option value="">Selecione uma conta para adicionar...</option>
+                    {contasCatalogo
+                      .filter(conta => !form.contasInclusas.includes(conta.id))
+                      .map(conta => (
+                        <option key={conta.id} value={conta.id}>{conta.nome}</option>
+                      ))}
+                  </select>
+                  <button type="button" className="btn btn-secondary" style={{ width: 'auto', whiteSpace: 'nowrap' }} disabled={!contaParaAdicionar} onClick={handleAddConta}>
+                    + Adicionar
+                  </button>
                 </div>
 
                 {form.contasInclusas.length === 0 ? (
-                  <div className="empty-state">
-                    <div className="es-icon">📋</div>
-                    <h3>Nenhuma conta adicionada</h3>
-                    <p>Selecione uma conta acima para anexá-la a este imóvel.</p>
-                  </div>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: 13 }}>Nenhuma conta adicionada a este imóvel.</p>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     {form.contasInclusas.map(contaId => {
                       const conta = contasCatalogo.find(c => c.id === contaId)
                       return (
                         <div
                           key={contaId}
                           style={{
-                            display: 'flex', flexDirection: 'column', gap: 10, padding: '10px 14px',
-                            border: '1px solid #e2e8f0', borderRadius: 8, background: '#f8fafc',
+                            display: 'flex', flexWrap: 'wrap', gap: 14, alignItems: 'center',
+                            padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, background: '#f8fafc',
                           }}
                         >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <strong>{conta?.nome || 'Conta removida do catálogo'}</strong>
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              style={{ width: 'auto', color: '#b91c1c' }}
-                              onClick={() => handleRemoveConta(contaId)}
-                            >
-                              🗑️ Remover
-                            </button>
-                          </div>
-                          <div style={{ display: 'flex', gap: 20 }}>
-                            <label className="conta-variavel-toggle">
-                              <input
-                                type="checkbox"
-                                checked={!!form.contasVariavel[contaId]}
-                                onChange={e => handleContaVariavelToggle(contaId, e.target.checked)}
-                              />
-                              <span>Conta variável</span>
-                            </label>
-                            <label className="conta-variavel-toggle">
-                              <input
-                                type="checkbox"
-                                checked={!!form.contasCobradoBoleto[contaId]}
-                                onChange={e => handleContaBoletoToggle(contaId, e.target.checked)}
-                              />
-                              <span>Cobrado no boleto do inquilino</span>
-                            </label>
-                          </div>
+                          <strong style={{ fontSize: 13, minWidth: 110 }}>{conta?.nome || 'Conta removida'}</strong>
+                          <label className="conta-variavel-toggle" style={{ fontSize: 12 }}>
+                            <input
+                              type="checkbox"
+                              checked={!!form.contasVariavel[contaId]}
+                              onChange={e => handleContaVariavelToggle(contaId, e.target.checked)}
+                            />
+                            <span>Variável</span>
+                          </label>
+                          <label className="conta-variavel-toggle" style={{ fontSize: 12 }}>
+                            <input
+                              type="checkbox"
+                              checked={!!form.contasCobradoBoleto[contaId]}
+                              onChange={e => handleContaBoletoToggle(contaId, e.target.checked)}
+                            />
+                            <span>Boleto do inquilino</span>
+                          </label>
+                          <button
+                            type="button"
+                            title="Remover conta"
+                            onClick={() => handleRemoveConta(contaId)}
+                            style={{
+                              marginLeft: 'auto', border: 'none', background: 'transparent',
+                              color: '#b91c1c', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 4,
+                            }}
+                          >
+                            ✕
+                          </button>
                         </div>
                       )
                     })}

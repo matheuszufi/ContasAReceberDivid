@@ -20,6 +20,17 @@ const CONTAS_OPCOES = [
   { value: 'seguro_incendio', label: 'Seguro Incêndio' },
   { value: 'fundo_reserva',    label: 'Fundo de Reserva' },
 ]
+
+const CONTA_ICONS = {
+  agua:            '💧',
+  energia:         '⚡',
+  condominio:      '🏢',
+  gas:             '🔥',
+  iptu:            '🏛️',
+  lixo:            '🗑️',
+  seguro_incendio: '🧯',
+  fundo_reserva:   '💰',
+}
  
 const SEGURO_LABELS = {
   credaluga: 'Credaluga',
@@ -623,6 +634,10 @@ export default function ImoveisTodos() {
                         const variavelPendente = contasVariaveisKeys.length > 0 && contasVariaveisKeys.some(k => !(k in cellVarVals))
                         const variavelZerada   = contasVariaveisKeys.length > 0 && contasVariaveisKeys.some(k => (k in cellVarVals) && (Number(cellVarVals[k]) === 0))
                         const variavelAlerta   = variavelPendente || variavelZerada
+                        const pendentesNomes = contasVariaveisKeys
+                          .filter(k => !(k in cellVarVals) || Number(cellVarVals[k]) === 0)
+                          .map(k => CONTAS_OPCOES.find(o => o.value === k)?.label || k)
+                        const temExtra = extrasTotal > 0
  
                         const hasPendingInadimplencia = items.some(i => (i.status || '').toLowerCase() !== 'pago')
                         const hasSeguroAprovado = items.some(i => i.seguroAcionado === 'pagamento_aprovado')
@@ -665,9 +680,9 @@ export default function ImoveisTodos() {
                             title={isDesocupacao
                               ? 'Mês de desocupação — clique para ver detalhes'
                               : variavelPendente
-                              ? 'Conta(s) de valor variável ainda não alterada(s) neste mês'
+                              ? `Falta lançar: ${pendentesNomes.join(', ')}`
                               : variavelZerada
-                              ? 'Conta(s) de valor variável com valor zerado neste mês'
+                              ? `Valor zerado em: ${pendentesNomes.join(', ')}`
                               : isReajuste
                               ? '12º aluguel — mês de reajuste'
                               : summary
@@ -684,16 +699,27 @@ export default function ImoveisTodos() {
                               }}>
                                 {rentBadge.icon && <span style={{ fontSize: 9 }}>{rentBadge.icon}</span>}
                                 <span style={{ fontSize: 10, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                  {fmtBRL(aluguel)}
+                                  {fmtBRL(totalMes)}
                                 </span>
                               </div>
-                              {(despesas > 0 || extrasTotal > 0 || valorSeguro > 0 || valorGaragem > 0 || valorGarantia > 0) && (
-                                <div style={{ fontSize: 10, color: '#334155', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                  = {fmtBRL(totalMes)}
+                              {(contasVariaveisKeys.length > 0 || temExtra) && (
+                                <div style={{ display: 'flex', gap: 3, fontSize: 10, lineHeight: 1 }}>
+                                  {contasVariaveisKeys.map(k => {
+                                    const pendente = !(k in cellVarVals) || Number(cellVarVals[k]) === 0
+                                    return (
+                                      <span
+                                        key={k}
+                                        title={CONTAS_OPCOES.find(o => o.value === k)?.label || k}
+                                        style={{ opacity: pendente ? 0.4 : 1 }}
+                                      >
+                                        {CONTA_ICONS[k] || '•'}
+                                      </span>
+                                    )
+                                  })}
+                                  {temExtra && (
+                                    <span title="Conta extra adicionada neste mês">📎</span>
+                                  )}
                                 </div>
-                              )}
-                              {!summary && (
-                                <span style={{ color: '#cbd5e1', fontSize: 11, lineHeight: 1 }}>+ conta</span>
                               )}
                               {isReajuste && (
                                 <span style={{ fontSize: 9, fontWeight: 700, color: '#b45309', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 4px', whiteSpace: 'nowrap' }}>
