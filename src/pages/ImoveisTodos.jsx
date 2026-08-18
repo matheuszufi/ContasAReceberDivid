@@ -258,6 +258,7 @@ export default function ImoveisTodos() {
     setModal({ ...row, mi, key, items: getItems(row.inquilino.id, mi) })
     const saved = valoresVariaveis[row.inquilino.id]?.[key] || {}
     const { extras, _obs, _registrado, ...vals } = saved
+    console.log('[openModal] inquilino', row.inquilino.id, 'mes', key, 'dados carregados:', saved)
     setVarValues(vals || {})
     setRegistradoVar(_registrado || {})
     setExtraContas(extras ? Object.entries(extras).map(([id, v]) => ({ id, ...v })) : [])
@@ -287,35 +288,43 @@ export default function ImoveisTodos() {
   }
 
   const saveExtra = async (idx, extra) => {
-    if (!extra || !modal?.inquilino?.id || !modal?.key) return
+    if (!extra || !modal?.inquilino?.id || !modal?.key) {
+      console.warn('[saveExtra] abortado: faltam dados', { extra, inquilinoId: modal?.inquilino?.id, mes: modal?.key })
+      return
+    }
     const hasIdentity = Boolean(extra.id || extra.contaId || extra.nome)
-    if (!hasIdentity) return
+    if (!hasIdentity) {
+      console.warn('[saveExtra] abortado: sem identidade (contaId/nome/id vazios)', extra)
+      return
+    }
     const numVal = extra.valor === '' || extra.valor === undefined || extra.valor === null ? 0 : parseFloat(extra.valor)
-    if (Number.isNaN(numVal)) return
+    if (Number.isNaN(numVal)) {
+      console.warn('[saveExtra] abortado: valor inválido', extra.valor)
+      return
+    }
     const basePath = `valoresVariaveis/${modal.inquilino.id}/${modal.key}/extras`
     const finalId = extra.id || push(ref(db, basePath)).key
     const payload = { contaId: extra.contaId || '', nome: extra.nome || '', valor: numVal, registrado: !!extra.registrado }
+    console.log('[saveExtra] gravando em', `${basePath}/${finalId}`, payload)
     try {
       await set(ref(db, `${basePath}/${finalId}`), payload)
+      console.log('[saveExtra] gravado com sucesso em', `${basePath}/${finalId}`)
       setSaveError('')
       if (finalId !== extra.id) {
         setExtraContas(prev => prev.map((e, i) => i === idx ? { ...e, id: finalId } : e))
       }
     } catch (err) {
-      console.error('Erro ao salvar conta extra:', err)
+      console.error('[saveExtra] ERRO ao salvar conta extra:', err)
       setSaveError(`Erro ao salvar conta: ${err.message}`)
+      window.alert(`Falha ao salvar conta extra no Firebase:\n${err.message}`)
     }
   }
 
   const handleExtraChange = (idx, field, value) => {
-    let updatedExtra = null
-    setExtraContas(prev => {
-      const next = prev.map((e, i) => i === idx ? { ...e, [field]: value } : e)
-      updatedExtra = next[idx]
-      return next
-    })
-    if (['valor', 'contaId', 'nome'].includes(field) && updatedExtra) {
-      saveExtra(idx, updatedExtra)
+    const next = extraContas.map((e, i) => i === idx ? { ...e, [field]: value } : e)
+    setExtraContas(next)
+    if (['valor', 'contaId', 'nome'].includes(field)) {
+      saveExtra(idx, next[idx])
     }
   }
 
@@ -324,13 +333,9 @@ export default function ImoveisTodos() {
   const handleExtraContaChange = (idx, contaId) => {
     const conta = contasCatalogo.find(c => c.id === contaId)
     const nome = conta?.nome || ''
-    let updatedExtra = null
-    setExtraContas(prev => {
-      const next = prev.map((e, i) => i === idx ? { ...e, contaId, nome } : e)
-      updatedExtra = next[idx]
-      return next
-    })
-    if (updatedExtra) saveExtra(idx, updatedExtra)
+    const next = extraContas.map((e, i) => i === idx ? { ...e, contaId, nome } : e)
+    setExtraContas(next)
+    saveExtra(idx, next[idx])
   }
 
   const handleRemoveExtra = async (idx) => {
@@ -347,13 +352,10 @@ export default function ImoveisTodos() {
   }
 
   const handleExtraToggleRegistrado = (idx) => {
-    let updatedExtra = null
-    setExtraContas(prev => {
-      const next = prev.map((e, i) => i === idx ? { ...e, registrado: !e.registrado } : e)
-      updatedExtra = next[idx]
-      return next
-    })
-    if (updatedExtra) saveExtra(idx, updatedExtra)
+    const next = extraContas.map((e, i) => i === idx ? { ...e, registrado: !e.registrado } : e)
+    setExtraContas(next)
+    console.log('[handleExtraToggleRegistrado] idx', idx, 'novo estado local:', next[idx])
+    saveExtra(idx, next[idx])
   }
 
   const handleToggleRegistradoVar = (k) => {
@@ -383,13 +385,9 @@ export default function ImoveisTodos() {
     const allRegistrado = extraContas.every(e => e.registrado) && allKeys.every(k => registradoVar[k])
     const novoValor = !allRegistrado
 
-    let updatedExtras = []
-    setExtraContas(prev => {
-      const next = prev.map(e => ({ ...e, registrado: novoValor }))
-      updatedExtras = next
-      return next
-    })
-    updatedExtras.forEach((e, i) => saveExtra(i, e))
+    const nextExtras = extraContas.map(e => ({ ...e, registrado: novoValor }))
+    setExtraContas(nextExtras)
+    nextExtras.forEach((e, i) => saveExtra(i, e))
 
     if (allKeys.length && modal?.inquilino?.id && modal?.key) {
       const patch = {}
@@ -968,8 +966,8 @@ export default function ImoveisTodos() {
                   label,
                   icone,
                   value:      Number(modal.inquilino.contasValores?.[k]) || 0,
-                  isVariavel: !!modal.inquilino.contasVariavel?.[k],
-                  origem:     modal.inquilino.contasOrigem?.[k] || '',
+                  isVariavel: !!(modal.inquilino.contasVariavel?.[k] || modal.imovel.contasVariavel?.[k]),
+                  origem:     modal.inquilino.contasOrigem?.[k] || (modal.imovel.contasVariavel?.[k] ? 'Imóvel' : ''),
                 }
               })
               const { mesInicio: modalMesInicio } = getMesRange(modal.inquilino)

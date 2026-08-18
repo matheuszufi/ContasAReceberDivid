@@ -33,6 +33,7 @@ const DEFAULT_COLUMNS = [
   { key: 'estado', label: 'Estado' },
   { key: 'ucEnergia', label: 'UC Energia' },
   { key: 'ucAgua', label: 'UC Água' },
+  { key: 'contas', label: 'Contas Inclusas' },
   { key: 'observacao', label: 'Observação' },
 ]
 
@@ -127,6 +128,8 @@ export default function Imoveis() {
   const navigate = useNavigate()
   const [imoveis, setImoveis] = useState([])
   const [proprietarios, setProprietarios] = useState([])
+  const [contasCatalogo, setContasCatalogo] = useState([])
+  const [contaDraft, setContaDraft] = useState({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [columnOrder, setColumnOrder] = useState(loadColumnOrder)
@@ -147,6 +150,15 @@ export default function Imoveis() {
     return onValue(ref(db, 'proprietarios'), snap => {
       const data = snap.val()
       setProprietarios(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+  }, [])
+
+  useEffect(() => {
+    return onValue(ref(db, 'contas'), snap => {
+      const data = snap.val()
+      const lista = data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : []
+      lista.sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR'))
+      setContasCatalogo(lista)
     })
   }, [])
 
@@ -228,6 +240,32 @@ export default function Imoveis() {
     await update(ref(db, `imoveis/${id}`), { [campo]: valor })
   }
 
+  const handleAddContaImovel = async (im, contaId) => {
+    if (!contaId || (im.contasInclusas || []).includes(contaId)) return
+    await update(ref(db, `imoveis/${im.id}`), { contasInclusas: [...(im.contasInclusas || []), contaId] })
+    setContaDraft(prev => ({ ...prev, [im.id]: '' }))
+  }
+
+  const handleRemoveContaImovel = async (im, contaId) => {
+    const contasVariavel = { ...(im.contasVariavel || {}) }
+    const contasCobradoBoleto = { ...(im.contasCobradoBoleto || {}) }
+    delete contasVariavel[contaId]
+    delete contasCobradoBoleto[contaId]
+    await update(ref(db, `imoveis/${im.id}`), {
+      contasInclusas: (im.contasInclusas || []).filter(v => v !== contaId),
+      contasVariavel,
+      contasCobradoBoleto,
+    })
+  }
+
+  const handleToggleContaVariavel = async (im, contaId) => {
+    await update(ref(db, `imoveis/${im.id}/contasVariavel`), { [contaId]: !im.contasVariavel?.[contaId] })
+  }
+
+  const handleToggleContaBoleto = async (im, contaId) => {
+    await update(ref(db, `imoveis/${im.id}/contasCobradoBoleto`), { [contaId]: !im.contasCobradoBoleto?.[contaId] })
+  }
+
   const handleEnderecoChange = async (id, campo, valor) => {
     const value = campo === 'cep' ? formatCEP(valor) : valor
     await update(ref(db, `imoveis/${id}/endereco`), { [campo]: value })
@@ -269,6 +307,10 @@ export default function Imoveis() {
       Estado: im.endereco?.estado || '',
       'UC Energia': im.ucEnergia || '',
       'UC Água': im.ucAgua || '',
+      'Contas Inclusas': (im.contasInclusas || [])
+        .map(cid => contasCatalogo.find(c => c.id === cid)?.nome)
+        .filter(Boolean)
+        .join(', '),
       Observação: im.observacao || '',
     }))
 
@@ -392,6 +434,78 @@ export default function Imoveis() {
           value={im.ucAgua || ''}
           onSave={v => handleCampoChange(im.id, 'ucAgua', v)}
         />
+      ),
+      contas: (
+        <td key="contas" className="contas-cell">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 220 }}>
+            {(im.contasInclusas || []).length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                {(im.contasInclusas || []).map(contaId => {
+                  const conta = contasCatalogo.find(c => c.id === contaId)
+                  const isVariavel = !!im.contasVariavel?.[contaId]
+                  const isBoleto = !!im.contasCobradoBoleto?.[contaId]
+                  return (
+                    <span
+                      key={contaId}
+                      title={conta?.nome || 'Conta removida'}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 3,
+                        background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 12,
+                        padding: '2px 6px', fontSize: 11, whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {conta?.icone || '📄'} {conta?.nome || 'removida'}
+                      <button
+                        type="button"
+                        title={isVariavel ? 'Variável (clique para desativar)' : 'Marcar como variável'}
+                        onClick={() => handleToggleContaVariavel(im, contaId)}
+                        style={{
+                          border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 9, fontWeight: 700,
+                          padding: '0 4px', lineHeight: '14px',
+                          background: isVariavel ? '#ede9fe' : '#f8fafc',
+                          color: isVariavel ? '#6d28d9' : '#94a3b8',
+                        }}
+                      >V</button>
+                      <button
+                        type="button"
+                        title={isBoleto ? 'Cobrado no boleto (clique para desativar)' : 'Marcar como cobrado no boleto'}
+                        onClick={() => handleToggleContaBoleto(im, contaId)}
+                        style={{
+                          border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 9, fontWeight: 700,
+                          padding: '0 4px', lineHeight: '14px',
+                          background: isBoleto ? '#dbeafe' : '#f8fafc',
+                          color: isBoleto ? '#1d4ed8' : '#94a3b8',
+                        }}
+                      >B</button>
+                      <button
+                        type="button"
+                        title="Remover conta"
+                        onClick={() => handleRemoveContaImovel(im, contaId)}
+                        style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#b91c1c', fontSize: 12, lineHeight: 1, padding: '0 2px' }}
+                      >✕</button>
+                    </span>
+                  )
+                })}
+              </div>
+            )}
+            <select
+              value={contaDraft[im.id] || ''}
+              onChange={e => {
+                const contaId = e.target.value
+                setContaDraft(prev => ({ ...prev, [im.id]: contaId }))
+                if (contaId) handleAddContaImovel(im, contaId)
+              }}
+              style={{ fontSize: 11, padding: '2px 4px', border: '1px solid #e2e8f0', borderRadius: 6, background: '#fff', color: '#64748b' }}
+            >
+              <option value="">+ adicionar conta...</option>
+              {contasCatalogo
+                .filter(c => !(im.contasInclusas || []).includes(c.id))
+                .map(c => (
+                  <option key={c.id} value={c.id}>{c.icone || '📄'} {c.nome}</option>
+                ))}
+            </select>
+          </div>
+        </td>
       ),
       observacao: (
         <EditableCell
