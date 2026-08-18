@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { ref, onValue, update, push, set, remove } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { House, ChevronLeft, ChevronRight, Plus, UserPlus, CircleCheck, TriangleAlert, Wallet, ListFilter, X } from 'lucide-react'
  
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
  
@@ -342,47 +346,70 @@ export default function ImoveisTodos() {
   , 0)
  
   return (
-    <Layout title="🏠 Todos Imóveis" subtitle="Omie — Planilha de Pagamentos Mensais">
- 
-      <div className="actions-bar" style={{ flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={() => setYear(y => y - 1)}>‹ {year - 1}</button>
-          <span style={{ fontWeight: 700, fontSize: 20, minWidth: 56, textAlign: 'center' }}>{year}</span>
-          <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={() => setYear(y => y + 1)}>{year + 1} ›</button>
+    <Layout title="Todos Imóveis" subtitle="Omie — Planilha de Pagamentos Mensais">
+
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => setYear(y => y - 1)}><ChevronLeft /></Button>
+          <span className="min-w-14 text-center text-xl font-bold">{year}</span>
+          <Button variant="outline" size="icon" onClick={() => setYear(y => y + 1)}><ChevronRight /></Button>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-primary"   style={{ width: 'auto' }} onClick={() => navigate('/imoveis/cadastrar')}> + Imóvel</button>
-          <button className="btn btn-success"   style={{ width: 'auto' }} onClick={() => navigate('/inquilinos/cadastrar')}> + Inquilino</button>
-          {/* <button className="btn btn-secondary" style={{ width: 'auto', background: '#fef9c3', borderColor: '#fde047', color: '#854d0e' }} onClick={() => navigate('/inadimplentes/cadastrar')}>📋 Registrar Conta</button> */}
-        </div>
-      </div>
- 
-      <div className="stats-grid" style={{ marginBottom: 24 }}>
-        <div className="stat-card">
-          <div className="stat-icon">🏠</div>
-          <div className="stat-value">{loading ? '…' : rows.length}</div>
-          <div className="stat-label">Imóveis ocupados</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">✅</div>
-          <div className="stat-value" style={{ color: '#166534', fontSize: 16 }}>{fmtBRL(totalPago)}</div>
-          <div className="stat-label">Recebido em {year}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">⚠️</div>
-          <div className="stat-value" style={{ color: '#854d0e', fontSize: 16 }}>{fmtBRL(totalPendente)}</div>
-          <div className="stat-label">Pendente em {year}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">💰</div>
-          <div className="stat-value" style={{ color: '#0f766e', fontSize: 16 }}>{fmtBRL(totalRecuperado)}</div>
-          <div className="stat-label">Recuperado em {year}</div>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => navigate('/imoveis/cadastrar')}><Plus /> Imóvel</Button>
+          <Button variant="secondary" onClick={() => navigate('/inquilinos/cadastrar')}><UserPlus /> Inquilino</Button>
         </div>
       </div>
- 
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+              <House className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{loading ? '…' : rows.length}</p>
+              <p className="truncate text-sm text-muted-foreground">Imóveis ocupados</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+              <CircleCheck className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xl font-semibold tracking-tight">{fmtBRL(totalPago)}</p>
+              <p className="truncate text-sm text-muted-foreground">Recebido em {year}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+              <TriangleAlert className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xl font-semibold tracking-tight">{fmtBRL(totalPendente)}</p>
+              <p className="truncate text-sm text-muted-foreground">Pendente em {year}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600">
+              <Wallet className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xl font-semibold tracking-tight">{fmtBRL(totalRecuperado)}</p>
+              <p className="truncate text-sm text-muted-foreground">Recuperado em {year}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {!loading && rows.length > 0 && (
         <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', flexShrink: 0 }}>🔍 Filtros</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}><ListFilter size={14} /> Filtros</span>
           <input
             type="text"
             placeholder="Nome do inquilino..."
@@ -414,22 +441,24 @@ export default function ImoveisTodos() {
             Apenas com contas variáveis
           </label>
           {(filterNome || filterImovel || filterInadimplentes || filterContasVariaveis) && (
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto text-muted-foreground"
               onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterInadimplentes(false); setFilterContasVariaveis(false) }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 12, padding: 0, marginLeft: 'auto' }}
             >
-              ✕ Limpar ({filteredRows.length}/{rows.length})
-            </button>
+              <X /> Limpar ({filteredRows.length}/{rows.length})
+            </Button>
           )}
         </div>
       )}
- 
-      <div className="card">
-        <div className="card-header">
-          <h3>Planilha de Pagamentos — {year}</h3>
-          <span className="badge badge-gray">Todos</span>
-        </div>
-        <div className="card-body" style={{ padding: 0 }}>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-4">
+          <CardTitle className="text-lg">Planilha de Pagamentos — {year}</CardTitle>
+          <Badge variant="secondary">Todos</Badge>
+        </CardHeader>
+        <CardContent className="p-0">
           {loading ? (
             <div className="empty-state"><div className="es-icon">⏳</div><p>Carregando...</p></div>
           ) : rows.length === 0 ? (
@@ -685,8 +714,8 @@ export default function ImoveisTodos() {
               </table>
             </div>
           )}
-        </div>
-      </div>
+        </CardContent>
+      </Card>
  
       <div style={{ display: 'flex', gap: 16, marginTop: 12, flexWrap: 'wrap' }}>
         {Object.entries(STATUS_STYLE)

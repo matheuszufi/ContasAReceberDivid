@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { ref, onValue, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Package, House, Search, Plus, Pencil, Trash2 } from 'lucide-react'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 
@@ -119,48 +123,64 @@ export default function Desocupacoes() {
 
   return (
     <Layout title="Desocupações" subtitle="Controle de inquilinos em processo de desocupação">
-      <div className="actions-bar">
-        <input
-          type="text"
-          placeholder="Buscar por nome ou imóvel..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="search-input"
-        />
-        <form onSubmit={handleAdicionar} style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Buscar por nome ou imóvel..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <form onSubmit={handleAdicionar} className="ml-auto flex items-center gap-2">
           <select
             value={novoInquilinoId}
             onChange={e => setNovoInquilinoId(e.target.value)}
-            style={{ minWidth: 240 }}
+            className="h-9 min-w-[240px] rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             <option value="">Selecione um inquilino...</option>
             {disponiveisParaAdicionar.map(i => (
               <option key={i.id} value={i.id}>{i.nome}</option>
             ))}
           </select>
-          <button type="submit" className="btn btn-primary" style={{ width: 'auto', padding: '9px 16px' }}>
-            + Adicionar
-          </button>
+          <Button type="submit">
+            <Plus /> Adicionar
+          </Button>
         </form>
       </div>
 
-      <div className="stats-grid" style={{ marginBottom: '24px' }}>
-        <div className="stat-card">
-          <div className="stat-icon">📦</div>
-          <div className="stat-value">{desocupando.length}</div>
-          <div className="stat-label">Desocupando</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">🏠</div>
-          <div className="stat-value">{imoveisEnvolvidos}</div>
-          <div className="stat-label">Imóveis Envolvidos</div>
-        </div>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+              <Package className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{desocupando.length}</p>
+              <p className="truncate text-sm text-muted-foreground">Desocupando</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+              <House className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{imoveisEnvolvidos}</p>
+              <p className="truncate text-sm text-muted-foreground">Imóveis Envolvidos</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h3>Inquilinos Desocupando ({filtered.length})</h3>
-        </div>
+      <Card>
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="text-lg">Inquilinos Desocupando ({filtered.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="px-0">
         <div className="table-container">
           {loading ? (
             <div className="empty-state">Carregando...</div>
@@ -200,21 +220,13 @@ export default function Desocupacoes() {
                       <td>
                         <StatusCell status={inq.status} onChange={v => handleStatusChange(inq.id, v)} />
                       </td>
-                      <td style={{ display: 'flex', gap: 8 }}>
-                        <button
-                          className="btn btn-secondary"
-                          style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}
-                          onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}
-                        >
-                          Editar
-                        </button>
-                        <button
-                          className="btn btn-danger"
-                          style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}
-                          onClick={() => handleRemover(inq.id)}
-                        >
-                          Remover
-                        </button>
+                      <td className="flex gap-1.5">
+                        <Button variant="outline" size="sm" onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}>
+                          <Pencil /> Editar
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => handleRemover(inq.id)}>
+                          <Trash2 /> Remover
+                        </Button>
                       </td>
                     </tr>
                   )
@@ -223,7 +235,8 @@ export default function Desocupacoes() {
             </table>
           )}
         </div>
-      </div>
+        </CardContent>
+      </Card>
     </Layout>
   )
 }
