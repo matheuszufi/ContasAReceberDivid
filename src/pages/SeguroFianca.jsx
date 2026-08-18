@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { ref, onValue, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Shield, CircleCheck, Wallet, Search, Pencil, Link as LinkIcon } from 'lucide-react'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 
@@ -200,47 +204,65 @@ export default function SeguroFianca() {
 
   return (
     <Layout title="Seguro Fiança" subtitle="Inquilinos com seguro fiança incluído nas contas">
-      <div className="actions-bar">
-        <input
-          type="text"
-          placeholder="Buscar por nome, imóvel ou seguradora..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="search-input"
-        />
-      </div>
-
-      <div className="stats-grid" style={{ marginBottom: '24px' }}>
-        <div className="stat-card">
-          <div className="stat-icon">🛡️</div>
-          <div className="stat-value">{seguradosFianca.length}</div>
-          <div className="stat-label">Com Seguro Fiança</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">✅</div>
-          <div className="stat-value">{ativos}</div>
-          <div className="stat-label">Ativos</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">💰</div>
-          <div className="stat-value">{fmtMoney(totalMensal)}</div>
-          <div className="stat-label">Total Mensal em Seguros</div>
+      <div className="mb-6">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Buscar por nome, imóvel ou seguradora..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-8"
+          />
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h3>Inquilinos ({filtered.length})</h3>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
+              <Shield className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{seguradosFianca.length}</p>
+              <p className="truncate text-sm text-muted-foreground">Com Seguro Fiança</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+              <CircleCheck className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{ativos}</p>
+              <p className="truncate text-sm text-muted-foreground">Ativos</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+              <Wallet className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(totalMensal)}</p>
+              <p className="truncate text-sm text-muted-foreground">Total Mensal em Seguros</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-4">
+          <CardTitle className="text-lg">Inquilinos ({filtered.length})</CardTitle>
           {temFiltroAtivo && (
-            <button
-              className="btn btn-secondary"
-              style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}
-              onClick={limparFiltros}
-            >
+            <Button variant="outline" size="sm" onClick={limparFiltros}>
               Limpar filtros
-            </button>
+            </Button>
           )}
-        </div>
+        </CardHeader>
+        <CardContent className="px-0">
         <div className="table-container">
           {loading ? (
             <div className="empty-state">Carregando...</div>
@@ -388,22 +410,13 @@ export default function SeguroFianca() {
                         />
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button
-                            className="btn btn-secondary"
-                            style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}
-                            onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}
-                          >
-                            Editar
-                          </button>
-                          <button
-                            className="btn btn-secondary"
-                            style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}
-                            title="Abrir portal da seguradora"
-                            onClick={() => abrirPortal(inq)}
-                          >
-                            🔗 Portal
-                          </button>
+                        <div className="flex gap-1.5">
+                          <Button variant="outline" size="sm" onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}>
+                            <Pencil /> Editar
+                          </Button>
+                          <Button variant="outline" size="sm" title="Abrir portal da seguradora" onClick={() => abrirPortal(inq)}>
+                            <LinkIcon /> Portal
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -413,7 +426,8 @@ export default function SeguroFianca() {
             </table>
           )}
         </div>
-      </div>
+        </CardContent>
+      </Card>
     </Layout>
   )
 }

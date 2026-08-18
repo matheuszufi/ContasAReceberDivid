@@ -4,6 +4,10 @@ import { ref, onValue, remove, update, get } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import * as XLSX from 'xlsx'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Users, UserCheck, UserX, Plus, Upload, Download, RotateCcw, Search, Pencil, Trash2, DoorOpen } from 'lucide-react'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 
@@ -1111,58 +1115,80 @@ export default function Inquilinos() {
 
   return (
     <Layout title="Inquilinos" subtitle="Gestão de inquilinos cadastrados">
-      <div className="actions-bar">
-        <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => navigate('/inquilinos/cadastrar')}>
-          <b>+</b> Cadastrar Inquilino
-        </button>
-        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={() => navigate('/inquilinos/importar')}>
-          📥 Importar Planilha
-        </button>
-        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={handleExport}>
-          📤 Exportar Planilha
-        </button>
-        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={handleResetColumnOrder} title="Restaura a ordem original das colunas">
-          ↺ Restaurar Ordem das Colunas
-        </button>
-        <input
-          type="text"
-          placeholder="Buscar por nome, CPF ou imóvel..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="search-input"
-        />
-      </div>
-
-      <div className="stats-grid" style={{ marginBottom: '24px' }}>
-        <div className="stat-card">
-          <div className="stat-icon">👤</div>
-          <div className="stat-value">{inquilinos.length}</div>
-          <div className="stat-label">Total de Inquilinos</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">✅</div>
-          <div className="stat-value">{ativos}</div>
-          <div className="stat-label">Ativos</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">❌</div>
-          <div className="stat-value">{inativos}</div>
-          <div className="stat-label">Inativos</div>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <Button onClick={() => navigate('/inquilinos/cadastrar')}>
+          <Plus /> Cadastrar Inquilino
+        </Button>
+        <Button variant="outline" onClick={() => navigate('/inquilinos/importar')}>
+          <Download /> Importar Planilha
+        </Button>
+        <Button variant="outline" onClick={handleExport}>
+          <Upload /> Exportar Planilha
+        </Button>
+        <Button variant="outline" onClick={handleResetColumnOrder} title="Restaura a ordem original das colunas">
+          <RotateCcw /> Restaurar Ordem das Colunas
+        </Button>
+        <div className="relative ml-auto w-full max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Buscar por nome, CPF ou imóvel..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-8"
+          />
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h3>Todos os Inquilinos ({filtered.length})</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <span className="hint-text">Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas · "Nome" fica sempre travada</span>
-            {!isColFiltersEmpty(colFilters) && (
-              <button className="btn btn-sm btn-secondary" onClick={limparColFilters}>
-                Limpar filtros
-              </button>
-            )}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+              <Users className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{inquilinos.length}</p>
+              <p className="truncate text-sm text-muted-foreground">Total de Inquilinos</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+              <UserCheck className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{ativos}</p>
+              <p className="truncate text-sm text-muted-foreground">Ativos</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600">
+              <UserX className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{inativos}</p>
+              <p className="truncate text-sm text-muted-foreground">Inativos</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-4 border-b pb-4">
+          <div>
+            <CardTitle className="text-lg">Todos os Inquilinos ({filtered.length})</CardTitle>
+            <CardDescription>Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas · "Nome" fica sempre travada</CardDescription>
           </div>
-        </div>
+          {!isColFiltersEmpty(colFilters) && (
+            <Button variant="outline" size="sm" onClick={limparColFilters}>
+              Limpar filtros
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="px-0">
         <div className="table-container table-scroll-x inquilinos-scroll-area">
           {loading ? (
             <div className="empty-state"><div className="es-icon">⏳</div><p>Carregando...</p></div>
@@ -1219,10 +1245,16 @@ export default function Inquilinos() {
                       {cells.nome}
                       {columnOrder.map(key => cells[key])}
                       <td>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button className="btn btn-sm" onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}>Editar</button>
-                          <button className="btn btn-sm" style={{ background: '#fff7ed', border: '1px solid #fed7aa', color: '#c2410c' }} onClick={() => openDesocModal(inq)}>Desocupação</button>
-                          <button className="btn btn-sm btn-danger" onClick={() => handleDelete(inq.id)}>Excluir</button>
+                        <div className="flex gap-1.5">
+                          <Button variant="outline" size="sm" onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}>
+                            <Pencil /> Editar
+                          </Button>
+                          <Button variant="outline" size="sm" className="border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-700" onClick={() => openDesocModal(inq)}>
+                            <DoorOpen /> Desocupação
+                          </Button>
+                          <Button variant="destructive" size="sm" onClick={() => handleDelete(inq.id)}>
+                            <Trash2 /> Excluir
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -1232,7 +1264,8 @@ export default function Inquilinos() {
             </table>
           )}
         </div>
-      </div>
+        </CardContent>
+      </Card>
       {desocModal && (
         <div
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}

@@ -3,6 +3,23 @@ import { useNavigate } from 'react-router-dom'
 import { ref, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import {
+  TriangleAlert,
+  Wallet,
+  CircleCheck,
+  CalendarClock,
+  Trophy,
+  Plus,
+  FileSpreadsheet,
+  Search,
+  MessageCircle,
+  Pencil,
+  X,
+} from 'lucide-react'
 
 const STATUS_OPCOES = [
   { value: 'selecione',       label: 'Selecione',         bg: '#eff6ff',   color: '#1d4ed8', border: '#93c5fd' },
@@ -345,87 +362,116 @@ export default function Inadimplentes() {
     .filter(d => colFilters.status.includes(STATUS_OPCOES.find(o => o.value === d.status)?.value || 'selecione'))
 
   return (
-    <Layout title="⚠️ Inadimplentes" subtitle="Controle de clientes com débitos pendentes">
-      <div className="actions-bar">
-        <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => navigate('/inadimplentes/cadastrar')}>
-          ➕ Registrar Débito
-        </button>
-        <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={() => navigate('/inadimplentes/importar')}>
-          📊 Importar Planilha
-        </button>
-        <input
-          type="text"
-          placeholder="Buscar por inquilino, imóvel ou tipo..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="search-input"
-        />
+    <Layout title="Inadimplentes" subtitle="Controle de clientes com débitos pendentes">
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <Button onClick={() => navigate('/inadimplentes/cadastrar')}>
+          <Plus /> Registrar Débito
+        </Button>
+        <Button variant="outline" onClick={() => navigate('/inadimplentes/importar')}>
+          <FileSpreadsheet /> Importar Planilha
+        </Button>
+        <div className="relative ml-auto w-full max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Buscar por inquilino, imóvel ou tipo..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-8"
+          />
+        </div>
       </div>
 
       {/* ── Resumo Geral ── */}
-      <div style={{ display: 'flex', gap: 14, marginBottom: '24px', alignItems: 'stretch', flexWrap: 'wrap' }}>
-        <div className="stats-grid" style={{ flex: '1 1 480px' }}>
-          <div className="stat-card">
-            <div className="stat-icon">⚠️</div>
-            <div className="stat-value">{pendentes.length}</div>
-            <div className="stat-label">Débitos em Aberto</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">💸</div>
-            <div className="stat-value" style={{ fontSize: '16px' }}>{fmtMoney(totalAberto)}</div>
-            <div className="stat-label">Total em Aberto</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">✅</div>
-            <div className="stat-value" style={{ fontSize: '16px' }}>{fmtMoney(totalRecup)}</div>
-            <div className="stat-label">Total Recuperado</div>
-          </div>
-          <div className="stat-card">
-            <div className="stat-icon">📅</div>
-            <div className="stat-value">{vencidos30}</div>
-            <div className="stat-label">Vencidos há +30 dias</div>
-          </div>
+      <div className="mb-6 flex flex-wrap items-stretch gap-4">
+        <div className="grid flex-[1_1_480px] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card>
+            <CardContent className="flex items-center gap-4">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+                <TriangleAlert className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-2xl font-semibold tracking-tight">{pendentes.length}</p>
+                <p className="truncate text-sm text-muted-foreground">Débitos em Aberto</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-4">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600">
+                <Wallet className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(totalAberto)}</p>
+                <p className="truncate text-sm text-muted-foreground">Total em Aberto</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-4">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+                <CircleCheck className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(totalRecup)}</p>
+                <p className="truncate text-sm text-muted-foreground">Total Recuperado</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-4">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
+                <CalendarClock className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-2xl font-semibold tracking-tight">{vencidos30}</p>
+                <p className="truncate text-sm text-muted-foreground">Vencidos há +30 dias</p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        <div className="card" style={{ flex: '1 1 260px', maxWidth: 500, display: 'flex', flexDirection: 'row' }}>
-          <div className="card-header" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }} >
-            <h3>🔝 Top 5 Inadimplentes</h3>
+        <Card className="flex-[1_1_260px] max-w-[500px]">
+          <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-4">
+            <CardTitle className="flex items-center gap-1.5 text-base">
+              <Trophy className="size-4" /> Top 5 Inadimplentes
+            </CardTitle>
             {rankingInadimplentes.length > 5 && (
-              <button className="btn btn-sm btn-secondary" style={{ width: 'auto' }} onClick={() => setShowRankingModal(true)}>
+              <Button variant="outline" size="sm" onClick={() => setShowRankingModal(true)}>
                 Ver lista completa
-              </button>
+              </Button>
             )}
-          </div>
-          <div className="card-body" style={{ padding: '10px 16px', flex: 1 }}>
+          </CardHeader>
+          <CardContent className="flex-1">
             {topInadimplentes.length === 0 ? (
-              <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>Nenhum débito cadastrado.</p>
+              <p className="text-sm text-muted-foreground">Nenhum débito cadastrado.</p>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div className="flex flex-col gap-2">
                 {topInadimplentes.map((t, i) => (
-                  <div key={t.nome + i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-secondary)', width: 16 }}>{i + 1}º</span>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.nome}</span>
-                    <span className="badge badge-red" style={{ flexShrink: 0 }}>{t.total}</span>
+                  <div key={t.nome + i} className="flex items-center gap-2.5">
+                    <span className="w-4 text-xs font-bold text-muted-foreground">{i + 1}º</span>
+                    <span className="flex-1 truncate text-sm font-semibold">{t.nome}</span>
+                    <Badge variant="destructive" className="shrink-0">{t.total}</Badge>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── Resumo por Mês ── */}
       {monthGroups.length > 0 && (
-        <div className="card" style={{ marginBottom: '24px' }}>
-          <div className="card-header">
-            <h3>📆 Inadimplência por Mês</h3>
+        <Card className="mb-6">
+          <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-4">
+            <CardTitle className="text-lg">Inadimplência por Mês</CardTitle>
             {mesSelecionado && (
-              <button className="btn btn-sm btn-secondary" onClick={() => setMesSelecionado(null)}>
+              <Button variant="outline" size="sm" onClick={() => setMesSelecionado(null)}>
                 Limpar filtro
-              </button>
+              </Button>
             )}
-          </div>
-          <div className="card-body" style={{ paddingTop: '12px' }}>
+          </CardHeader>
+          <CardContent>
             <div className="month-group-grid">
               {monthGroups.map(([ym, list]) => {
                 const s = monthStats(list)
@@ -457,24 +503,25 @@ export default function Inadimplentes() {
                 )
               })}
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* ── Tabela ── */}
-      <div className="card">
-        <div className="card-header">
-          <h3>
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-4">
+          <CardTitle className="text-lg">
             {mesSelecionado
               ? `Débitos — ${formatMonthLabel(mesSelecionado)} (${filtered.length})`
               : `Todos os Débitos (${filtered.length})`}
-          </h3>
+          </CardTitle>
           {(colFilters.inquilino || colFilters.imovel || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || !isDefaultStatusFiltro(colFilters.status)) && (
-            <button className="btn btn-sm btn-secondary" onClick={limparColFilters}>
+            <Button variant="outline" size="sm" onClick={limparColFilters}>
               Limpar filtros
-            </button>
+            </Button>
           )}
-        </div>
+        </CardHeader>
+        <CardContent className="px-0">
         <div className="table-container">
           {loading ? (
             <div className="empty-state"><div className="es-icon">⏳</div><p>Carregando...</p></div>
@@ -740,10 +787,16 @@ export default function Inadimplentes() {
                       />
                     </td>
                     <td>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        <button className="btn btn-sm" style={{ background: '#25d365a9', color: '#fff', borderColor: '#178d42' }} onClick={() => abrirWhatsApp(d)}>WhatsApp</button>
-                        <button className="btn btn-sm" onClick={() => navigate(`/inadimplentes/editar/${d.id}`)}>Editar</button>
-                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(d.id)}>X</button>
+                      <div className="flex gap-1.5">
+                        <Button size="sm" className="bg-[#25d366] text-white hover:bg-[#1fb057]" onClick={() => abrirWhatsApp(d)}>
+                          <MessageCircle /> WhatsApp
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => navigate(`/inadimplentes/editar/${d.id}`)}>
+                          <Pencil /> Editar
+                        </Button>
+                        <Button variant="destructive" size="icon" className="size-8" onClick={() => handleDelete(d.id)}>
+                          <X />
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -752,7 +805,8 @@ export default function Inadimplentes() {
             </table>
           )}
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* ── Modal: ranking completo de inadimplentes ── */}
       {showRankingModal && (
@@ -766,7 +820,7 @@ export default function Inadimplentes() {
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <h3 style={{ margin: 0 }}>🔝 Ranking de Inadimplentes</h3>
-              <button className="btn btn-secondary" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => setShowRankingModal(false)}>✕</button>
+              <Button variant="outline" size="icon" className="size-8" onClick={() => setShowRankingModal(false)}><X /></Button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {rankingInadimplentes.map((t, i) => (

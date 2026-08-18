@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { ref, onValue, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Flame, CircleCheck, Wallet, Search, Pencil } from 'lucide-react'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 
@@ -144,47 +148,65 @@ export default function SeguroIncendio() {
 
   return (
     <Layout title="Seguro Incêndio" subtitle="Inquilinos com seguro incêndio incluído nas contas">
-      <div className="actions-bar">
-        <input
-          type="text"
-          placeholder="Buscar por nome ou imóvel..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="search-input"
-        />
-      </div>
-
-      <div className="stats-grid" style={{ marginBottom: '24px' }}>
-        <div className="stat-card">
-          <div className="stat-icon">🔥</div>
-          <div className="stat-value">{comSeguroIncendio.length}</div>
-          <div className="stat-label">Com Seguro Incêndio</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">✅</div>
-          <div className="stat-value">{ativos}</div>
-          <div className="stat-label">Ativos</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">💰</div>
-          <div className="stat-value">{fmtMoney(totalMensal)}</div>
-          <div className="stat-label">Total Mensal (valores fixos)</div>
+      <div className="mb-6">
+        <div className="relative w-full max-w-xs">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Buscar por nome ou imóvel..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-8"
+          />
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h3>Inquilinos ({filtered.length})</h3>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600">
+              <Flame className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{comSeguroIncendio.length}</p>
+              <p className="truncate text-sm text-muted-foreground">Com Seguro Incêndio</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+              <CircleCheck className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{ativos}</p>
+              <p className="truncate text-sm text-muted-foreground">Ativos</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+              <Wallet className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(totalMensal)}</p>
+              <p className="truncate text-sm text-muted-foreground">Total Mensal (valores fixos)</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-4">
+          <CardTitle className="text-lg">Inquilinos ({filtered.length})</CardTitle>
           {temFiltroAtivo && (
-            <button
-              className="btn btn-secondary"
-              style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}
-              onClick={limparFiltros}
-            >
+            <Button variant="outline" size="sm" onClick={limparFiltros}>
               Limpar filtros
-            </button>
+            </Button>
           )}
-        </div>
+        </CardHeader>
+        <CardContent className="px-0">
         <div className="table-container">
           {loading ? (
             <div className="empty-state">Carregando...</div>
@@ -316,13 +338,9 @@ export default function SeguroIncendio() {
                         />
                       </td>
                       <td>
-                        <button
-                          className="btn btn-secondary"
-                          style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }}
-                          onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}
-                        >
-                          Editar
-                        </button>
+                        <Button variant="outline" size="sm" onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}>
+                          <Pencil /> Editar
+                        </Button>
                       </td>
                     </tr>
                   )
@@ -331,7 +349,8 @@ export default function SeguroIncendio() {
             </table>
           )}
         </div>
-      </div>
+        </CardContent>
+      </Card>
     </Layout>
   )
 }
