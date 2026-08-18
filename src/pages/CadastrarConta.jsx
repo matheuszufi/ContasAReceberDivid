@@ -6,8 +6,14 @@ import Layout from '../components/Layout'
 
 const initialForm = {
   nome: '',
+  icone: '📄',
   permiteValorNegativo: false,
 }
+
+const ICONE_OPCOES = [
+  '💧', '⚡', '🏢', '🔥', '🏛️', '🗑️', '🧯', '💰',
+  '📶', '🚗', '🔒', '📄', '📋', '🛠️', '🧹', '📦',
+]
 
 export default function CadastrarConta() {
   const navigate = useNavigate()
@@ -30,6 +36,10 @@ export default function CadastrarConta() {
     setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
   }
 
+  const handleIconeSelect = (icone) => {
+    setForm(prev => ({ ...prev, icone }))
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.nome.trim()) return
@@ -38,6 +48,7 @@ export default function CadastrarConta() {
     try {
       await push(ref(db, 'contas'), {
         nome: form.nome.trim(),
+        icone: form.icone || '📄',
         permiteValorNegativo: form.permiteValorNegativo,
         criadoEm: new Date().toISOString(),
       })
@@ -73,6 +84,27 @@ export default function CadastrarConta() {
               <div className="form-group fg-full">
                 <label>Nome da Conta *</label>
                 <input name="nome" value={form.nome} onChange={handleChange} required placeholder="Ex: Água, Energia, Condomínio..." />
+              </div>
+              <div className="form-group fg-full">
+                <label>Ícone</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {ICONE_OPCOES.map(ic => (
+                    <button
+                      type="button"
+                      key={ic}
+                      onClick={() => handleIconeSelect(ic)}
+                      title={ic}
+                      style={{
+                        width: 36, height: 36, fontSize: 18, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: form.icone === ic ? '2px solid var(--accent, #3b82f6)' : '1px solid #e2e8f0',
+                        borderRadius: 8, background: form.icone === ic ? '#eff6ff' : '#fff',
+                      }}
+                    >
+                      {ic}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="form-group">
                 <label className="conta-variavel-toggle" style={{ marginTop: 8 }}>
@@ -120,7 +152,7 @@ export default function CadastrarConta() {
                   }}
                 >
                   <div>
-                    <strong>{conta.nome}</strong>
+                    <strong>{conta.icone || '📄'} {conta.nome}</strong>
                     {conta.permiteValorNegativo && (
                       <span className="badge badge-blue" style={{ marginLeft: 8 }}>permite valor negativo</span>
                     )}

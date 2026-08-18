@@ -4,17 +4,6 @@ import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 
-const CONTAS_OPCOES = [
-  { value: 'agua',             label: 'Água' },
-  { value: 'energia',          label: 'Energia' },
-  { value: 'condominio',       label: 'Condomínio' },
-  { value: 'gas',              label: 'Gás' },
-  { value: 'iptu',             label: 'IPTU' },
-  { value: 'lixo',             label: 'Lixo' },
-  { value: 'seguro_incendio',  label: 'Seguro Incêndio' },
-  { value: 'fundo_reserva',    label: 'Fundo de Reserva' },
-]
-
 const GARANTIA_OPCOES = [
   { value: 'seguro',       label: 'Seguro' },
   { value: 'caucao',       label: 'Caução' },
@@ -80,6 +69,7 @@ export default function CadastrarInquilino() {
   const [form, setForm] = useState(initialForm)
   const [imoveis, setImoveis] = useState([])
   const [segurosCatalogo, setSegurosCatalogo] = useState([])
+  const [contasCatalogo, setContasCatalogo] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [buscaImovel, setBuscaImovel] = useState('')
@@ -96,6 +86,13 @@ export default function CadastrarInquilino() {
       const data = snap.val()
       const lista = data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : []
       setSegurosCatalogo(lista.filter(s => s.tipo === 'Seguro Fiança').sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')))
+    })
+  }, [])
+
+  useEffect(() => {
+    return onValue(ref(db, 'contas'), snap => {
+      const data = snap.val()
+      setContasCatalogo(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
     })
   }, [])
 
@@ -123,6 +120,22 @@ export default function CadastrarInquilino() {
 
   // Sempre recalculado a partir dos dados atuais do imóvel, nunca de um texto salvo
   const imovelSelecionado = imoveis.find(im => im.id === form.imovelId)
+
+  // Contas disponíveis para este inquilino: as mesmas cadastradas no imóvel que ele ocupa.
+  // "Variável" e "cobrado no boleto" são decididos no cadastro do imóvel, aqui só se herdam.
+  const contasDoImovel = (imovelSelecionado?.contasInclusas || []).map(contaId => {
+    const catalogConta = contasCatalogo.find(c => c.id === contaId)
+    const nome = catalogConta?.nome || 'Conta removida'
+    return {
+      id: contaId,
+      nome,
+      icone: catalogConta?.icone || '📄',
+      permiteValorNegativo: !!catalogConta?.permiteValorNegativo,
+      isVariavel: !!imovelSelecionado?.contasVariavel?.[contaId],
+      cobradoBoleto: !!imovelSelecionado?.contasCobradoBoleto?.[contaId],
+      isSeguroIncendio: nome.toLowerCase().includes('incêndio') || nome.toLowerCase().includes('incendio'),
+    }
+  })
 
   const handleImovelSelect = (id) => {
     const imovel = imoveis.find(im => im.id === id)
@@ -168,6 +181,10 @@ export default function CadastrarInquilino() {
         delete newContasVariavel[value]
         delete newContasOrigem[value]
         delete newContasPagador[value]
+      } else {
+        // Variável e boleto vêm do cadastro do imóvel, não são escolhidos aqui
+        newContasVariavel[value] = !!imovelSelecionado?.contasVariavel?.[value]
+        newContasPagador[value]  = imovelSelecionado?.contasCobradoBoleto?.[value] ? 'inquilino' : 'imobiliaria'
       }
       return { ...prev, contasInclusas: newContasInclusas, contasValores: newContasValores, contasVariavel: newContasVariavel, contasOrigem: newContasOrigem, contasPagador: newContasPagador }
     })
@@ -177,20 +194,8 @@ export default function CadastrarInquilino() {
     setForm(prev => ({ ...prev, contasValores: { ...prev.contasValores, [key]: value } }))
   }
 
-  const handleContaVariavel = (key, checked) => {
-    setForm(prev => ({
-      ...prev,
-      contasVariavel: { ...prev.contasVariavel, [key]: checked },
-      contasValores:  checked ? { ...prev.contasValores, [key]: '' } : prev.contasValores,
-    }))
-  }
-
   const handleContaOrigem = (key, value) => {
     setForm(prev => ({ ...prev, contasOrigem: { ...prev.contasOrigem, [key]: value } }))
-  }
-
-  const handleContaPagador = (key, value) => {
-    setForm(prev => ({ ...prev, contasPagador: { ...prev.contasPagador, [key]: value } }))
   }
 
   const handleSubmit = async (e) => {
@@ -215,10 +220,19 @@ export default function CadastrarInquilino() {
       Object.entries(form.contasValores).map(([k, v]) => [k, parseFloat(v) || 0])
     )
 
+    // Variável e "cobrado no boleto" sempre refletem o cadastro atual do imóvel
+    const contasVariavelFinal = {}
+    const contasPagadorFinal  = {}
+    form.contasInclusas.forEach(contaId => {
+      contasVariavelFinal[contaId] = !!imovelSelecionado?.contasVariavel?.[contaId]
+      contasPagadorFinal[contaId]  = imovelSelecionado?.contasCobradoBoleto?.[contaId] ? 'inquilino' : 'imobiliaria'
+    })
 
     const payload = {
       ...form,
       contasValores: contasValoresParsed,
+      contasVariavel: contasVariavelFinal,
+      contasPagador: contasPagadorFinal,
       valorAluguel: parseFloat(form.valorAluguel) || 0,
       vagas: parseInt(form.vagas) || 0,
       valorVaga: parseFloat(form.valorVaga) || 0,
@@ -485,55 +499,43 @@ required
 
       <div className="form-group">
   <label>Contas Inclusas</label>
+  {!form.imovelId ? (
+    <div className="info-banner">
+      <p style={{ margin: 0 }}>Selecione um imóvel para ver as contas cadastradas nele.</p>
+    </div>
+  ) : contasDoImovel.length === 0 ? (
+    <div className="info-banner">
+      <p style={{ margin: 0 }}>Este imóvel não possui contas cadastradas.</p>
+    </div>
+  ) : (
   <div className="checkbox-grid">
-    {CONTAS_OPCOES.map(opt => {
-      const isActive = form.contasInclusas.includes(opt.value)
-      const isVariavel = !!form.contasVariavel[opt.value]
-      const permiteValorNegativo = opt.value === 'fundo_reserva'
-      const cobraNoBoleto = (form.contasPagador[opt.value] || (isVariavel ? 'imobiliaria' : 'inquilino')) === 'inquilino'
+    {contasDoImovel.map(conta => {
+      const isActive = form.contasInclusas.includes(conta.id)
 
       return (
         <div
-          key={opt.value}
-          className={`conta-card${isActive ? ' active' : ''}${isVariavel ? ' variavel' : ''}`}
+          key={conta.id}
+          className={`conta-card${isActive ? ' active' : ''}${conta.isVariavel ? ' variavel' : ''}`}
         >
           <label className="conta-card-header">
             <input
               type="checkbox"
               checked={isActive}
-              onChange={() => handleCheckbox(opt.value)}
+              onChange={() => handleCheckbox(conta.id)}
             />
-            <span>{opt.label}</span>
-            {isVariavel && (
+            <span>{conta.icone} {conta.nome}</span>
+            {conta.isVariavel && (
               <span className="conta-variavel-badge">variável</span>
             )}
           </label>
 
           {isActive && (
             <div className="conta-card-body">
-              <label className="conta-variavel-toggle">
-                <input
-                  type="checkbox"
-                  checked={isVariavel}
-                  onChange={e =>
-                    handleContaVariavel(opt.value, e.target.checked)
-                  }
-                />
-                <span>Conta variável</span>
-              </label>
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 8 }}>
+                {conta.isVariavel ? 'Conta variável' : 'Conta fixa'} · cobrada {conta.cobradoBoleto ? 'no boleto do inquilino' : 'pela imobiliária'}
+              </div>
 
-              <label className="conta-variavel-toggle conta-boleto-toggle">
-                <input
-                  type="checkbox"
-                  checked={cobraNoBoleto}
-                  onChange={e =>
-                    handleContaPagador(opt.value, e.target.checked ? 'inquilino' : 'imobiliaria')
-                  }
-                />
-                <span>Cobrar no boleto do inquilino</span>
-              </label>
-
-              {opt.value === 'seguro_incendio' && (
+              {conta.isSeguroIncendio && (
                 <div className="form-grid-2">
                   <div className="form-group">
                     <label>Primeiro mês de cobrança</label>
@@ -556,20 +558,20 @@ required
                 </div>
               )}
 
-              {!isVariavel && (
+              {!conta.isVariavel && (
                 <div className="conta-card-valor">
                   <input
                     type="number"
                     step="0.01"
-                    min={permiteValorNegativo ? undefined : 0}
+                    min={conta.permiteValorNegativo ? undefined : 0}
                     placeholder={
-                      permiteValorNegativo
+                      conta.permiteValorNegativo
                         ? "Ex.: -50,00"
                         : "R$ 0,00"
                     }
-                    value={form.contasValores[opt.value] || ''}
+                    value={form.contasValores[conta.id] || ''}
                     onChange={e =>
-                      handleContaValor(opt.value, e.target.value)
+                      handleContaValor(conta.id, e.target.value)
                     }
                   />
                 </div>
@@ -580,16 +582,17 @@ required
       )
     })}
   </div>
+  )}
 
   {form.contasInclusas.filter(v => form.contasVariavel[v]).length > 0 && (
     <div className="contas-variaveis-origem">
       {form.contasInclusas
         .filter(v => form.contasVariavel[v])
         .map(v => {
-          const opt = CONTAS_OPCOES.find(o => o.value === v)
+          const conta = contasDoImovel.find(c => c.id === v)
           return (
             <div className="form-group" key={v}>
-              <label>{`Onde encontrar conta variável ${opt?.label || v}`}</label>
+              <label>{`Onde encontrar conta variável ${conta?.nome || v}`}</label>
               <input
                 type="text"
                 placeholder="Descreva onde encontrar o valor..."

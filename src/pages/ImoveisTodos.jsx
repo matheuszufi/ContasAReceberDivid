@@ -113,8 +113,10 @@ export default function ImoveisTodos() {
   const [loadedInad, setLoadedInad] = useState(false)
   const [valoresVariaveis, setValoresVariaveis] = useState({})
   const [loadedVV,  setLoadedVV]  = useState(false)
+  const [contasCatalogo, setContasCatalogo] = useState([])
   const [modal, setModal]           = useState(null)
   const [varValues, setVarValues]   = useState({})
+  const [registradoVar, setRegistradoVar] = useState({})
   const [extraContas, setExtraContas] = useState([])
   const [regForm, setRegForm]         = useState(null)
   const [regSaving, setRegSaving]     = useState(false)
@@ -138,7 +140,7 @@ export default function ImoveisTodos() {
 
   const sortArrow = (field) => sortBy === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
  
-  const closeModal = () => { setModal(null); setVarValues({}); setExtraContas([]); setRegForm(null); setObsModal('') }
+  const closeModal = () => { setModal(null); setVarValues({}); setRegistradoVar({}); setExtraContas([]); setRegForm(null); setObsModal('') }
  
   const goInquilino = (inquilinoId) => navigate(`/inquilinos/editar/${inquilinoId}`)
   const goImovel = (imovelId) => navigate(`/imoveis/editar/${imovelId}`)
@@ -165,8 +167,27 @@ export default function ImoveisTodos() {
       setValoresVariaveis(s.val() || {})
       setLoadedVV(true)
     })
-    return () => { u1(); u2(); u3(); u4() }
+    const u5 = onValue(ref(db, 'contas'), s => {
+      const d = s.val()
+      setContasCatalogo(d ? Object.entries(d).map(([id, v]) => ({ id, ...v })) : [])
+    })
+    return () => { u1(); u2(); u3(); u4(); u5() }
   }, [])
+
+  const getContaMeta = (k) => {
+    const catalogConta = contasCatalogo.find(c => c.id === k)
+    if (catalogConta) return { label: catalogConta.nome, icone: catalogConta.icone || '📄' }
+    const legacy = CONTAS_OPCOES.find(o => o.value === k)
+    return { label: legacy?.label || k, icone: CONTA_ICONS[k] || '📄' }
+  }
+
+  // Identifica a conta "Seguro Incêndio" tanto no formato antigo (chave fixa) quanto no
+  // catálogo novo (resolve pelo nome), para preservar o controle de período de cobrança.
+  const isSeguroIncendioKey = (k) => {
+    if (k === 'seguro_incendio') return true
+    const nome = (getContaMeta(k).label || '').toLowerCase()
+    return nome.includes('incêndio') || nome.includes('incendio')
+  }
  
   const rows = imoveis
     .flatMap(im => inquilinos
@@ -217,7 +238,7 @@ export default function ImoveisTodos() {
     const valorGarantia = (inquilino.garantia === 'caucao' || inquilino.garantia === 'adiantamento') && cellKey === mesInicio ? Number(inquilino.valorGarantia) || 0 : 0
     const despesas = (inquilino.contasInclusas || []).reduce((s, k) => {
       if (isContaPagaImobiliaria(inquilino, k)) return s
-      if (k === 'seguro_incendio' && !isMesDentroRange(cellKey, inquilino.seguroIncendioMesInicio, inquilino.seguroIncendioMesFim)) return s
+      if (isSeguroIncendioKey(k) && !isMesDentroRange(cellKey, inquilino.seguroIncendioMesInicio, inquilino.seguroIncendioMesFim)) return s
       if (k in cellVarVals) return s + (Number(cellVarVals[k]) || 0)
       return s + (Number(inquilino.contasValores?.[k]) || 0)
     }, 0)
@@ -233,8 +254,9 @@ export default function ImoveisTodos() {
     const key = monthKey(mi)
     setModal({ ...row, mi, key, items: getItems(row.inquilino.id, mi) })
     const saved = valoresVariaveis[row.inquilino.id]?.[key] || {}
-    const { extras, _obs, ...vals } = saved
+    const { extras, _obs, _registrado, ...vals } = saved
     setVarValues(vals || {})
+    setRegistradoVar(_registrado || {})
     setExtraContas(extras ? Object.entries(extras).map(([id, v]) => ({ id, ...v })) : [])
     setObsModal(_obs || '')
   }
@@ -256,34 +278,93 @@ export default function ImoveisTodos() {
   }
  
   const handleAddExtra = () => {
-    setExtraContas(prev => [...prev, { id: null, nome: '', valor: '' }])
+    const newId = push(ref(db)).key
+    setExtraContas(prev => [...prev, { id: newId, contaId: '', nome: '', valor: '', registrado: false }])
   }
- 
+
   const handleExtraChange = (idx, field, value) => {
-    setExtraContas(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e))
+    setExtraContas(prev => {
+      const next = prev.map((e, i) => i === idx ? { ...e, [field]: value } : e)
+      if (['valor', 'contaId', 'nome'].includes(field)) saveExtra(idx, next[idx])
+      return next
+    })
   }
- 
-  const handleExtraSave = async (idx) => {
-    const extra = extraContas[idx]
-    if (!extra || !extra.nome.trim() || extra.valor === '' || extra.valor === undefined) return
-    const numVal = parseFloat(extra.valor)
-    if (isNaN(numVal) || !modal?.inquilino?.id || !modal?.key) return
+
+  const saveExtra = async (idx, extra) => {
+    if (!extra || !extra.id || (!extra.contaId && !extra.nome) || !modal?.inquilino?.id || !modal?.key) return
+    const numVal = extra.valor === '' || extra.valor === undefined || extra.valor === null ? 0 : parseFloat(extra.valor)
+    if (Number.isNaN(numVal)) return
     const basePath = `valoresVariaveis/${modal.inquilino.id}/${modal.key}/extras`
-    if (extra.id) {
-      await update(ref(db, `${basePath}/${extra.id}`), { nome: extra.nome.trim(), valor: numVal })
-    } else {
-      const newRef = push(ref(db, basePath))
-      await set(newRef, { nome: extra.nome.trim(), valor: numVal })
-      setExtraContas(prev => prev.map((e, i) => i === idx ? { ...e, id: newRef.key } : e))
-    }
+    const payload = { contaId: extra.contaId || '', nome: extra.nome || '', valor: numVal, registrado: !!extra.registrado }
+    await set(ref(db, `${basePath}/${extra.id}`), payload)
   }
- 
+
+  const handleExtraSave = (idx) => saveExtra(idx, extraContas[idx])
+
+  const handleExtraContaChange = (idx, contaId) => {
+    const conta = contasCatalogo.find(c => c.id === contaId)
+    const nome = conta?.nome || ''
+    setExtraContas(prev => {
+      const next = prev.map((e, i) => i === idx ? { ...e, contaId, nome } : e)
+      saveExtra(idx, next[idx])
+      return next
+    })
+  }
+
   const handleRemoveExtra = async (idx) => {
     const extra = extraContas[idx]
     if (extra?.id && modal?.inquilino?.id && modal?.key) {
       await remove(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/extras/${extra.id}`))
     }
     setExtraContas(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const handleExtraToggleRegistrado = (idx) => {
+    setExtraContas(prev => {
+      const next = prev.map((e, i) => i === idx ? { ...e, registrado: !e.registrado } : e)
+      saveExtra(idx, next[idx])
+      return next
+    })
+  }
+
+  const handleToggleRegistradoVar = (k) => {
+    const novo = !registradoVar[k]
+    setRegistradoVar(prev => ({ ...prev, [k]: novo }))
+    if (modal?.inquilino?.id && modal?.key) {
+      update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/_registrado`), { [k]: novo })
+    }
+  }
+
+  const handleMarkAllRegistrado = () => {
+    const varKeysAtual = modal
+      ? (modal.inquilino.contasInclusas || []).filter(k => modal.inquilino.contasVariavel?.[k] && !isContaPagaImobiliaria(modal.inquilino, k))
+      : []
+    const fixedKeys = []
+    if (modal) {
+      const { mesInicio: modalMesInicio } = getMesRange(modal.inquilino)
+      const seguroBase   = (modal.inquilino.garantia === 'seguro' && isMesDentroRange(modal.key, modal.inquilino.seguroFiancaMesInicio, modal.inquilino.seguroFiancaMesFim)) ? Number(modal.inquilino.valorSeguro) || 0 : 0
+      const garagemBase  = (Number(modal.inquilino.vagas) || 0) * (Number(modal.inquilino.valorVaga) || 0)
+      const garantiaBase = (modal.inquilino.garantia === 'caucao' || modal.inquilino.garantia === 'adiantamento') && modal.key === modalMesInicio ? Number(modal.inquilino.valorGarantia) || 0 : 0
+      if (seguroBase > 0) fixedKeys.push('_seguro')
+      if (garagemBase > 0) fixedKeys.push('_garagem')
+      if (garantiaBase > 0) fixedKeys.push('_garantia')
+    }
+    const allKeys = [...varKeysAtual, ...fixedKeys]
+    const allRegistrado = extraContas.every(e => e.registrado) && allKeys.every(k => registradoVar[k])
+    const novoValor = !allRegistrado
+
+    setExtraContas(prev => {
+      const next = prev.map(e => ({ ...e, registrado: novoValor }))
+      next.forEach((e, i) => saveExtra(i, e))
+      return next
+    })
+
+    if (allKeys.length && modal?.inquilino?.id && modal?.key) {
+      const patch = {}
+      allKeys.forEach(k => { patch[k] = novoValor })
+      setRegistradoVar(prev => ({ ...prev, ...patch }))
+      update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/_registrado`), patch)
+    }
   }
  
   const handleRegSubmit = async () => {
@@ -359,7 +440,7 @@ export default function ImoveisTodos() {
   , 0)
  
   return (
-    <Layout title="Todos Imóveis" subtitle="Omie — Planilha de Pagamentos Mensais">
+    <Layout title="Planilha Imóveis" subtitle="Omie — Planilha de Pagamentos Mensais">
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -432,7 +513,7 @@ export default function ImoveisTodos() {
           />
           <input
             type="text"
-            placeholder="Código do imóvel..."
+            placeholder="Imóvel..."
             value={filterImovel}
             onChange={e => setFilterImovel(e.target.value)}
             style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, width: 150, outline: 'none' }}
@@ -606,7 +687,7 @@ export default function ImoveisTodos() {
                         }
  
                         const vv          = valoresVariaveis[inquilino.id]?.[cellKey] || {}
-                        const { extras: cellExtras, ...cellVarVals } = vv
+                        const { extras: cellExtras, _registrado: cellRegistradoVar, ...cellVarVals } = vv
                         const aluguelCheio = Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
                         const aluguel      = '_aluguel' in cellVarVals ? Number(cellVarVals._aluguel) || 0 : (cellKey === mesInicio ? aluguelCheio * getFracaoEntrada(inquilino) : aluguelCheio)
                         const valorSeguro  = '_seguro'  in cellVarVals ? Number(cellVarVals._seguro)  || 0 : ((inquilino.garantia === 'seguro' && isMesDentroRange(cellKey, inquilino.seguroFiancaMesInicio, inquilino.seguroFiancaMesFim)) ? Number(inquilino.valorSeguro) || 0 : 0)
@@ -614,13 +695,14 @@ export default function ImoveisTodos() {
                         const valorGarantia = (inquilino.garantia === 'caucao' || inquilino.garantia === 'adiantamento') && cellKey === mesInicio ? Number(inquilino.valorGarantia) || 0 : 0
                         const despesas    = (inquilino.contasInclusas || []).reduce((s, k) => {
                           if (isContaPagaImobiliaria(inquilino, k)) return s
-                          if (k === 'seguro_incendio' && !isMesDentroRange(cellKey, inquilino.seguroIncendioMesInicio, inquilino.seguroIncendioMesFim)) return s
+                          if (isSeguroIncendioKey(k) && !isMesDentroRange(cellKey, inquilino.seguroIncendioMesInicio, inquilino.seguroIncendioMesFim)) return s
                           if (k in cellVarVals) return s + (Number(cellVarVals[k]) || 0)
                           return s + (Number(inquilino.contasValores?.[k]) || 0)
                         }, 0)
                         const extrasTotal = cellExtras
                           ? Object.values(cellExtras).reduce((s, e) => s + (Number(e.valor) || 0), 0)
                           : 0
+                        const extrasPendentes = cellExtras ? Object.values(cellExtras).filter(e => !e.registrado) : []
                         const totalMes    = aluguel + despesas + valorSeguro + valorGaragem + valorGarantia + extrasTotal
  
                         let isReajuste = false
@@ -631,13 +713,17 @@ export default function ImoveisTodos() {
                         }
  
                         const contasVariaveisKeys = (inquilino.contasInclusas || []).filter(k => inquilino.contasVariavel?.[k] && !isContaPagaImobiliaria(inquilino, k))
-                        const variavelPendente = contasVariaveisKeys.length > 0 && contasVariaveisKeys.some(k => !(k in cellVarVals))
-                        const variavelZerada   = contasVariaveisKeys.length > 0 && contasVariaveisKeys.some(k => (k in cellVarVals) && (Number(cellVarVals[k]) === 0))
+                        const contasVariaveisPendentes = contasVariaveisKeys.filter(k => !cellRegistradoVar?.[k])
+                        const variavelPendente = contasVariaveisPendentes.length > 0 && contasVariaveisPendentes.some(k => !(k in cellVarVals))
+                        const variavelZerada   = contasVariaveisPendentes.length > 0 && contasVariaveisPendentes.some(k => (k in cellVarVals) && (Number(cellVarVals[k]) === 0))
                         const variavelAlerta   = variavelPendente || variavelZerada
-                        const pendentesNomes = contasVariaveisKeys
+                        const pendentesNomes = contasVariaveisPendentes
                           .filter(k => !(k in cellVarVals) || Number(cellVarVals[k]) === 0)
-                          .map(k => CONTAS_OPCOES.find(o => o.value === k)?.label || k)
-                        const temExtra = extrasTotal > 0
+                          .map(k => getContaMeta(k).label)
+                        const temExtra = extrasPendentes.length > 0
+                        const seguroPendente   = valorSeguro   > 0 && !cellRegistradoVar?._seguro
+                        const garagemPendente  = valorGaragem  > 0 && !cellRegistradoVar?._garagem
+                        const garantiaPendente = valorGarantia > 0 && !cellRegistradoVar?._garantia
  
                         const hasPendingInadimplencia = items.some(i => (i.status || '').toLowerCase() !== 'pago')
                         const hasSeguroAprovado = items.some(i => i.seguroAcionado === 'pagamento_aprovado')
@@ -664,7 +750,9 @@ export default function ImoveisTodos() {
                                     ? (isCur ? '#eff6ff' : '#fffbeb')
                                     : isCur
                                       ? '#eff6ff'
-                                      : undefined
+                                      : temExtra
+                                        ? '#fff7ed'
+                                        : undefined
  
                         return (
                           <td
@@ -675,6 +763,7 @@ export default function ImoveisTodos() {
                               ...(isReajuste ? { borderBottom: '2.5px solid #f59e0b' } : {}),
                               ...(isDesocupacao ? { borderLeft: '3px solid #ef4444' } : {}),
                               ...(variavelAlerta && !isDesocupacao ? { borderLeft: '3px solid #a855f7' } : {}),
+                              ...(temExtra ? { borderRight: '3px solid #f97316' } : {}),
                             }}
                             onClick={() => openModal({ imovel, inquilino }, mi)}
                             title={isDesocupacao
@@ -702,33 +791,43 @@ export default function ImoveisTodos() {
                                   {fmtBRL(totalMes)}
                                 </span>
                               </div>
-                              {(contasVariaveisKeys.length > 0 || temExtra) && (
+                              {(contasVariaveisPendentes.length > 0 || temExtra || seguroPendente || garagemPendente || garantiaPendente) && (
                                 <div style={{ display: 'flex', gap: 3, fontSize: 10, lineHeight: 1 }}>
-                                  {contasVariaveisKeys.map(k => {
+                                  {contasVariaveisPendentes.map(k => {
                                     const pendente = !(k in cellVarVals) || Number(cellVarVals[k]) === 0
+                                    const { label, icone } = getContaMeta(k)
                                     return (
                                       <span
                                         key={k}
-                                        title={CONTAS_OPCOES.find(o => o.value === k)?.label || k}
+                                        title={label}
                                         style={{ opacity: pendente ? 0.4 : 1 }}
                                       >
-                                        {CONTA_ICONS[k] || '•'}
+                                        {icone}
                                       </span>
                                     )
                                   })}
-                                  {temExtra && (
-                                    <span title="Conta extra adicionada neste mês">📎</span>
+                                  {seguroPendente && (
+                                    <span title="Seguro Fiança (não registrado)">🛡️</span>
                                   )}
+                                  {garagemPendente && (
+                                    <span title="Garagem (não registrada)">🚗</span>
+                                  )}
+                                  {garantiaPendente && (
+                                    <span title={`${inquilino.garantia === 'caucao' ? 'Caução' : 'Adiantamento'} (não registrado)`}>🔒</span>
+                                  )}
+                                  {extrasPendentes.map((extra, i) => {
+                                    const icone = contasCatalogo.find(c => c.id === extra.contaId)?.icone || '📋'
+                                    return (
+                                      <span key={i} title={`Conta extra (não registrada): ${extra.nome || 'sem nome'}`}>
+                                        {icone}
+                                      </span>
+                                    )
+                                  })}
                                 </div>
                               )}
                               {isReajuste && (
                                 <span style={{ fontSize: 9, fontWeight: 700, color: '#b45309', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 4px', whiteSpace: 'nowrap' }}>
                                   📅 reajuste
-                                </span>
-                              )}
-                              {variavelAlerta && (
-                                <span style={{ fontSize: 9, fontWeight: 700, color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 4, padding: '1px 4px', whiteSpace: 'nowrap' }}>
-                                  🟣 variável
                                 </span>
                               )}
                               {isDesocupacao && (
@@ -785,6 +884,10 @@ export default function ImoveisTodos() {
           <span style={{ background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>🟣</span>
           Conta variável não alterada ou com valor zerado no mês
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#c2410c' }}>
+          <span style={{ background: '#fff7ed', border: '1px solid #f97316', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>📎</span>
+          Conta extra ainda não registrada no sistema de pagamento
+        </div>
       </div>
  
       {modal && (
@@ -824,14 +927,18 @@ export default function ImoveisTodos() {
             {(() => {
               const contasInclusas = (modal.inquilino.contasInclusas || [])
                 .filter(k => !isContaPagaImobiliaria(modal.inquilino, k))
-                .filter(k => k !== 'seguro_incendio' || isMesDentroRange(modal.key, modal.inquilino.seguroIncendioMesInicio, modal.inquilino.seguroIncendioMesFim))
-              const allContas = contasInclusas.map(k => ({
-                key:        k,
-                label:      CONTAS_OPCOES.find(c => c.value === k)?.label || k,
-                value:      Number(modal.inquilino.contasValores?.[k]) || 0,
-                isVariavel: !!modal.inquilino.contasVariavel?.[k],
-                origem:     modal.inquilino.contasOrigem?.[k] || '',
-              }))
+                .filter(k => !isSeguroIncendioKey(k) || isMesDentroRange(modal.key, modal.inquilino.seguroIncendioMesInicio, modal.inquilino.seguroIncendioMesFim))
+              const allContas = contasInclusas.map(k => {
+                const { label, icone } = getContaMeta(k)
+                return {
+                  key:        k,
+                  label,
+                  icone,
+                  value:      Number(modal.inquilino.contasValores?.[k]) || 0,
+                  isVariavel: !!modal.inquilino.contasVariavel?.[k],
+                  origem:     modal.inquilino.contasOrigem?.[k] || '',
+                }
+              })
               const { mesInicio: modalMesInicio } = getMesRange(modal.inquilino)
               const aluguelCheio   = Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
               const aluguelBase    = modal.key === modalMesInicio ? aluguelCheio * getFracaoEntrada(modal.inquilino) : aluguelCheio
@@ -849,14 +956,24 @@ export default function ImoveisTodos() {
               const temVariavel    = allContas.some(c => c.isVariavel)
               const varPreenchido  = allContas.filter(c => c.isVariavel).every(c => Number(varValues[c.key]) > 0)
  
-              const EditableRow = ({ icon, label, baseVal, vKey, showSeguro }) => {
+              const EditableRow = ({ icon, label, baseVal, vKey, showSeguro, registradoKey }) => {
                 const hasOv      = vKey in varValues
                 const curVal     = hasOv ? varValues[vKey] : String(baseVal || '')
                 const isModified = hasOv && parseFloat(varValues[vKey]) !== baseVal
                 const bc         = isModified ? '#fcd34d' : '#e2e8f0'
+                const registrada = registradoKey ? !!registradoVar[registradoKey] : false
                 return (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 13, opacity: registrada ? 0.55 : 1 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                      {registradoKey && (
+                        <input
+                          type="checkbox"
+                          checked={registrada}
+                          onChange={() => handleToggleRegistradoVar(registradoKey)}
+                          title="Registrada no sistema de pagamento"
+                          style={{ cursor: 'pointer' }}
+                        />
+                      )}
                       {icon} {label}{showSeguro && modal.inquilino.seguro ? ` — ${SEGURO_LABELS[modal.inquilino.seguro] || modal.inquilino.seguro}` : ''}
                       {isModified && <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#b45309', borderRadius: 8, padding: '1px 6px' }}>alterado</span>}
                     </span>
@@ -884,18 +1001,28 @@ export default function ImoveisTodos() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <EditableRow icon="🏠" label="Aluguel"       baseVal={aluguelBase}  vKey="_aluguel" />
-                    {allContas.map(({ key, label, value, isVariavel, origem }) => {
+                    {allContas.map(({ key, label, icone, value, isVariavel, origem }) => {
                       const hasOverride = key in varValues
                       const inputVal    = hasOverride ? varValues[key] : String(value || '')
                       const isModified  = hasOverride && parseFloat(varValues[key]) !== value
                       const borderColor = isVariavel ? '#c4b5fd' : isModified ? '#fcd34d' : '#e2e8f0'
                       const bgColor     = isVariavel ? '#faf5ff' : isModified ? '#fffbeb' : '#fff'
                       const txtColor    = isVariavel ? '#6d28d9' : isModified ? '#92400e' : '#334155'
+                      const registrada  = isVariavel && !!registradoVar[key]
                       return (
-                        <div key={key} style={{ fontSize: 13, color: '#475569' }}>
+                        <div key={key} style={{ fontSize: 13, color: '#475569', opacity: registrada ? 0.55 : 1 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                              📄 {label}
+                              {isVariavel && (
+                                <input
+                                  type="checkbox"
+                                  checked={registrada}
+                                  onChange={() => handleToggleRegistradoVar(key)}
+                                  title="Registrada no sistema de pagamento"
+                                  style={{ cursor: 'pointer' }}
+                                />
+                              )}
+                              {icone} {label}
                               {isVariavel && (
                                 <span style={{ fontSize: 10, fontWeight: 700, background: '#ede9fe', color: '#7c3aed', borderRadius: 8, padding: '1px 6px' }}>
                                   variável
@@ -938,48 +1065,91 @@ export default function ImoveisTodos() {
                       )
                     })}
                     {seguroBase > 0 && (
-                      <EditableRow icon="🛡️" label="Seguro Fiança" baseVal={seguroBase}  vKey="_seguro"  showSeguro />
+                      <EditableRow icon="🛡️" label="Seguro Fiança" baseVal={seguroBase}  vKey="_seguro"  showSeguro registradoKey="_seguro" />
                     )}
                     {garagemBase > 0 && (
-                      <EditableRow icon="🚗" label={`Garagem (${modal.inquilino.vagas} vaga${Number(modal.inquilino.vagas) > 1 ? 's' : ''})`} baseVal={garagemBase} vKey="_garagem" />
+                      <EditableRow icon="🚗" label={`Garagem (${modal.inquilino.vagas} vaga${Number(modal.inquilino.vagas) > 1 ? 's' : ''})`} baseVal={garagemBase} vKey="_garagem" registradoKey="_garagem" />
                     )}
                     {garantiaBase > 0 && (
-                      <EditableRow icon="🔒" label={modal.inquilino.garantia === 'caucao' ? 'Caução' : 'Adiantamento'} baseVal={garantiaBase} vKey="_garantia" />
+                      <EditableRow icon="🔒" label={modal.inquilino.garantia === 'caucao' ? 'Caução' : 'Adiantamento'} baseVal={garantiaBase} vKey="_garantia" registradoKey="_garantia" />
                     )}
-                    {extraContas.map((extra, idx) => (
-                      <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <span style={{ color: '#94a3b8', fontSize: 13, flexShrink: 0 }}>📋</span>
-                        <input
-                          type="text"
-                          placeholder="Nome da conta"
-                          value={extra.nome}
-                          onChange={e => handleExtraChange(idx, 'nome', e.target.value)}
-                          onBlur={() => handleExtraSave(idx)}
-                          style={{
-                            flex: 1, padding: '4px 8px', minWidth: 0,
-                            border: '1.5px solid #e2e8f0', borderRadius: 6,
-                            fontSize: 12, outline: 'none', background: '#fff',
-                          }}
-                        />
-                        <input
-                          type="number" step="0.01"
-                          placeholder="0,00"
-                          value={extra.valor}
-                          onChange={e => handleExtraChange(idx, 'valor', e.target.value)}
-                          onBlur={() => handleExtraSave(idx)}
-                          style={{
-                            width: 90, padding: '4px 8px', flexShrink: 0,
-                            border: '1.5px solid #e2e8f0', borderRadius: 6,
-                            fontSize: 12, textAlign: 'right', outline: 'none', background: '#fff',
-                          }}
-                        />
+                    {extraContas.map((extra, idx) => {
+                      const contaMeta = extra.contaId ? contasCatalogo.find(c => c.id === extra.contaId) : null
+                      const icone     = contaMeta?.icone || '📋'
+                      const isLegacy  = !extra.contaId && extra.nome
+                      return (
+                        <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'center', opacity: extra.registrado ? 0.55 : 1 }}>
+                          <input
+                            type="checkbox"
+                            checked={!!extra.registrado}
+                            onChange={() => handleExtraToggleRegistrado(idx)}
+                            disabled={(!extra.contaId && !extra.nome) || extra.valor === '' || extra.valor === undefined}
+                            title={(extra.contaId || extra.nome) && extra.valor !== '' ? 'Registrada no sistema de pagamento' : 'Preencha a conta e o valor antes de marcar'}
+                            style={{ flexShrink: 0, cursor: 'pointer' }}
+                          />
+                          <span style={{ fontSize: 13, flexShrink: 0 }}>{icone}</span>
+                          {isLegacy ? (
+                            <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: '#475569' }}>{extra.nome}</span>
+                          ) : (
+                            <select
+                              value={extra.contaId || ''}
+                              onChange={e => handleExtraContaChange(idx, e.target.value)}
+                              style={{
+                                flex: 1, minWidth: 0, padding: '4px 8px',
+                                border: '1.5px solid #e2e8f0', borderRadius: 6,
+                                fontSize: 12, outline: 'none', background: '#fff',
+                              }}
+                            >
+                              <option value="">Selecione uma conta...</option>
+                              {contasCatalogo.map(c => (
+                                <option key={c.id} value={c.id}>{c.nome}</option>
+                              ))}
+                            </select>
+                          )}
+                          <input
+                            type="number" step="0.01"
+                            placeholder="0,00"
+                            value={extra.valor}
+                            onChange={e => handleExtraChange(idx, 'valor', e.target.value)}
+                            onBlur={() => handleExtraSave(idx)}
+                            style={{
+                              width: 90, padding: '4px 8px', flexShrink: 0,
+                              border: '1.5px solid #e2e8f0', borderRadius: 6,
+                              fontSize: 12, textAlign: 'right', outline: 'none', background: '#fff',
+                            }}
+                          />
+                          <button
+                            onClick={() => handleRemoveExtra(idx)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', fontSize: 18, padding: '0 2px', flexShrink: 0, lineHeight: 1 }}
+                            title="Remover"
+                          >×</button>
+                        </div>
+                      )
+                    })}
+                    {(() => {
+                      const fixedRegistradoKeys = [
+                        seguroBase   > 0 ? '_seguro'   : null,
+                        garagemBase  > 0 ? '_garagem'  : null,
+                        garantiaBase > 0 ? '_garantia' : null,
+                      ].filter(Boolean)
+                      if (extraContas.length === 0 && !temVariavel && fixedRegistradoKeys.length === 0) return null
+                      const tudoRegistrado = extraContas.every(e => e.registrado)
+                        && allContas.filter(c => c.isVariavel).every(c => registradoVar[c.key])
+                        && fixedRegistradoKeys.every(k => registradoVar[k])
+                      return (
                         <button
-                          onClick={() => handleRemoveExtra(idx)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', fontSize: 18, padding: '0 2px', flexShrink: 0, lineHeight: 1 }}
-                          title="Remover"
-                        >×</button>
-                      </div>
-                    ))}
+                          onClick={handleMarkAllRegistrado}
+                          style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                            background: 'none', border: '1.5px dashed #cbd5e1', borderRadius: 6,
+                            padding: '5px 10px', cursor: 'pointer', fontSize: 12, color: '#64748b',
+                            width: '100%', marginTop: 2,
+                          }}
+                        >
+                          {tudoRegistrado ? '☐ Desmarcar todas como registradas' : '☑ Marcar todas como registradas'}
+                        </button>
+                      )
+                    })()}
                     <button
                       onClick={handleAddExtra}
                       style={{
@@ -1164,7 +1334,7 @@ export default function ImoveisTodos() {
                     const _aluguel     = '_aluguel' in varValues ? Number(varValues._aluguel) || 0 : (modal.key === _modalMesInicio ? _aluguelCheio * getFracaoEntrada(modal.inquilino) : _aluguelCheio)
                     const _allContas   = (modal.inquilino.contasInclusas || [])
                       .filter(k => !isContaPagaImobiliaria(modal.inquilino, k))
-                      .filter(k => k !== 'seguro_incendio' || isMesDentroRange(modal.key, modal.inquilino.seguroIncendioMesInicio, modal.inquilino.seguroIncendioMesFim))
+                      .filter(k => !isSeguroIncendioKey(k) || isMesDentroRange(modal.key, modal.inquilino.seguroIncendioMesInicio, modal.inquilino.seguroIncendioMesFim))
                       .map(k => ({
                         key: k, value: Number(modal.inquilino.contasValores?.[k]) || 0,
                       }))

@@ -29,9 +29,9 @@ const navSections = [
     ]
   },
   {
-    label: 'Categorias',
+    label: 'Contas a receber',
     items: [
-      { path: '/imoveis-todos', icon: '', label: 'Todos Imóveis' },
+      { path: '/imoveis-todos', icon: '', label: 'Planilha Imóveis' },
     ]
   }
 ]

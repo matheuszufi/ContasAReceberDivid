@@ -340,7 +340,7 @@ export default function CadastrarImovel() {
                     {contasCatalogo
                       .filter(conta => !form.contasInclusas.includes(conta.id))
                       .map(conta => (
-                        <option key={conta.id} value={conta.id}>{conta.nome}</option>
+                        <option key={conta.id} value={conta.id}>{conta.icone || '📄'} {conta.nome}</option>
                       ))}
                   </select>
                   <button type="button" className="btn btn-secondary" style={{ width: 'auto', whiteSpace: 'nowrap' }} disabled={!contaParaAdicionar} onClick={handleAddConta}>
@@ -362,7 +362,7 @@ export default function CadastrarImovel() {
                             padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, background: '#f8fafc',
                           }}
                         >
-                          <strong style={{ fontSize: 13, minWidth: 110 }}>{conta?.nome || 'Conta removida'}</strong>
+                          <strong style={{ fontSize: 13, minWidth: 110 }}>{conta?.icone || '📄'} {conta?.nome || 'Conta removida'}</strong>
                           <label className="conta-variavel-toggle" style={{ fontSize: 12 }}>
                             <input
                               type="checkbox"
