@@ -78,8 +78,10 @@ const GARANTIA_STYLE = {
 const fmtMoney = (v) =>
   'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
-const credpagoUrl = (nome) =>
-  `https://credpago.com/imobiliaria/contratos/relatorio.php?search=${encodeURIComponent(nome || '')}`
+const credpagoUrl = (nome) => {
+  const nomeParam = String(nome || '').trim().replace(/\s+/g, '+')
+  return `https://credpago.com/imobiliaria/contratos/relatorio.php?search=${encodeURIComponent(nomeParam).replace(/%2B/g, '+')}`
+}
 
 // A Credaluga guarda o filtro de busca ativo num JSON serializado duas vezes no hash da URL
 const credalugaUrl = (nome) => {
