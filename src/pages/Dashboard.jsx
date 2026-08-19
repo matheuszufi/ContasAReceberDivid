@@ -611,6 +611,18 @@ export default function Dashboard() {
                   <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.inadimplente)}</span>
                 </div>
               </div>
+              <Separator className="my-3" />
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-muted-foreground">Total</span>
+                <strong className="shrink-0">
+                  {fmtMoney(
+                    selectedMonthTotals.recuperado +
+                    selectedMonthTotals.aprovadoSeguradora +
+                    selectedMonthTotals.aguardarAcionar +
+                    selectedMonthTotals.inadimplente
+                  )}
+                </strong>
+              </div>
             </div>
 
             <div className="flex min-w-0 flex-col rounded-lg border bg-card p-4">
@@ -693,7 +705,8 @@ export default function Dashboard() {
                         </div>
                         <div className="mc-value-group">
                           <span className="mc-value-label">Em aberto</span>
-                          <strong>{fmtMoney(card.inadimplente)}</strong>
+                          {/* "Em aberto" aqui é todo débito não pago, igual à definição usada em Inadimplentes */}
+                          <strong>{fmtMoney(card.inadimplente + card.aprovadoSeguradora + card.aguardarAcionar)}</strong>
                         </div>
                       </div>
                     </div>
