@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ref, onValue } from 'firebase/database'
 import { db } from '../firebase'
@@ -30,6 +30,42 @@ const MONTH_FULL_LABELS = [
   'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ]
 
+// Mesmas opções de filtro usadas na planilha de Inadimplentes
+const STATUS_OPCOES = [
+  { value: 'selecione',       label: 'Selecione' },
+  { value: 'seguro_aprovado', label: 'Seguro Aprovado' },
+  { value: 'cobranca_whats',  label: 'Cobrança WhatsApp' },
+  { value: 'nao_responde',    label: 'Não Responde' },
+  { value: 'nao_quer_pagar',  label: 'Não Quer Pagar' },
+  { value: 'acordo',          label: 'Acordo' },
+  { value: 'juridico',        label: 'Jurídico' },
+  { value: 'pago',            label: 'Pago' },
+]
+
+const SEGURO_ACIONADO_OPCOES = [
+  { value: 'nao_acionado',          label: 'Não Acionado' },
+  { value: 'acionado',              label: 'Acionado' },
+  { value: 'aguardar_para_acionar', label: 'Aguardar para Acionar' },
+  { value: 'necessita_documentos',  label: 'Necessita Documentos' },
+  { value: 'pagamento_aprovado',    label: 'Pagamento Aprovado' },
+  { value: 'pagamento_reprovado',   label: 'Pagamento Reprovado' },
+]
+
+const GARANTIA_LABELS = {
+  seguro:       'S.F.',
+  caucao:       'Caução',
+  adiantamento: 'Adiantamento',
+  sem_garantia: 'Sem Garantia',
+}
+
+// Por padrão o filtro de status mostra tudo, exceto os débitos já pagos
+// Diferente da planilha de Inadimplentes, aqui o "Pago" também entra por padrão
+// (senão os valores recuperados somem do gráfico/cards logo de início).
+const DEFAULT_STATUS_FILTRO = STATUS_OPCOES.map(o => o.value)
+
+const isDefaultStatusFiltro = (arr) =>
+  arr.length === DEFAULT_STATUS_FILTRO.length && DEFAULT_STATUS_FILTRO.every(v => arr.includes(v))
+
 const fmtMoney = (value) =>
   'R$ ' + Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
@@ -54,12 +90,14 @@ const buildMonthlyTotals = (items, year) => {
     if (!monthKey?.startsWith(year)) return
     const value = parseFloat(item.valorTotal) || parseFloat(item.valorOriginal) || 0
     if (!map[monthKey]) {
-      map[monthKey] = { inadimplente: 0, recuperado: 0, aprovadoSeguradora: 0 }
+      map[monthKey] = { inadimplente: 0, recuperado: 0, aprovadoSeguradora: 0, aguardarAcionar: 0 }
     }
     if (item.status === 'pago') {
       map[monthKey].recuperado += value
     } else if (item.seguroAcionado === 'pagamento_aprovado') {
       map[monthKey].aprovadoSeguradora += value
+    } else if (item.seguroAcionado === 'aguardar_para_acionar') {
+      map[monthKey].aguardarAcionar += value
     } else {
       map[monthKey].inadimplente += value
     }
@@ -67,13 +105,15 @@ const buildMonthlyTotals = (items, year) => {
   return map
 }
 
-const getPieSegments = (inadimplente, recuperado, aprovadoSeguradora) => {
-  const total = inadimplente + recuperado + aprovadoSeguradora
+const getPieSegments = (inadimplente, recuperado, aprovadoSeguradora, aguardarAcionar) => {
+  const total = inadimplente + recuperado + aprovadoSeguradora + aguardarAcionar
   const recoveredPercent = total > 0 ? Math.round((recuperado / total) * 100) : 0
   const approvedPercent = total > 0 ? Math.round((aprovadoSeguradora / total) * 100) : 0
+  const waitingPercent = total > 0 ? Math.round((aguardarAcionar / total) * 100) : 0
   return {
     recoveredPercent,
     approvedPercent,
+    waitingPercent,
     percentage: recoveredPercent,
   }
 }
@@ -91,6 +131,40 @@ export default function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [topFilter, setTopFilter] = useState('valor')
   const [periodMode, setPeriodMode] = useState('month') // 'month' | 'ano' | 'h1' | 'h2'
+  const [colFilters, setColFilters] = useState({
+    inquilino: '',
+    imovel: '',
+    garantia: '',
+    seguroAcionado: '',
+    mesReferencia: '',
+    status: DEFAULT_STATUS_FILTRO,
+  })
+  const [statusFilterOpen, setStatusFilterOpen] = useState(false)
+  const statusFilterRef = useRef(null)
+
+  const setColFilter = (field, value) =>
+    setColFilters(prev => ({ ...prev, [field]: value }))
+
+  const toggleStatusFiltro = (value) =>
+    setColFilters(prev => ({
+      ...prev,
+      status: prev.status.includes(value) ? prev.status.filter(v => v !== value) : [...prev.status, value],
+    }))
+
+  const limparColFilters = () =>
+    setColFilters({
+      inquilino: '', imovel: '', garantia: '', seguroAcionado: '',
+      mesReferencia: '', status: DEFAULT_STATUS_FILTRO,
+    })
+
+  useEffect(() => {
+    if (!statusFilterOpen) return
+    const handler = (e) => {
+      if (statusFilterRef.current && !statusFilterRef.current.contains(e.target)) setStatusFilterOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [statusFilterOpen])
 
   useEffect(() => {
     const imoveisRef = ref(db, 'imoveis')
@@ -146,27 +220,69 @@ export default function Dashboard() {
     return ids.size
   }, [pendentes])
 
-  const yearMonthTotals = useMemo(() => buildMonthlyTotals(inadimplencias, selectedYear), [inadimplencias, selectedYear])
-
   const inquilinoMap = useMemo(
     () => Object.fromEntries(inquilinos.map(i => [i.id, i])),
     [inquilinos]
   )
 
+  const imovelMap = useMemo(
+    () => Object.fromEntries(imoveis.map(im => [im.id, im])),
+    [imoveis]
+  )
+
+  const getInquilinoNome = (d) =>
+    inquilinoMap[d.inquilinoId]?.nome || d.inquilinoNome || 'Sem nome'
+
+  const getCodigoImovel = (d) => {
+    const inquilino = inquilinoMap[d.inquilinoId]
+    const imovel = imovelMap[inquilino?.imovelId]
+    return imovel?.codigo || inquilino?.codigoImovel || d.codigoImovel || ''
+  }
+
+  const getGarantia = (d) => {
+    const g = d.garantia || inquilinoMap[d.inquilinoId]?.garantia || 'sem_garantia'
+    return { key: g, label: GARANTIA_LABELS[g] || g }
+  }
+
+  // Opções dos selects de filtro, calculadas a partir de toda a base (independente do período selecionado)
+  const mesRefOptions = useMemo(
+    () => [...new Set(inadimplencias.map(d => d.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
+    [inadimplencias]
+  )
+  const garantiaOptions = useMemo(
+    () => [...new Set(inadimplencias.map(d => getGarantia(d).key))],
+    [inadimplencias, inquilinoMap]
+  )
+
+  const filteredInadimplencias = useMemo(() => inadimplencias
+    .filter(d => !colFilters.inquilino || getInquilinoNome(d).toLowerCase().includes(colFilters.inquilino.toLowerCase()))
+    .filter(d => !colFilters.imovel || getCodigoImovel(d).toLowerCase().includes(colFilters.imovel.toLowerCase()))
+    .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
+    .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
+    .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
+    .filter(d => colFilters.status.includes(d.status || 'selecione')),
+    [inadimplencias, colFilters, inquilinoMap, imovelMap]
+  )
+
+  const yearMonthTotals = useMemo(() => buildMonthlyTotals(filteredInadimplencias, selectedYear), [filteredInadimplencias, selectedYear])
+
   const monthCards = useMemo(() => MONTH_FULL_LABELS.map((label, index) => {
     const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
-    const totals = yearMonthTotals[key] || { inadimplente: 0, recuperado: 0, aprovadoSeguradora: 0 }
-    const total = totals.inadimplente + totals.recuperado + totals.aprovadoSeguradora
+    const totals = yearMonthTotals[key] || { inadimplente: 0, recuperado: 0, aprovadoSeguradora: 0, aguardarAcionar: 0 }
+    const total = totals.inadimplente + totals.recuperado + totals.aprovadoSeguradora + totals.aguardarAcionar
     const recoveredPercent = total > 0 ? Math.round((totals.recuperado / total) * 100) : 0
     const approvedPercent = total > 0 ? Math.round((totals.aprovadoSeguradora / total) * 100) : 0
+    const waitingPercent = total > 0 ? Math.round((totals.aguardarAcionar / total) * 100) : 0
     return {
       key,
       label,
       inadimplente: totals.inadimplente,
       recuperado: totals.recuperado,
       aprovadoSeguradora: totals.aprovadoSeguradora,
+      aguardarAcionar: totals.aguardarAcionar,
       recoveredPercent,
       approvedPercent,
+      waitingPercent,
       active: periodMode === 'month' && selectedMonth === key,
     }
   }), [selectedYear, selectedMonth, yearMonthTotals, periodMode])
@@ -189,8 +305,8 @@ export default function Dashboard() {
 
   const periodDebts = useMemo(() => {
     const keys = new Set(periodMonthKeys)
-    return inadimplencias.filter(d => keys.has(getMonthKey(d)))
-  }, [inadimplencias, periodMonthKeys])
+    return filteredInadimplencias.filter(d => keys.has(getMonthKey(d)))
+  }, [filteredInadimplencias, periodMonthKeys])
 
   const periodPagas = useMemo(
     () => periodDebts.filter(d => d.status === 'pago'),
@@ -209,13 +325,14 @@ export default function Dashboard() {
 
   const selectedMonthTotals = useMemo(() => {
     return periodMonthKeys.reduce((acc, key) => {
-      const totals = yearMonthTotals[key] || { inadimplente: 0, recuperado: 0, aprovadoSeguradora: 0 }
+      const totals = yearMonthTotals[key] || { inadimplente: 0, recuperado: 0, aprovadoSeguradora: 0, aguardarAcionar: 0 }
       return {
         inadimplente: acc.inadimplente + totals.inadimplente,
         recuperado: acc.recuperado + totals.recuperado,
         aprovadoSeguradora: acc.aprovadoSeguradora + (totals.aprovadoSeguradora || 0),
+        aguardarAcionar: acc.aguardarAcionar + (totals.aguardarAcionar || 0),
       }
-    }, { inadimplente: 0, recuperado: 0, aprovadoSeguradora: 0 })
+    }, { inadimplente: 0, recuperado: 0, aprovadoSeguradora: 0, aguardarAcionar: 0 })
   }, [periodMonthKeys, yearMonthTotals])
 
   const topInadimplentes = useMemo(() => {
@@ -242,7 +359,8 @@ export default function Dashboard() {
   const pie = getPieSegments(
     selectedMonthTotals.inadimplente,
     selectedMonthTotals.recuperado,
-    selectedMonthTotals.aprovadoSeguradora
+    selectedMonthTotals.aprovadoSeguradora,
+    selectedMonthTotals.aguardarAcionar
   )
 
   const handleYearChange = (direction) => {
@@ -329,6 +447,88 @@ export default function Dashboard() {
             </Button>
           </div>
         </CardHeader>
+        <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
+          <input
+            type="text"
+            placeholder="Filtrar por inquilino..."
+            value={colFilters.inquilino}
+            onChange={e => setColFilter('inquilino', e.target.value)}
+            style={{ fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid #e2e8f0', minWidth: 150 }}
+          />
+          <input
+            type="text"
+            placeholder="Filtrar por imóvel..."
+            value={colFilters.imovel}
+            onChange={e => setColFilter('imovel', e.target.value)}
+            style={{ fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid #e2e8f0', minWidth: 130 }}
+          />
+          <select
+            value={colFilters.garantia}
+            onChange={e => setColFilter('garantia', e.target.value)}
+            style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+          >
+            <option value="">Garantia: Todas</option>
+            {garantiaOptions.map(g => (
+              <option key={g} value={g}>{GARANTIA_LABELS[g] || g}</option>
+            ))}
+          </select>
+          <select
+            value={colFilters.seguroAcionado}
+            onChange={e => setColFilter('seguroAcionado', e.target.value)}
+            style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+          >
+            <option value="">Seguro Acionado: Todos</option>
+            {SEGURO_ACIONADO_OPCOES.map(o => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <select
+            value={colFilters.mesReferencia}
+            onChange={e => setColFilter('mesReferencia', e.target.value)}
+            style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+          >
+            <option value="">Mês Ref.: Todos</option>
+            {mesRefOptions.map(m => (
+              <option key={m} value={m}>{getMonthLabel(m)}</option>
+            ))}
+          </select>
+          <div ref={statusFilterRef} style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setStatusFilterOpen(o => !o)}
+              style={{ fontSize: 12, padding: '5px 8px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}
+            >
+              Status: {colFilters.status.length === 0
+                ? 'Nenhum'
+                : colFilters.status.length === STATUS_OPCOES.length
+                ? 'Todos'
+                : `${colFilters.status.length} selecionado(s)`} ▾
+            </button>
+            {statusFilterOpen && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 20, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', padding: 8, minWidth: 190, marginTop: 4 }}>
+                <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                  <button type="button" className="btn btn-sm" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColFilter('status', STATUS_OPCOES.map(o => o.value))}>Todos</button>
+                  <button type="button" className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColFilter('status', [])}>Nenhum</button>
+                </div>
+                {STATUS_OPCOES.map(o => (
+                  <label key={o.value} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '3px 2px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    <input
+                      type="checkbox"
+                      checked={colFilters.status.includes(o.value)}
+                      onChange={() => toggleStatusFiltro(o.value)}
+                    />
+                    {o.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          {(colFilters.inquilino || colFilters.imovel || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || !isDefaultStatusFiltro(colFilters.status)) && (
+            <Button variant="outline" size="sm" onClick={limparColFilters}>
+              Limpar filtros
+            </Button>
+          )}
+        </div>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.5fr_0.8fr_300px]">
             <div className="flex min-w-0 flex-col rounded-lg border bg-card p-4">
@@ -363,6 +563,18 @@ export default function Dashboard() {
                     transform={`rotate(${90 + (pie.recoveredPercent / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
                   />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="40"
+                    fill="none"
+                    stroke="#64748b"
+                    strokeWidth="24"
+                    strokeDasharray={`${(pie.waitingPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.waitingPercent / 100) * DONUT_CIRCUMFERENCE}`}
+                    strokeDashoffset="0"
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.approvedPercent) / 100) * 360} 60 60)`}
+                    strokeLinecap="butt"
+                  />
                 </svg>
                 <div className="donut-center">
                   <strong>{pie.percentage}%</strong>
@@ -383,6 +595,13 @@ export default function Dashboard() {
                     <span className="truncate">Aprovado seguradora</span>
                   </span>
                   <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.aprovadoSeguradora)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                    <span className="dot dot-waiting shrink-0"></span>
+                    <span className="truncate">Aguardar para acionar</span>
+                  </span>
+                  <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.aguardarAcionar)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
@@ -447,10 +666,25 @@ export default function Dashboard() {
                         zIndex: 0,
                       }}
                     />
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        bottom: `${card.recoveredPercent + card.approvedPercent}%`,
+                        height: `${card.waitingPercent}%`,
+                        background: 'rgba(100, 116, 139, 0.3)',
+                        borderTop: card.waitingPercent > 0 ? '2px solid #64748b' : 'none',
+                        transition: 'height 0.3s ease, bottom 0.3s ease',
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                      }}
+                    />
                     <div style={{ position: 'relative', zIndex: 1 }}>
                       <div className="mc-top-row">
                         <span>{MONTH_LABELS[Number(card.key.slice(-2)) - 1]}</span>
-                        <strong>{fmtMoney(card.inadimplente + card.recuperado + card.aprovadoSeguradora)}</strong>
+                        <strong>{fmtMoney(card.inadimplente + card.recuperado + card.aprovadoSeguradora + card.aguardarAcionar)}</strong>
                       </div>
                       <div className="mc-values-row">
                         <div className="mc-value-group">

@@ -986,6 +986,7 @@
   }
   .dot-paid { background: #22c55e; }
   .dot-approved { background: #eab308; }
+  .dot-waiting { background: #64748b; }
   .dot-pending { background: #f97316; }
   .month-grid.month-grid-compact {
     grid-template-columns: repeat(3, minmax(0, 1fr));
