@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ref, onValue, update } from 'firebase/database'
+import { ref, onValue, update, remove } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Package, House, Search, Plus, Pencil, Trash2 } from 'lucide-react'
+import { Package, House, Search, Plus, Pencil, Trash2, X } from 'lucide-react'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 
@@ -46,9 +46,14 @@ export default function Desocupacoes() {
   const navigate = useNavigate()
   const [inquilinos, setInquilinos] = useState([])
   const [imoveis, setImoveis] = useState([])
+  const [contasCatalogo, setContasCatalogo] = useState([])
+  const [valoresVariaveis, setValoresVariaveis] = useState({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [novoInquilinoId, setNovoInquilinoId] = useState('')
+  const [addingExtraFor, setAddingExtraFor] = useState(null)
+  const [novaContaNome, setNovaContaNome] = useState('')
+  const [novaContaValor, setNovaContaValor] = useState('')
 
   useEffect(() => {
     const r1 = ref(db, 'inquilinos')
@@ -62,13 +67,68 @@ export default function Desocupacoes() {
       const data = snap.val()
       setImoveis(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
     })
-    return () => { unsub1(); unsub2() }
+    const r3 = ref(db, 'contas')
+    const unsub3 = onValue(r3, snap => {
+      const data = snap.val()
+      setContasCatalogo(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+    const r4 = ref(db, 'valoresVariaveis')
+    const unsub4 = onValue(r4, snap => {
+      setValoresVariaveis(snap.val() || {})
+    })
+    return () => { unsub1(); unsub2(); unsub3(); unsub4() }
   }, [])
 
   const imovelMap = useMemo(
     () => Object.fromEntries(imoveis.map(im => [im.id, im])),
     [imoveis]
   )
+
+  // Resolve nome/icone de uma conta pelo catalogo novo (Firebase) ou pelo esquema antigo
+  const getContaMeta = (k) => {
+    const catalogConta = contasCatalogo.find(c => c.id === k)
+    if (catalogConta) return { label: catalogConta.nome, icone: catalogConta.icone || '📄' }
+    return { label: k, icone: '📄' }
+  }
+
+  // Monta a lista de contas cobradas no mes de saida do inquilino: parte dos valores do
+  // contrato (aluguel, contas do imovel, seguro fianca, garagem) e sobrescreve com o que
+  // estiver salvo em valoresVariaveis para aquele mes, incluindo contas extras lancadas nele.
+  const getContasMes = (inq) => {
+    if (!inq.dataSaida) return []
+    const imovel = imovelMap[inq.imovelId]
+    const monthKey = inq.dataSaida.substring(0, 7)
+    const saved = valoresVariaveis[inq.id]?.[monthKey] || {}
+    const { extras, _obs, ...savedVals } = saved
+    const itens = []
+
+    const aluguel = savedVals._aluguel !== undefined ? Number(savedVals._aluguel) : (Number(inq.valorAluguel) || 0)
+    if (aluguel) itens.push({ key: '_aluguel', icone: '🏠', label: 'Aluguel', valor: aluguel })
+
+    ;(imovel?.contasInclusas || []).forEach(contaId => {
+      if (imovel.contasVariavel?.[contaId] && savedVals[contaId] === undefined) return
+      const { label, icone } = getContaMeta(contaId)
+      const valor = savedVals[contaId] !== undefined ? Number(savedVals[contaId]) : (Number(inq.contasValores?.[contaId]) || 0)
+      if (valor) itens.push({ key: contaId, icone, label, valor })
+    })
+
+    if (inq.garantia === 'seguro') {
+      const valor = savedVals._seguro !== undefined ? Number(savedVals._seguro) : (Number(inq.valorSeguro) || 0)
+      if (valor) itens.push({ key: '_seguro', icone: '🛡️', label: 'Seguro Fiança', valor })
+    }
+
+    const garagemPadrao = (Number(inq.vagas) || 0) * (Number(inq.valorVaga) || 0)
+    const garagemValor = savedVals._garagem !== undefined ? Number(savedVals._garagem) : garagemPadrao
+    if (garagemValor) itens.push({ key: '_garagem', icone: '🚗', label: 'Garagem', valor: garagemValor })
+
+    if (extras) {
+      Object.entries(extras).forEach(([id, e]) => {
+        if (e?.nome) itens.push({ key: `extra_${id}`, icone: '📋', label: e.nome, valor: Number(e.valor) || 0 })
+      })
+    }
+
+    return itens
+  }
 
   // Entram aqui os inquilinos com data de saída registrada (mesmo campo usado em
   // Inquilinos.jsx e no modal de Desocupação) ou marcados manualmente pelo flag;
@@ -119,6 +179,36 @@ export default function Desocupacoes() {
   const handleRemover = (inquilinoId) => {
     if (!window.confirm('Remover este inquilino da lista de desocupações?')) return
     update(ref(db, `inquilinos/${inquilinoId}`), { desocupando: false, dataSaida: '' })
+  }
+
+  const abrirAdicionarConta = (inq) => {
+    setAddingExtraFor(inq.id)
+    setNovaContaNome('')
+    setNovaContaValor('')
+  }
+
+  const cancelarAdicionarConta = () => {
+    setAddingExtraFor(null)
+    setNovaContaNome('')
+    setNovaContaValor('')
+  }
+
+  // Salva a conta extra em valoresVariaveis/{inquilino}/{mês}/extras, o mesmo nó lido pela
+  // planilha de Imóveis Todos, então a conta aparece automaticamente lá também.
+  const handleAdicionarConta = async (inq) => {
+    const nome = novaContaNome.trim()
+    const valor = parseFloat(novaContaValor)
+    if (!nome || isNaN(valor) || !inq.dataSaida) return
+    const monthKey = inq.dataSaida.substring(0, 7)
+    const extraId = `extra_${Date.now()}`
+    await update(ref(db, `valoresVariaveis/${inq.id}/${monthKey}/extras/${extraId}`), { nome, valor })
+    cancelarAdicionarConta()
+  }
+
+  const handleRemoverConta = (inq, item) => {
+    if (!item.key.startsWith('extra_') || !inq.dataSaida) return
+    const monthKey = inq.dataSaida.substring(0, 7)
+    remove(ref(db, `valoresVariaveis/${inq.id}/${monthKey}/extras/${item.key}`))
   }
 
   return (
@@ -194,6 +284,7 @@ export default function Desocupacoes() {
                   <th>Imóvel</th>
                   <th>Modelo</th>
                   <th>Data de Saída</th>
+                  <th>Contas do Mês de Desocupação</th>
                   <th>Status</th>
                   <th>Ações</th>
                 </tr>
@@ -201,6 +292,7 @@ export default function Desocupacoes() {
               <tbody>
                 {filtered.map(inq => {
                   const imovel = imovelMap[inq.imovelId]
+                  const contasMes = getContasMes(inq)
                   return (
                     <tr key={inq.id}>
                       <td>{inq.nome}</td>
@@ -216,6 +308,66 @@ export default function Desocupacoes() {
                           defaultValue={inq.dataSaida || ''}
                           onBlur={e => handleCampoChange(inq.id, 'dataSaida', e.target.value)}
                         />
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, maxWidth: 340 }}>
+                          {contasMes.map(item => (
+                            <span
+                              key={item.key}
+                              title={item.label}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 3,
+                                background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 12,
+                                padding: '2px 6px', fontSize: 11, whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {item.icone} {item.label}: {fmtMoney(item.valor)}
+                              {item.key.startsWith('extra_') && (
+                                <X
+                                  className="size-3 cursor-pointer text-muted-foreground hover:text-destructive"
+                                  onClick={() => handleRemoverConta(inq, item)}
+                                />
+                              )}
+                            </span>
+                          ))}
+                          {inq.dataSaida && (
+                            addingExtraFor === inq.id ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  placeholder="Nome"
+                                  value={novaContaNome}
+                                  onChange={e => setNovaContaNome(e.target.value)}
+                                  style={{ width: 90, fontSize: 11, padding: '2px 4px' }}
+                                />
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  placeholder="Valor"
+                                  value={novaContaValor}
+                                  onChange={e => setNovaContaValor(e.target.value)}
+                                  style={{ width: 70, fontSize: 11, padding: '2px 4px' }}
+                                />
+                                <Button size="sm" className="h-6 px-2" onClick={() => handleAdicionarConta(inq)}>OK</Button>
+                                <Button size="sm" variant="outline" className="h-6 px-2" onClick={cancelarAdicionarConta}>✕</Button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => abrirAdicionarConta(inq)}
+                                title="Adicionar conta"
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 2,
+                                  border: '1px dashed #cbd5e1', borderRadius: 12, background: 'transparent',
+                                  padding: '2px 6px', fontSize: 11, cursor: 'pointer', color: '#64748b',
+                                }}
+                              >
+                                <Plus className="size-3" /> conta
+                              </button>
+                            )
+                          )}
+                        </div>
                       </td>
                       <td>
                         <StatusCell status={inq.status} onChange={v => handleStatusChange(inq.id, v)} />

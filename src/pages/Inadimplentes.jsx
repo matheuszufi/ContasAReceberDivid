@@ -431,8 +431,8 @@ export default function Inadimplentes() {
           </Card>
         </div>
 
-        <Card className="flex-[1_1_260px] max-w-[500px]">
-          <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-4">
+        <Card className="flex-[1_1_400px] max-w-[700px] flex-row items-stretch">
+          <CardHeader className="flex w-48 shrink-0 flex-col items-start justify-center gap-2 border-r border-b-0 pr-4 pb-0">
             <CardTitle className="flex items-center gap-1.5 text-base">
               <Trophy className="size-4" /> Top 5 Inadimplentes
             </CardTitle>

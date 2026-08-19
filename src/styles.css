@@ -753,7 +753,7 @@
   .month-card {
     background: var(--card);
     border: 1.5px solid var(--border);
-    border-radius: 12px;
+    /* border-radius: 12px; */
     padding: 8px 10px;
     cursor: pointer;
     text-align: left;

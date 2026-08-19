@@ -127,6 +127,7 @@ export default function ImoveisTodos() {
   const [filterModelo, setFilterModelo]       = useState('')
   const [filterInadimplentes, setFilterInadimplentes] = useState(false)
   const [filterContasVariaveis, setFilterContasVariaveis] = useState(false)
+  const [filterDesocupacao, setFilterDesocupacao] = useState(false)
   const [sortBy, setSortBy]   = useState(null)
   const [sortDir, setSortDir] = useState('asc')
  
@@ -210,8 +211,20 @@ export default function ImoveisTodos() {
     if (filterContasVariaveis) {
       const contasDoImovel = (imovel.contasInclusas || inquilino.contasInclusas || []).filter(k => !isContaPagaImobiliaria(inquilino, k))
       const hasContaVariavel = contasDoImovel.some(k => inquilino.contasVariavel?.[k] || imovel.contasVariavel?.[k])
-      if (!hasContaVariavel) return false
+      // "Registrada" aqui = qualquer conta lançada em algum mês (valor fixo/variável salvo,
+      // extra cadastrada ou marcada como registrada), não só quando o check "registrado" é ativado.
+      const mesesInquilino = valoresVariaveis[inquilino.id] || {}
+      const hasContaRegistrada = Object.values(mesesInquilino).some(mes => {
+        if (!mes) return false
+        const { extras, _obs, _registrado, ...vals } = mes
+        if (extras && Object.keys(extras).length > 0) return true
+        if (_registrado && Object.values(_registrado).some(Boolean)) return true
+        if (Object.keys(vals).length > 0) return true
+        return false
+      })
+      if (!hasContaVariavel && !hasContaRegistrada) return false
     }
+    if (filterDesocupacao && !(inquilino.dataSaida || inquilino.desocupando)) return false
     return true
   })
  
@@ -573,14 +586,22 @@ export default function ImoveisTodos() {
               checked={filterContasVariaveis}
               onChange={e => setFilterContasVariaveis(e.target.checked)}
             />
-            Apenas com contas variáveis
+            Apenas com contas registradas/contas variáveis
           </label>
-          {(filterNome || filterImovel || filterModelo || filterInadimplentes || filterContasVariaveis) && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
+            <input
+              type="checkbox"
+              checked={filterDesocupacao}
+              onChange={e => setFilterDesocupacao(e.target.checked)}
+            />
+            Apenas com desocupação
+          </label>
+          {(filterNome || filterImovel || filterModelo || filterInadimplentes || filterContasVariaveis || filterDesocupacao) && (
             <Button
               variant="ghost"
               size="sm"
               className="ml-auto text-muted-foreground"
-              onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterModelo(''); setFilterInadimplentes(false); setFilterContasVariaveis(false) }}
+              onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterModelo(''); setFilterInadimplentes(false); setFilterContasVariaveis(false); setFilterDesocupacao(false) }}
             >
               <X /> Limpar ({filteredRows.length}/{rows.length})
             </Button>
