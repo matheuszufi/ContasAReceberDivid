@@ -61,13 +61,6 @@ const GARANTIA_OPCOES = [
   { value: 'sem_garantia', label: 'Sem Garantia' },
 ]
 
-const SEGURO_OPCOES = [
-  { value: 'credaluga', label: 'Credaluga' },
-  { value: 'credpago',  label: 'Credpago' },
-  { value: 'lado_bom',  label: 'Lado Bom Seguros' },
-  { value: 'Avalyst',   label: 'Avalyst' },
-]
-
 const GARANTIA_STYLE = {
   seguro:       { bg: '#ede9fe', color: '#7c3aed', border: '#c4b5fd', icon: '🛡️' },
   caucao:       { bg: '#f0fdf4', color: '#166534', border: '#86efac', icon: '💰' },
@@ -162,6 +155,7 @@ export default function Inadimplentes() {
   const [mesSelecionado, setMesSelecionado] = useState(null)
   const [showRankingModal, setShowRankingModal] = useState(false)
   const [editingGarantiaId, setEditingGarantiaId] = useState(null)
+  const [segurosCatalogo, setSegurosCatalogo] = useState([])
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
   const statusFilterRef = useRef(null)
   const [colFilters, setColFilters] = useState({
@@ -214,7 +208,13 @@ export default function Inadimplentes() {
       const data = snap.val()
       setImoveis(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
     })
-    return () => { unsub1(); unsub2(); unsub3() }
+    const r4 = ref(db, 'seguros')
+    const unsub4 = onValue(r4, snap => {
+      const data = snap.val()
+      const lista = data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : []
+      setSegurosCatalogo(lista.filter(s => s.tipo === 'Seguro Fiança').sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')))
+    })
+    return () => { unsub1(); unsub2(); unsub3(); unsub4() }
   }, [])
 
   const getGarantia = (d) => {
@@ -301,11 +301,12 @@ export default function Inadimplentes() {
   const abrirGarantia = (d) => {
     const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
     if (!inquilino) return alert('Inquilino não encontrado.')
-    if (inquilino.garantia === 'seguro' && inquilino.seguro === 'credpago') {
+    const seguroNome = String(inquilino.seguro || '').toLowerCase()
+    if (inquilino.garantia === 'seguro' && seguroNome === 'credpago') {
       window.open(credpagoUrl(inquilino.nome), '_blank')
       return
     }
-    if (inquilino.garantia === 'seguro' && inquilino.seguro === 'credaluga') {
+    if (inquilino.garantia === 'seguro' && seguroNome === 'credaluga') {
       window.open(credalugaUrl(inquilino.nome), '_blank')
       return
     }
@@ -697,7 +698,7 @@ export default function Inadimplentes() {
                                   style={{ fontSize: 11, padding: '2px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                                 >
                                   <option value="">Seguradora...</option>
-                                  {SEGURO_OPCOES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                  {segurosCatalogo.map(o => <option key={o.id} value={o.nome}>{o.nome}</option>)}
                                 </select>
                               )}
                               <button type="button" className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '1px 6px' }} onClick={() => setEditingGarantiaId(null)}>Fechar</button>
