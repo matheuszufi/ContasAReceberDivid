@@ -1315,13 +1315,13 @@ export default function Inquilinos() {
                       <td>
                         <div className="flex gap-1.5">
                           <Button variant="outline" size="sm" onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}>
-                            <Pencil /> Editar
+                            <Pencil />
                           </Button>
                           <Button variant="outline" size="sm" className="border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-700" onClick={() => openDesocModal(inq)}>
-                            <DoorOpen /> Desocupação
+                            <DoorOpen />
                           </Button>
                           <Button variant="destructive" size="sm" onClick={() => handleDelete(inq.id)}>
-                            <Trash2 /> Excluir
+                            <Trash2 /> 
                           </Button>
                         </div>
                       </td>
