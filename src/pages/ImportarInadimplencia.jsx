@@ -318,13 +318,16 @@ export default function ImportarInadimplencia() {
         const chave = `${p.inquilinoId}_${p.mesReferencia}`
         const existenteId = filaExistentes[chave]?.shift()
 
+        // A planilha de inadimplência (página Inadimplentes) usa 'pago'/'selecione' como
+        // vocabulário de status, diferente do 'Pago'/'Pendente' usado no preview da importação.
+        const statusDebito = p.status === 'Pago' ? 'pago' : 'selecione'
         const dataPagamento = p.status === 'Pago' ? new Date().toISOString().substring(0, 10) : ''
 
         if (existenteId) {
           await update(ref(db, `inadimplencias/${existenteId}`), {
             valorOriginal: p.valor,
             valorTotal:    p.valor,
-            status:        p.status,
+            status:        statusDebito,
             dataPagamento,
             atualizadoEm:  new Date().toISOString(),
           })
@@ -344,7 +347,7 @@ export default function ImportarInadimplencia() {
             multa: 0,
             juros: 0,
             valorTotal:     p.valor,
-            status:         p.status,
+            status:         statusDebito,
             dataPagamento,
             observacao:     '',
             criadoEm:       new Date().toISOString(),
