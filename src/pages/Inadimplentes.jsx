@@ -11,7 +11,6 @@ import {
   TriangleAlert,
   Wallet,
   CircleCheck,
-  CalendarClock,
   Trophy,
   Plus,
   FileSpreadsheet,
@@ -313,18 +312,29 @@ export default function Inadimplentes() {
     alert('Este inquilino não possui Seguro Fiança.')
   }
 
-  const pendentes    = debitos.filter(d => d.status !== 'pago')
+  // Base filtrada pelos filtros da planilha (busca + filtros de coluna), sem considerar o mês selecionado.
+  // Os cards de resumo usam essa base, então refletem os filtros aplicados na tabela (o card "Inadimplência por Mês" não).
+  const filteredBase = debitos
+    .filter(d =>
+      getInquilinoNome(d).toLowerCase().includes(search.toLowerCase()) ||
+      getCodigoImovel(d).toLowerCase().includes(search.toLowerCase()) ||
+      d.tipoDebito?.toLowerCase().includes(search.toLowerCase())
+    )
+    .filter(d => !colFilters.inquilino || getInquilinoNome(d).toLowerCase().includes(colFilters.inquilino.toLowerCase()))
+    .filter(d => !colFilters.imovel || getCodigoImovel(d).toLowerCase().includes(colFilters.imovel.toLowerCase()))
+    .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
+    .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
+    .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
+    .filter(d => colFilters.status.includes(STATUS_OPCOES.find(o => o.value === d.status)?.value || 'selecione'))
+
+  const pendentes    = filteredBase.filter(d => d.status !== 'pago')
   const totalAberto  = pendentes.reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
-  const totalRecup   = debitos.filter(d => d.status === 'pago').reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
-  const vencidos30   = pendentes.filter(d => {
-    if (!d.dataVencimento) return false
-    return (Date.now() - new Date(d.dataVencimento).getTime()) / 86400000 > 30
-  }).length
+  const totalRecup   = filteredBase.filter(d => d.status === 'pago').reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
 
   // Ranking dos inquilinos ativos com mais inadimplências cadastradas (histórico completo, não só em aberto)
   const rankingInadimplentes = (() => {
     const counts = {}
-    debitos.forEach(d => {
+    filteredBase.forEach(d => {
       const key = d.inquilinoId || d.inquilinoNome
       if (!key) return
       const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
@@ -343,26 +353,13 @@ export default function Inadimplentes() {
 
   const monthGroups = buildMonthGroups(debitos)
 
-  const baseList = mesSelecionado
-    ? debitos.filter(d => (getMonth(d) || 'sem-mes') === mesSelecionado)
-    : debitos
+  const filtered = mesSelecionado
+    ? filteredBase.filter(d => (getMonth(d) || 'sem-mes') === mesSelecionado)
+    : filteredBase
 
   // Opções únicas para os selects de filtro (calculadas a partir da lista atual)
-  const mesRefOptions = [...new Set(baseList.map(d => d.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a))
-  const garantiaOptions = [...new Set(baseList.map(d => getGarantia(d).key))]
-
-  const filtered = baseList
-    .filter(d =>
-      getInquilinoNome(d).toLowerCase().includes(search.toLowerCase()) ||
-      getCodigoImovel(d).toLowerCase().includes(search.toLowerCase()) ||
-      d.tipoDebito?.toLowerCase().includes(search.toLowerCase())
-    )
-    .filter(d => !colFilters.inquilino || getInquilinoNome(d).toLowerCase().includes(colFilters.inquilino.toLowerCase()))
-    .filter(d => !colFilters.imovel || getCodigoImovel(d).toLowerCase().includes(colFilters.imovel.toLowerCase()))
-    .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
-    .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
-    .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
-    .filter(d => colFilters.status.includes(STATUS_OPCOES.find(o => o.value === d.status)?.value || 'selecione'))
+  const mesRefOptions = [...new Set(filteredBase.map(d => d.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a))
+  const garantiaOptions = [...new Set(filteredBase.map(d => getGarantia(d).key))]
 
   return (
     <Layout title="Inadimplentes" subtitle="Controle de clientes com débitos pendentes">
@@ -383,84 +380,6 @@ export default function Inadimplentes() {
             className="pl-8"
           />
         </div>
-      </div>
-
-      {/* ── Resumo Geral ── */}
-      <div className="mb-6 flex flex-wrap items-stretch gap-4">
-        <div className="grid flex-[1_1_480px] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardContent className="flex items-center gap-4">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
-                <TriangleAlert className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-2xl font-semibold tracking-tight">{pendentes.length}</p>
-                <p className="truncate text-sm text-muted-foreground">Débitos em Aberto</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-4">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600">
-                <Wallet className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(totalAberto)}</p>
-                <p className="truncate text-sm text-muted-foreground">Total em Aberto</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-4">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-                <CircleCheck className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(totalRecup)}</p>
-                <p className="truncate text-sm text-muted-foreground">Total Recuperado</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex items-center gap-4">
-              <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
-                <CalendarClock className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-2xl font-semibold tracking-tight">{vencidos30}</p>
-                <p className="truncate text-sm text-muted-foreground">Vencidos há +30 dias</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="flex-[1_1_400px] max-w-[700px] flex-row items-stretch">
-          <CardHeader className="flex w-48 shrink-0 flex-col items-start justify-center gap-2 border-r border-b-0 pr-4 pb-0">
-            <CardTitle className="flex items-center gap-1.5 text-base">
-              <Trophy className="size-4" /> Top 5 Inadimplentes
-            </CardTitle>
-            {rankingInadimplentes.length > 5 && (
-              <Button variant="outline" size="sm" onClick={() => setShowRankingModal(true)}>
-                Ver lista completa
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent className="flex-1">
-            {topInadimplentes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum débito cadastrado.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {topInadimplentes.map((t, i) => (
-                  <div key={t.nome + i} className="flex items-center gap-2.5">
-                    <span className="w-4 text-xs font-bold text-muted-foreground">{i + 1}º</span>
-                    <span className="flex-1 truncate text-sm font-semibold">{t.nome}</span>
-                    <Badge variant="destructive" className="shrink-0">{t.total}</Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       {/* ── Resumo por Mês ── */}
@@ -509,6 +428,73 @@ export default function Inadimplentes() {
           </CardContent>
         </Card>
       )}
+
+      {/* ── Resumo Geral ── */}
+      <div className="mb-6 flex flex-wrap items-stretch gap-4">
+        <div className="grid flex-[1_1_480px] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Card>
+            <CardContent className="flex items-center gap-4">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+                <TriangleAlert className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-2xl font-semibold tracking-tight">{pendentes.length}</p>
+                <p className="truncate text-sm text-muted-foreground">Débitos em Aberto</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-4">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600">
+                <Wallet className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(totalAberto)}</p>
+                <p className="truncate text-sm text-muted-foreground">Total em Aberto</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-4">
+              <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+                <CircleCheck className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(totalRecup)}</p>
+                <p className="truncate text-sm text-muted-foreground">Total Recuperado</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="flex-[1_1_400px] max-w-[700px] flex-row items-stretch">
+          <CardHeader className="flex w-48 shrink-0 flex-col items-start justify-center gap-2 border-r border-b-0 pr-4 pb-0">
+            <CardTitle className="flex items-center gap-1.5 text-base">
+              <Trophy className="size-4" /> Top 5 Inadimplentes
+            </CardTitle>
+            {rankingInadimplentes.length > 5 && (
+              <Button variant="outline" size="sm" onClick={() => setShowRankingModal(true)}>
+                Ver lista completa
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="flex-1">
+            {topInadimplentes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhum débito cadastrado.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {topInadimplentes.map((t, i) => (
+                  <div key={t.nome + i} className="flex items-center gap-2.5">
+                    <span className="w-4 text-xs font-bold text-muted-foreground">{i + 1}º</span>
+                    <span className="flex-1 truncate text-sm font-semibold">{t.nome}</span>
+                    <Badge variant="destructive" className="shrink-0">{t.total}</Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* ── Tabela ── */}
       <Card>
