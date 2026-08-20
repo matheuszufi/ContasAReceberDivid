@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   Building2,
   Users,
@@ -309,6 +310,37 @@ export default function Dashboard() {
     selectedMonthTotals.aguardarAcionar
   )
 
+  // Detalha, por débito, quem compõe cada uma das 4 categorias do card de recuperação (para os tooltips)
+  const categoryBreakdown = useMemo(() => {
+    const acc = { recuperado: [], aprovadoSeguradora: [], aguardarAcionar: [], inadimplente: [] }
+    periodDebts.forEach(d => {
+      const value = parseFloat(d.valorTotal) || parseFloat(d.valorOriginal) || 0
+      const name = inquilinoMap[d.inquilinoId]?.nome || d.inquilinoNome || 'Sem nome'
+      const entry = { name, value }
+      if (d.status === 'pago') acc.recuperado.push(entry)
+      else if (d.seguroAcionado === 'pagamento_aprovado') acc.aprovadoSeguradora.push(entry)
+      else if (d.seguroAcionado === 'aguardar_para_acionar') acc.aguardarAcionar.push(entry)
+      else acc.inadimplente.push(entry)
+    })
+    Object.values(acc).forEach(list => list.sort((a, b) => b.value - a.value))
+    return acc
+  }, [periodDebts, inquilinoMap])
+
+  const renderBreakdownTooltip = (list) => (
+    list.length === 0 ? (
+      <span>Nenhuma inadimplência nesta categoria</span>
+    ) : (
+      <div className="flex max-h-60 flex-col gap-1 overflow-y-auto">
+        {list.map((item, i) => (
+          <div key={i} className="flex items-center justify-between gap-3">
+            <span className="truncate">{item.name}</span>
+            <span className="shrink-0 font-medium">{fmtMoney(item.value)}</span>
+          </div>
+        ))}
+      </div>
+    )
+  )
+
   const handleYearChange = (direction) => {
     setSelectedYear(prev => {
       const year = String(Number(prev) + direction)
@@ -472,36 +504,59 @@ export default function Dashboard() {
                   <span>recuperado</span>
                 </div>
               </div>
-              <div className="mt-3 space-y-2 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                    <span className="dot dot-paid shrink-0"></span>
-                    <span className="truncate">Recuperado</span>
-                  </span>
-                  <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.recuperado)}</span>
+              <TooltipProvider>
+                <div className="mt-3 space-y-2 text-sm">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-default items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                          <span className="dot dot-paid shrink-0"></span>
+                          <span className="truncate">Recuperado</span>
+                        </span>
+                        <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.recuperado)}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.recuperado)}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-default items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                          <span className="dot dot-approved shrink-0"></span>
+                          <span className="truncate">Aprovado seguradora</span>
+                        </span>
+                        <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.aprovadoSeguradora)}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.aprovadoSeguradora)}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-default items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                          <span className="dot dot-waiting shrink-0"></span>
+                          <span className="truncate">Aguardar para acionar</span>
+                        </span>
+                        <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.aguardarAcionar)}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.aguardarAcionar)}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-default items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                          <span className="dot dot-pending shrink-0"></span>
+                          <span className="truncate">Aberto</span>
+                        </span>
+                        <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.inadimplente)}</span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.inadimplente)}</TooltipContent>
+                  </Tooltip>
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                    <span className="dot dot-approved shrink-0"></span>
-                    <span className="truncate">Aprovado seguradora</span>
-                  </span>
-                  <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.aprovadoSeguradora)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                    <span className="dot dot-waiting shrink-0"></span>
-                    <span className="truncate">Aguardar para acionar</span>
-                  </span>
-                  <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.aguardarAcionar)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                    <span className="dot dot-pending shrink-0"></span>
-                    <span className="truncate">Aberto</span>
-                  </span>
-                  <span className="shrink-0 font-medium">{fmtMoney(selectedMonthTotals.inadimplente)}</span>
-                </div>
-              </div>
+              </TooltipProvider>
+
               <Separator className="my-3" />
               <div className="flex items-center justify-between gap-2 text-sm">
                 <span className="text-muted-foreground">Total</span>
