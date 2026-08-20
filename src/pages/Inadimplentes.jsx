@@ -218,8 +218,9 @@ export default function Inadimplentes() {
   }, [])
 
   const getGarantia = (d) => {
-    const g = d.garantia || inquilinos.find(i => i.id === d.inquilinoId)?.garantia || 'sem_garantia'
-    const s = d.seguro   || inquilinos.find(i => i.id === d.inquilinoId)?.seguro
+    const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
+    const g = inquilino?.garantia || d.garantia || 'sem_garantia'
+    const s = inquilino?.seguro   || d.seguro
     const label = GARANTIA_LABELS[g] || g
     const fullLabel = (g === 'seguro' && s) ? `${label} | ${SEGURO_LABELS[s] || s}` : label
     return { key: g, label: fullLabel }

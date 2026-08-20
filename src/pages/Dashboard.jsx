@@ -185,7 +185,7 @@ export default function Dashboard() {
   )
 
   const getGarantia = (d) => {
-    const g = d.garantia || inquilinoMap[d.inquilinoId]?.garantia || 'sem_garantia'
+    const g = inquilinoMap[d.inquilinoId]?.garantia || d.garantia || 'sem_garantia'
     return { key: g, label: GARANTIA_LABELS[g] || g }
   }
 
@@ -193,6 +193,12 @@ export default function Dashboard() {
     const inquilino = inquilinoMap[d.inquilinoId]
     const imovel = imovelMap[inquilino?.imovelId]
     return imovel?.modelo || ''
+  }
+
+  const getCodigoImovel = (d) => {
+    const inquilino = inquilinoMap[d.inquilinoId]
+    const imovel = imovelMap[inquilino?.imovelId]
+    return imovel?.codigo || inquilino?.codigoImovel || d.codigoImovel || ''
   }
 
   // Opções dos selects de filtro, calculadas a partir de toda a base (independente do período selecionado)
@@ -316,7 +322,8 @@ export default function Dashboard() {
     periodDebts.forEach(d => {
       const value = parseFloat(d.valorTotal) || parseFloat(d.valorOriginal) || 0
       const name = inquilinoMap[d.inquilinoId]?.nome || d.inquilinoNome || 'Sem nome'
-      const entry = { name, value }
+      const imovel = getCodigoImovel(d)
+      const entry = { name, imovel, value }
       if (d.status === 'pago') acc.recuperado.push(entry)
       else if (d.seguroAcionado === 'pagamento_aprovado') acc.aprovadoSeguradora.push(entry)
       else if (d.seguroAcionado === 'aguardar_para_acionar') acc.aguardarAcionar.push(entry)
@@ -324,7 +331,7 @@ export default function Dashboard() {
     })
     Object.values(acc).forEach(list => list.sort((a, b) => b.value - a.value))
     return acc
-  }, [periodDebts, inquilinoMap])
+  }, [periodDebts, inquilinoMap, imovelMap])
 
   const renderBreakdownTooltip = (list) => (
     list.length === 0 ? (
@@ -333,7 +340,7 @@ export default function Dashboard() {
       <div className="flex max-h-60 flex-col gap-1 overflow-y-auto">
         {list.map((item, i) => (
           <div key={i} className="flex items-center justify-between gap-3">
-            <span className="truncate">{item.name}</span>
+            <span className="truncate">{item.name}{item.imovel ? ` (${item.imovel})` : ''}</span>
             <span className="shrink-0 font-medium">{fmtMoney(item.value)}</span>
           </div>
         ))}
