@@ -33,6 +33,7 @@ const initialForm = {
   nome: '',
   locatario: '',
   status: 'Ativo',
+  estrangeiro: false,
   email: '',
   cpf: '',
   telefone: '',
@@ -148,8 +149,10 @@ export default function CadastrarInquilino() {
   }
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    if (name === 'cpf') {
+    const { name, value, type, checked } = e.target
+    if (type === 'checkbox') {
+      setForm(prev => ({ ...prev, [name]: checked }))
+    } else if (name === 'cpf') {
       setForm(prev => ({ ...prev, cpf: formatCPF(value) }))
     } else if (name === 'telefone') {
       setForm(prev => ({ ...prev, telefone: formatPhone(value) }))
@@ -354,6 +357,16 @@ export default function CadastrarInquilino() {
                   <option value="Ativo">Ativo</option>
                   <option value="Inativo">Inativo</option>
                 </select>
+              </div>
+              <div className="form-group">
+                <label style={{ visibility: 'hidden' }}>Estrangeiro</label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400 }}>
+                  <input
+                    type="checkbox" name="estrangeiro"
+                    checked={form.estrangeiro} onChange={handleChange}
+                  />
+                  Estrangeiro
+                </label>
               </div>
               <div className="form-group">
                 <label>Email</label>

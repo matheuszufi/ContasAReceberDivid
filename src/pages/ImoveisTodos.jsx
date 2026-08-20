@@ -128,6 +128,7 @@ export default function ImoveisTodos() {
   const [filterInadimplentes, setFilterInadimplentes] = useState(false)
   const [filterContasVariaveis, setFilterContasVariaveis] = useState(false)
   const [filterDesocupacao, setFilterDesocupacao] = useState(false)
+  const [filterEstrangeiro, setFilterEstrangeiro] = useState(false)
   const [sortBy, setSortBy]   = useState(null)
   const [sortDir, setSortDir] = useState('asc')
  
@@ -225,6 +226,7 @@ export default function ImoveisTodos() {
       if (!hasContaVariavel && !hasContaRegistrada) return false
     }
     if (filterDesocupacao && !(inquilino.dataSaida || inquilino.desocupando)) return false
+    if (filterEstrangeiro && !inquilino.estrangeiro) return false
     return true
   })
  
@@ -596,12 +598,20 @@ export default function ImoveisTodos() {
             />
             Apenas com desocupação
           </label>
-          {(filterNome || filterImovel || filterModelo || filterInadimplentes || filterContasVariaveis || filterDesocupacao) && (
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
+            <input
+              type="checkbox"
+              checked={filterEstrangeiro}
+              onChange={e => setFilterEstrangeiro(e.target.checked)}
+            />
+            Apenas estrangeiros
+          </label>
+          {(filterNome || filterImovel || filterModelo || filterInadimplentes || filterContasVariaveis || filterDesocupacao || filterEstrangeiro) && (
             <Button
               variant="ghost"
               size="sm"
               className="ml-auto text-muted-foreground"
-              onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterModelo(''); setFilterInadimplentes(false); setFilterContasVariaveis(false); setFilterDesocupacao(false) }}
+              onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterModelo(''); setFilterInadimplentes(false); setFilterContasVariaveis(false); setFilterDesocupacao(false); setFilterEstrangeiro(false) }}
             >
               <X /> Limpar ({filteredRows.length}/{rows.length})
             </Button>
