@@ -415,14 +415,14 @@ export default function Dashboard() {
       </div>
 
       <Card className="mb-6">
-        <CardHeader className="flex-row items-center justify-between gap-4 border-b pb-4">
-          <div>
-            <CardTitle className="text-lg">Inadimplência por Período</CardTitle>
-            <CardDescription>
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-4 border-b pb-4">
+          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+            <CardTitle className="shrink-0 text-lg">Inadimplência por Período</CardTitle>
+            <CardDescription className="truncate text-xs text-muted-foreground">
               Navegue por ano e filtre por mês para ver valores e recuperação.
             </CardDescription>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1.5">
             <Button variant="outline" size="icon" onClick={() => handleYearChange(-1)} aria-label="Ano anterior">
               <ChevronLeft />
             </Button>
