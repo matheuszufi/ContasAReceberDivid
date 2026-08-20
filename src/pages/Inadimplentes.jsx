@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { normalizeText } from '@/lib/utils'
 import {
   TriangleAlert,
   Wallet,
@@ -316,12 +317,12 @@ export default function Inadimplentes() {
   // Os cards de resumo usam essa base, então refletem os filtros aplicados na tabela (o card "Inadimplência por Mês" não).
   const filteredBase = debitos
     .filter(d =>
-      getInquilinoNome(d).toLowerCase().includes(search.toLowerCase()) ||
-      getCodigoImovel(d).toLowerCase().includes(search.toLowerCase()) ||
-      d.tipoDebito?.toLowerCase().includes(search.toLowerCase())
+      normalizeText(getInquilinoNome(d)).includes(normalizeText(search)) ||
+      normalizeText(getCodigoImovel(d)).includes(normalizeText(search)) ||
+      normalizeText(d.tipoDebito).includes(normalizeText(search))
     )
-    .filter(d => !colFilters.inquilino || getInquilinoNome(d).toLowerCase().includes(colFilters.inquilino.toLowerCase()))
-    .filter(d => !colFilters.imovel || getCodigoImovel(d).toLowerCase().includes(colFilters.imovel.toLowerCase()))
+    .filter(d => !colFilters.inquilino || normalizeText(getInquilinoNome(d)).includes(normalizeText(colFilters.inquilino)))
+    .filter(d => !colFilters.imovel || normalizeText(getCodigoImovel(d)).includes(normalizeText(colFilters.imovel)))
     .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
     .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
     .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)

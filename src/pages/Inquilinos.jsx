@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Users, UserCheck, UserX, Plus, Upload, Download, RotateCcw, Search, Pencil, Trash2, DoorOpen } from 'lucide-react'
+import { normalizeText } from '@/lib/utils'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 
@@ -715,7 +716,7 @@ export default function Inquilinos() {
   const matchesColFilters = (inq) => {
     for (const key of TEXT_FILTER_KEYS) {
       const f = colFilters[key]
-      if (f && !String(getColValue(inq, key)).toLowerCase().includes(f.toLowerCase())) return false
+      if (f && !normalizeText(getColValue(inq, key)).includes(normalizeText(f))) return false
     }
     for (const key of SELECT_FILTER_KEYS) {
       const f = colFilters[key]
@@ -738,9 +739,9 @@ export default function Inquilinos() {
 
   const filtered = inquilinos.filter(i =>
     (
-      i.nome?.toLowerCase().includes(search.toLowerCase()) ||
+      normalizeText(i.nome).includes(normalizeText(search)) ||
       i.cpf?.includes(search) ||
-      (imoveisById[i.imovelId]?.codigo || i.codigoImovel)?.toLowerCase().includes(search.toLowerCase())
+      normalizeText(imoveisById[i.imovelId]?.codigo || i.codigoImovel).includes(normalizeText(search))
     ) && matchesColFilters(i)
   )
 
