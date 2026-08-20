@@ -48,7 +48,9 @@ const GARANTIA_OPCOES = [
   { value: 'sem_garantia', label: 'Sem Garantia' },
 ]
 
-const SEGURO_OPCOES = [
+// Lista antiga (fixa) mantida só como fallback de label para dados legados cujo valor
+// não corresponde a nenhuma seguradora do catálogo cadastrado em "Seguros" (Firebase).
+const SEGURO_OPCOES_LEGADO = [
   { value: 'credaluga', label: 'Credaluga' },
   { value: 'credpago',  label: 'Credpago' },
   { value: 'lado_bom',  label: 'Lado Bom Seguros' },
@@ -106,12 +108,13 @@ const MONEY_RANGE_FILTER_KEYS = ['valorAluguel', 'valorVaga', 'valorSeguro']
 // Colunas de data com filtro por período (de/até)
 const DATE_RANGE_FILTER_KEYS = ['dataEntrada', 'dataSaida']
 
+// Opções de "seguro" vêm dinamicamente do catálogo (estado segurosCatalogo);
+// por isso não entram nesse objeto estático — veja getSeguroOptions().
 const SELECT_FILTER_OPTIONS = {
   status: [{ value: 'Ativo', label: 'Ativo' }, { value: 'Inativo', label: 'Inativo' }],
   modelo: MODELO_OPCOES,
   metodoPagamento: METODO_PAGAMENTO_OPCOES,
   garantia: GARANTIA_OPCOES,
-  seguro: SEGURO_OPCOES,
 }
 
 const DEFAULT_COL_FILTERS = {
@@ -310,6 +313,7 @@ export default function Inquilinos() {
   const [desocSaving, setDesocSaving] = useState(false)
   const [clearingContas, setClearingContas] = useState(false)
   const [contasCatalogo, setContasCatalogo] = useState([])
+  const [segurosCatalogo, setSegurosCatalogo] = useState([])
 
   // Ordem das colunas da planilha (arrastável) — persistida no navegador do usuário
   const [columnOrder, setColumnOrder] = useState(loadColumnOrder)
@@ -356,7 +360,36 @@ export default function Inquilinos() {
     })
   }, [])
 
+  // Mesmo catálogo de seguradoras usado no cadastro/edição de inquilinos (página "Seguros"),
+  // garantindo que as duas telas sempre mostrem as mesmas opções.
+  useEffect(() => {
+    return onValue(ref(db, 'seguros'), snap => {
+      const data = snap.val()
+      const lista = data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : []
+      setSegurosCatalogo(lista.filter(s => s.tipo === 'Seguro Fiança').sort((a, b) => (a.nome || '').localeCompare(b.nome || '', 'pt-BR')))
+    })
+  }, [])
+
   const imoveisById = Object.fromEntries(imoveis.map(im => [im.id, im]))
+
+  // Resolve o label de uma seguradora pelo catálogo (Firebase); cai no mapa legado
+  // apenas para valores antigos que não existem mais no catálogo atual.
+  const getSeguroLabel = (valor) => {
+    if (!valor) return ''
+    const catalogado = segurosCatalogo.find(s => s.nome === valor)
+    if (catalogado) return catalogado.nome
+    return SEGURO_OPCOES_LEGADO.find(o => o.value === valor)?.label || valor
+  }
+
+  // Opções do <select> de seguradora: sempre o catálogo atual, mais o valor já salvo
+  // no inquilino caso ele não exista mais no catálogo (evita perder o dado ao editar).
+  const getSeguroOptions = (valorAtual) => {
+    const opts = segurosCatalogo.map(s => ({ value: s.nome, label: s.nome }))
+    if (valorAtual && !opts.some(o => o.value === valorAtual)) {
+      opts.push({ value: valorAtual, label: `${getSeguroLabel(valorAtual)} (não cadastrado)` })
+    }
+    return opts
+  }
 
   // Resolve nome/icone de uma conta tanto pelo catalogo novo (Firebase) quanto pelo
   // esquema antigo de chave fixa (dados legados que ainda usam 'agua', 'energia', etc.)
@@ -662,7 +695,7 @@ export default function Inquilinos() {
       'Vagas': Number(inq.vagas || 0),
       'Valor da Vaga': Number(inq.valorVaga || 0),
       'Garantia': GARANTIA_OPCOES.find(o => o.value === inq.garantia)?.label || '',
-      'Seguradora': SEGURO_OPCOES.find(o => o.value === inq.seguro)?.label || '',
+      'Seguradora': getSeguroLabel(inq.seguro),
       'Valor do Seguro': Number(inq.valorSeguro || 0),
       'Observação': inq.observacao || '',
     }))
@@ -918,9 +951,9 @@ export default function Inquilinos() {
         <EditableCell
           key="seguro"
           value={inq.seguro || ''}
-          display={SEGURO_OPCOES.find(o => o.value === inq.seguro)?.label || '—'}
+          display={inq.garantia === 'seguro' && inq.seguro ? getSeguroLabel(inq.seguro) : '—'}
           type="select"
-          options={SEGURO_OPCOES}
+          options={getSeguroOptions(inq.seguro)}
           onSave={v => handleCampoChange(inq.id, 'seguro', v)}
         />
       ),
@@ -1050,6 +1083,23 @@ export default function Inquilinos() {
 
   // Renderiza a célula de filtro de uma coluna, de acordo com o tipo de filtro configurado
   const renderFilterCell = (key) => {
+    if (key === 'seguro') {
+      return (
+        <th key={key}>
+          <select
+            className="col-filter-select"
+            value={colFilters.seguro}
+            onChange={e => setColFilter('seguro', e.target.value)}
+          >
+            <option value="">Todos</option>
+            {segurosCatalogo.map(s => (
+              <option key={s.id} value={s.nome}>{s.nome}</option>
+            ))}
+          </select>
+        </th>
+      )
+    }
+
     if (SELECT_FILTER_KEYS.includes(key)) {
       return (
         <th key={key}>
