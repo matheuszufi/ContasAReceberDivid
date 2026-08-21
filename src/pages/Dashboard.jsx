@@ -38,6 +38,13 @@ const GARANTIA_LABELS = {
   sem_garantia: 'Sem Garantia',
 }
 
+const SEGURO_FIANCA_LABELS = {
+  credaluga: 'Credaluga',
+  credpago:  'Credpago',
+  lado_bom:  'Lado Bom',
+  Avalyst:   'Avalyst',
+}
+
 const MODELO_LABELS = {
   MA: 'MA',
   ME: 'ME',
@@ -316,6 +323,16 @@ export default function Dashboard() {
     selectedMonthTotals.aguardarAcionar
   )
 
+  const segurosExpirandoFianca = useMemo(
+    () => inquilinos.filter(i => i.garantia === 'seguro' && i.seguroFiancaMesFim === currentMonth),
+    [inquilinos]
+  )
+
+  const segurosExpirandoIncendio = useMemo(
+    () => inquilinos.filter(i => i.seguroIncendioMesFim === currentMonth),
+    [inquilinos]
+  )
+
   // Detalha, por débito, quem compõe cada uma das 4 categorias do card de recuperação (para os tooltips)
   const categoryBreakdown = useMemo(() => {
     const acc = { recuperado: [], aprovadoSeguradora: [], aguardarAcionar: [], inadimplente: [] }
@@ -413,6 +430,51 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {(segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0) && (
+        <div className="mb-6 flex flex-wrap gap-4">
+          {segurosExpirandoFianca.length > 0 && (
+            <Card className="flex-1 border-amber-300" style={{ background: '#fffbeb' }}>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base" style={{ color: '#b45309' }}>
+                  <TriangleAlert className="size-4" />
+                  Seguro Fiança — Último mês de cobrança ({segurosExpirandoFianca.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-1.5">
+                  {segurosExpirandoFianca.map(i => (
+                    <div key={i.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="font-medium">{i.nome}</span>
+                      <span className="text-muted-foreground">{SEGURO_FIANCA_LABELS[i.seguro] || i.seguro || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {segurosExpirandoIncendio.length > 0 && (
+            <Card className="flex-1 border-orange-300" style={{ background: '#fff7ed' }}>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base" style={{ color: '#c2410c' }}>
+                  <TriangleAlert className="size-4" />
+                  Seguro Incêndio — Último mês de cobrança ({segurosExpirandoIncendio.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-1.5">
+                  {segurosExpirandoIncendio.map(i => (
+                    <div key={i.id} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="font-medium">{i.nome}</span>
+                      <span className="text-muted-foreground">Seguro Incêndio</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       <Card className="mb-6">
         <CardHeader className="flex w-full flex-row items-center justify-between gap-4 border-b pb-4">

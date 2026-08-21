@@ -311,7 +311,6 @@ export default function Inquilinos() {
   const [desocValues, setDesocValues] = useState({})
   const [desocExtras, setDesocExtras] = useState([])
   const [desocSaving, setDesocSaving] = useState(false)
-  const [clearingContas, setClearingContas] = useState(false)
   const [contasCatalogo, setContasCatalogo] = useState([])
   const [segurosCatalogo, setSegurosCatalogo] = useState([])
 
@@ -572,34 +571,6 @@ export default function Inquilinos() {
   const handleDelete = async (id) => {
     if (!window.confirm('Deseja excluir este inquilino?')) return
     await remove(ref(db, `inquilinos/${id}`))
-  }
-
-  // Remove as contas cadastradas direto no inquilino (contasInclusas/contasValores/contasVariavel/
-  // contasPagador/contasOrigem), mantendo apenas as contas configuradas no imóvel. Depois disso, as
-  // telas que exibem contas (ex.: Imóveis Todos) passam a puxar exclusivamente do imóvel.
-  const handleClearContasTodosInquilinos = async () => {
-    if (clearingContas) return
-    if (!window.confirm(
-      `Isso vai remover as contas cadastradas diretamente em TODOS os ${inquilinos.length} inquilino(s), mantendo apenas as contas dos imóveis. Esta ação não pode ser desfeita. Continuar?`
-    )) return
-    setClearingContas(true)
-    try {
-      await Promise.all(
-        inquilinos.map(inq => update(ref(db, `inquilinos/${inq.id}`), {
-          contasInclusas: null,
-          contasValores: null,
-          contasVariavel: null,
-          contasPagador: null,
-          contasOrigem: null,
-        }))
-      )
-      window.alert('Contas removidas dos inquilinos com sucesso.')
-    } catch (err) {
-      console.error('Erro ao remover contas dos inquilinos:', err)
-      window.alert(`Erro ao remover contas: ${err.message}`)
-    } finally {
-      setClearingContas(false)
-    }
   }
 
   const handleStatusChange = async (id, status) => {
@@ -1187,14 +1158,6 @@ export default function Inquilinos() {
         </Button>
         <Button variant="outline" onClick={handleResetColumnOrder} title="Restaura a ordem original das colunas">
           <RotateCcw /> Restaurar Ordem das Colunas
-        </Button>
-        <Button
-          variant="destructive"
-          onClick={handleClearContasTodosInquilinos}
-          disabled={clearingContas}
-          title="Remove as contas cadastradas direto nos inquilinos, mantendo apenas as contas dos imóveis"
-        >
-          <Trash2 /> {clearingContas ? 'Removendo...' : 'Remover Contas dos Inquilinos'}
         </Button>
         <div className="relative ml-auto w-full max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
