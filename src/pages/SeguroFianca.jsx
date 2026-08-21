@@ -6,6 +6,7 @@ import Layout from '../components/Layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { normalizeText } from '@/lib/utils'
 import { Shield, CircleCheck, Wallet, Search, Pencil, Link as LinkIcon } from 'lucide-react'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
@@ -60,6 +61,7 @@ export default function SeguroFianca() {
   const [filtroValorMax, setFiltroValorMax] = useState('')
   const [filtroMesInicio, setFiltroMesInicio] = useState('')
   const [filtroMesFim, setFiltroMesFim] = useState('')
+  const [editingCell, setEditingCell] = useState(null)
 
   useEffect(() => {
     const r1 = ref(db, 'inquilinos')
@@ -110,29 +112,31 @@ export default function SeguroFianca() {
   }, [seguradosFianca])
 
   const filtered = useMemo(() => {
-    const termoGeral = search.toLowerCase()
-    const termoNome = filtroNome.toLowerCase()
-    const termoImovel = filtroImovel.toLowerCase()
+    const termoGeral = normalizeText(search)
+    const termoNome = normalizeText(filtroNome)
+    const termoImovel = normalizeText(filtroImovel)
     const valorMin = filtroValorMin !== '' ? Number(filtroValorMin) : null
     const valorMax = filtroValorMax !== '' ? Number(filtroValorMax) : null
 
     return seguradosFianca.filter(i => {
       const imovel = imovelMap[i.imovelId]
-      const nome = (i.nome || '').toLowerCase()
-      const codigoImovel = (imovel?.codigo || i.codigoImovel || '').toLowerCase()
-      const seguradora = (SEGURO_LABELS[i.seguro] || i.seguro || '').toLowerCase()
+      const nome = normalizeText(i.nome)
+      const locatario = normalizeText(i.locatario)
+      const codigoImovel = normalizeText(imovel?.codigo || i.codigoImovel || '')
+      const seguradora = normalizeText(SEGURO_LABELS[i.seguro] || i.seguro || '')
       const valor = Number(i.valorSeguro) || 0
 
       // Busca geral (mantida)
       const passaBuscaGeral =
         !termoGeral ||
         nome.includes(termoGeral) ||
+        locatario.includes(termoGeral) ||
         codigoImovel.includes(termoGeral) ||
         seguradora.includes(termoGeral)
       if (!passaBuscaGeral) return false
 
       // Nome
-      if (termoNome && !nome.includes(termoNome)) return false
+      if (termoNome && !nome.includes(termoNome) && !locatario.includes(termoNome)) return false
 
       // Status
       if (filtroStatus && i.status !== filtroStatus) return false
@@ -185,6 +189,21 @@ export default function SeguroFianca() {
 
   const handleMesChange = (inquilinoId, campo, valor) => {
     update(ref(db, `inquilinos/${inquilinoId}`), { [campo]: valor })
+  }
+
+  const startEdit = (id, field) => setEditingCell({ id, field })
+  const stopEdit = () => setEditingCell(null)
+  const isEditing = (id, field) => editingCell?.id === id && editingCell?.field === field
+
+  const saveInquilino = (id, field, value) => {
+    update(ref(db, `inquilinos/${id}`), { [field]: value })
+    stopEdit()
+  }
+
+  const saveImovel = (imovelId, field, value) => {
+    if (!imovelId) return
+    update(ref(db, `imoveis/${imovelId}`), { [field]: value })
+    stopEdit()
   }
 
   const limparFiltros = () => {
@@ -267,8 +286,6 @@ export default function SeguroFianca() {
         <div className="table-container">
           {loading ? (
             <div className="empty-state">Carregando...</div>
-          ) : filtered.length === 0 ? (
-            <div className="empty-state">Nenhum inquilino com seguro fiança encontrado.</div>
           ) : (
             <table>
               <thead>
@@ -378,24 +395,114 @@ export default function SeguroFianca() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(inq => {
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={9}><div className="empty-state">Nenhum inquilino com seguro fiança encontrado.</div></td></tr>
+                ) : filtered.map(inq => {
                   const imovel = imovelMap[inq.imovelId]
+                  const cs = { cursor: 'pointer' }
+                  const inputSt = { fontSize: 13, padding: '2px 6px', borderRadius: 6, border: '1px solid #93c5fd', width: '100%', outline: 'none' }
+                  const selectSt = { fontSize: 13, padding: '2px 4px', borderRadius: 6, border: '1px solid #93c5fd', width: '100%' }
                   return (
                     <tr key={inq.id}>
-                      <td>{inq.nome}</td>
-                      <td>
-                        <span className={`badge ${inq.status === 'Ativo' ? 'badge-green' : 'badge-gray'}`}>
-                          {inq.status || '—'}
-                        </span>
+                      <td
+                        style={isEditing(inq.id, 'nome') ? {} : cs}
+                        title={isEditing(inq.id, 'nome') ? undefined : 'Clique para editar'}
+                        onClick={() => !isEditing(inq.id, 'nome') && startEdit(inq.id, 'nome')}
+                      >
+                        {isEditing(inq.id, 'nome') ? (
+                          <input
+                            autoFocus type="text" defaultValue={inq.nome || ''} style={inputSt}
+                            onBlur={e => saveInquilino(inq.id, 'nome', e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') stopEdit() }}
+                          />
+                        ) : inq.nome}
                       </td>
-                      <td>{imovel?.codigo || inq.codigoImovel || '—'}</td>
-                      <td>
-                        {imovel?.modelo
-                          ? <span className={`badge ${modeloBadge[imovel.modelo] || 'badge-gray'}`}>{imovel.modelo}</span>
-                          : '—'}
+                      <td
+                        style={isEditing(inq.id, 'status') ? {} : cs}
+                        title={isEditing(inq.id, 'status') ? undefined : 'Clique para editar'}
+                        onClick={() => !isEditing(inq.id, 'status') && startEdit(inq.id, 'status')}
+                      >
+                        {isEditing(inq.id, 'status') ? (
+                          <select
+                            autoFocus defaultValue={inq.status || ''} style={selectSt}
+                            onChange={e => saveInquilino(inq.id, 'status', e.target.value)}
+                            onBlur={stopEdit}
+                          >
+                            <option value="Ativo">Ativo</option>
+                            <option value="Inativo">Inativo</option>
+                          </select>
+                        ) : (
+                          <span className={`badge ${inq.status === 'Ativo' ? 'badge-green' : 'badge-gray'}`}>
+                            {inq.status || '—'}
+                          </span>
+                        )}
                       </td>
-                      <td>{SEGURO_LABELS[inq.seguro] || inq.seguro || '—'}</td>
-                      <td>{fmtMoney(inq.valorSeguro)}</td>
+                      <td
+                        style={isEditing(inq.id, 'codigoImovel') ? {} : cs}
+                        title={isEditing(inq.id, 'codigoImovel') ? undefined : 'Clique para editar'}
+                        onClick={() => !isEditing(inq.id, 'codigoImovel') && startEdit(inq.id, 'codigoImovel')}
+                      >
+                        {isEditing(inq.id, 'codigoImovel') ? (
+                          <input
+                            autoFocus type="text" defaultValue={imovel?.codigo || ''} style={inputSt}
+                            onBlur={e => saveImovel(inq.imovelId, 'codigo', e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') stopEdit() }}
+                          />
+                        ) : (imovel?.codigo || inq.codigoImovel || '—')}
+                      </td>
+                      <td
+                        style={isEditing(inq.id, 'modelo') ? {} : cs}
+                        title={isEditing(inq.id, 'modelo') ? undefined : 'Clique para editar'}
+                        onClick={() => !isEditing(inq.id, 'modelo') && startEdit(inq.id, 'modelo')}
+                      >
+                        {isEditing(inq.id, 'modelo') ? (
+                          <select
+                            autoFocus defaultValue={imovel?.modelo || ''} style={selectSt}
+                            onChange={e => saveImovel(inq.imovelId, 'modelo', e.target.value)}
+                            onBlur={stopEdit}
+                          >
+                            <option value="">—</option>
+                            <option value="MA">MA</option>
+                            <option value="ME">ME</option>
+                            <option value="ML">ML</option>
+                          </select>
+                        ) : (
+                          imovel?.modelo
+                            ? <span className={`badge ${modeloBadge[imovel.modelo] || 'badge-gray'}`}>{imovel.modelo}</span>
+                            : '—'
+                        )}
+                      </td>
+                      <td
+                        style={isEditing(inq.id, 'seguro') ? {} : cs}
+                        title={isEditing(inq.id, 'seguro') ? undefined : 'Clique para editar'}
+                        onClick={() => !isEditing(inq.id, 'seguro') && startEdit(inq.id, 'seguro')}
+                      >
+                        {isEditing(inq.id, 'seguro') ? (
+                          <select
+                            autoFocus defaultValue={inq.seguro || ''} style={selectSt}
+                            onChange={e => saveInquilino(inq.id, 'seguro', e.target.value)}
+                            onBlur={stopEdit}
+                          >
+                            <option value="">—</option>
+                            {Object.entries(SEGURO_LABELS).map(([k, v]) => (
+                              <option key={k} value={k}>{v}</option>
+                            ))}
+                          </select>
+                        ) : (SEGURO_LABELS[inq.seguro] || inq.seguro || '—')}
+                      </td>
+                      <td
+                        style={isEditing(inq.id, 'valorSeguro') ? {} : cs}
+                        title={isEditing(inq.id, 'valorSeguro') ? undefined : 'Clique para editar'}
+                        onClick={() => !isEditing(inq.id, 'valorSeguro') && startEdit(inq.id, 'valorSeguro')}
+                      >
+                        {isEditing(inq.id, 'valorSeguro') ? (
+                          <input
+                            autoFocus type="number" defaultValue={inq.valorSeguro || ''} style={inputSt}
+                            onBlur={e => saveInquilino(inq.id, 'valorSeguro', e.target.value ? Number(e.target.value) : '')}
+                            onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') stopEdit() }}
+                          />
+                        ) : fmtMoney(inq.valorSeguro)}
+                      </td>
                       <td>
                         <input
                           type="month"

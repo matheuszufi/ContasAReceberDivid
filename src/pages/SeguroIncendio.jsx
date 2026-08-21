@@ -6,6 +6,7 @@ import Layout from '../components/Layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { normalizeText } from '@/lib/utils'
 import { Flame, CircleCheck, Wallet, Search, Pencil } from 'lucide-react'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
@@ -90,24 +91,25 @@ export default function SeguroIncendio() {
   }, [comSeguroIncendio, imovelMap])
 
   const filtered = useMemo(() => {
-    const termoGeral = search.toLowerCase()
-    const termoNome = filtroNome.toLowerCase()
-    const termoImovel = filtroImovel.toLowerCase()
+    const termoGeral = normalizeText(search)
+    const termoNome = normalizeText(filtroNome)
+    const termoImovel = normalizeText(filtroImovel)
 
     return comSeguroIncendio.filter(i => {
       const imovel = imovelMap[i.imovelId]
       const contaId = findSeguroIncendioContaId(imovel)
-      const nome = (i.nome || '').toLowerCase()
-      const codigoImovel = (imovel?.codigo || i.codigoImovel || '').toLowerCase()
+      const nome = normalizeText(i.nome)
+      const locatario = normalizeText(i.locatario)
+      const codigoImovel = normalizeText(imovel?.codigo || i.codigoImovel || '')
       const variavel = !!imovel?.contasVariavel?.[contaId]
 
       // Busca geral (mantida)
       const passaBuscaGeral =
-        !termoGeral || nome.includes(termoGeral) || codigoImovel.includes(termoGeral)
+        !termoGeral || nome.includes(termoGeral) || locatario.includes(termoGeral) || codigoImovel.includes(termoGeral)
       if (!passaBuscaGeral) return false
 
       // Nome
-      if (termoNome && !nome.includes(termoNome)) return false
+      if (termoNome && !nome.includes(termoNome) && !locatario.includes(termoNome)) return false
 
       // Status
       if (filtroStatus && i.status !== filtroStatus) return false
@@ -231,8 +233,6 @@ export default function SeguroIncendio() {
         <div className="table-container">
           {loading ? (
             <div className="empty-state">Carregando...</div>
-          ) : filtered.length === 0 ? (
-            <div className="empty-state">Nenhum inquilino com seguro incêndio encontrado.</div>
           ) : (
             <table>
               <thead>
@@ -322,7 +322,9 @@ export default function SeguroIncendio() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(inq => {
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={8}><div className="empty-state">Nenhum inquilino com seguro incêndio encontrado.</div></td></tr>
+                ) : filtered.map(inq => {
                   const imovel = imovelMap[inq.imovelId]
                   const contaId = findSeguroIncendioContaId(imovel)
                   const variavel = !!imovel?.contasVariavel?.[contaId]
