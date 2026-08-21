@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Trophy,
+  Home,
 } from 'lucide-react'
 
 const MONTH_LABELS = [
@@ -116,6 +117,7 @@ export default function Dashboard() {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [topFilter, setTopFilter] = useState('valor')
   const [periodMode, setPeriodMode] = useState('month') // 'month' | 'ano' | 'h1' | 'h2'
+  const [ocupacoesYear, setOcupacoesYear] = useState(currentYear)
   const [colFilters, setColFilters] = useState({
     modelo: '',
     garantia: '',
@@ -225,6 +227,21 @@ export default function Dashboard() {
   )
 
   const yearMonthTotals = useMemo(() => buildMonthlyTotals(filteredInadimplencias, selectedYear), [filteredInadimplencias, selectedYear])
+
+  // Conta quantas ocupações (entradas de inquilinos) ocorreram em cada mês do ano selecionado
+  const ocupacoesPorMes = useMemo(() => {
+    const counts = Array(12).fill(0)
+    inquilinos.forEach(i => {
+      if (!i.dataEntrada || !i.dataEntrada.startsWith(ocupacoesYear)) return
+      const monthIndex = Number(i.dataEntrada.substring(5, 7)) - 1
+      if (monthIndex >= 0 && monthIndex < 12) counts[monthIndex] += 1
+    })
+    return counts
+  }, [inquilinos, ocupacoesYear])
+
+  const handleOcupacoesYearChange = (direction) => {
+    setOcupacoesYear(prev => String(Number(prev) + direction))
+  }
 
   const monthCards = useMemo(() => MONTH_FULL_LABELS.map((label, index) => {
     const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
@@ -475,6 +492,34 @@ export default function Dashboard() {
           )}
         </div>
       )}
+
+      <Card className="mb-6">
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-2">
+          <CardTitle className="text-base">Ocupações por Mês</CardTitle>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button variant="outline" size="icon" className="size-7" onClick={() => handleOcupacoesYearChange(-1)} aria-label="Ano anterior">
+              <ChevronLeft className="size-4" />
+            </Button>
+            <Badge variant="secondary" className="h-7 min-w-12 justify-center px-2 text-xs">{ocupacoesYear}</Badge>
+            <Button variant="outline" size="icon" className="size-7" onClick={() => handleOcupacoesYearChange(1)} aria-label="Próximo ano">
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 py-3">
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-12">
+            {MONTH_LABELS.map((label, index) => (
+              <div key={label} className="rounded-md border bg-muted/20 px-2 py-1.5">
+                <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
+                <div className="flex items-center gap-1">
+                  <Home className="size-3 text-muted-foreground" />
+                  <strong className="text-sm leading-none">{ocupacoesPorMes[index]}</strong>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="mb-6">
         <CardHeader className="flex w-full flex-row items-center justify-between gap-4 border-b pb-4">

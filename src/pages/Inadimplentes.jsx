@@ -223,7 +223,7 @@ export default function Inadimplentes() {
     const s = inquilino?.seguro   || d.seguro
     const label = GARANTIA_LABELS[g] || g
     const fullLabel = (g === 'seguro' && s) ? `${label} | ${SEGURO_LABELS[s] || s}` : label
-    return { key: g, label: fullLabel }
+    return { key: g, label: fullLabel, seguro: s }
   }
 
   // O cadastro do inquilino e do imóvel são as fontes vivas; as cópias gravadas no débito
@@ -662,8 +662,11 @@ export default function Inadimplentes() {
                     <td>{d.mesReferencia ? formatMonthShort(d.mesReferencia) : '—'}</td>
                     <td>
                       {(() => {
-                        const { key: gKey, label: g } = getGarantia(d)
-                        const style = GARANTIA_STYLE[gKey] || GARANTIA_STYLE.sem_garantia
+                        const { key: gKey, label: g, seguro: seguroNome } = getGarantia(d)
+                        const seguroCor = gKey === 'seguro' ? segurosCatalogo.find(sc => sc.nome === seguroNome)?.cor : null
+                        const style = seguroCor
+                          ? { bg: `${seguroCor}22`, color: seguroCor, border: seguroCor, icon: GARANTIA_STYLE.seguro.icon }
+                          : (GARANTIA_STYLE[gKey] || GARANTIA_STYLE.sem_garantia)
                         const isEditing = editingGarantiaId === d.id
 
                         if (isEditing) {

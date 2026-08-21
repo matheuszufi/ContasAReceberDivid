@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ref, push, onValue, remove } from 'firebase/database'
+import { ref, push, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 
@@ -9,6 +9,7 @@ const TIPOS_SEGURO = ['Seguro Fiança', 'Seguro Incêndio']
 const initialForm = {
   nome: '',
   tipo: 'Seguro Fiança',
+  cor: '#7c3aed',
 }
 
 export default function CadastrarSeguro() {
@@ -41,6 +42,7 @@ export default function CadastrarSeguro() {
       await push(ref(db, 'seguros'), {
         nome: form.nome.trim(),
         tipo: form.tipo,
+        cor: form.cor,
         criadoEm: new Date().toISOString(),
       })
       setForm(initialForm)
@@ -58,6 +60,10 @@ export default function CadastrarSeguro() {
       console.error('Erro ao excluir seguro:', err)
       alert('Não foi possível excluir o seguro.')
     }
+  }
+
+  const handleCorChange = (id, cor) => {
+    update(ref(db, `seguros/${id}`), { cor })
   }
 
   return (
@@ -81,6 +87,16 @@ export default function CadastrarSeguro() {
                 <select name="tipo" value={form.tipo} onChange={handleChange} required>
                   {TIPOS_SEGURO.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
+              </div>
+              <div className="form-group">
+                <label>Cor</label>
+                <input
+                  type="color"
+                  name="cor"
+                  value={form.cor}
+                  onChange={handleChange}
+                  style={{ width: 60, height: 38, padding: 2, cursor: 'pointer' }}
+                />
               </div>
             </div>
           </div>
@@ -122,14 +138,25 @@ export default function CadastrarSeguro() {
                       {seguro.tipo}
                     </span>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-secondary"
-                    style={{ width: 'auto', color: '#b91c1c' }}
-                    onClick={() => handleDelete(seguro.id)}
-                  >
-                    🗑️ Excluir
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#64748b' }}>
+                      Cor
+                      <input
+                        type="color"
+                        value={seguro.cor || '#7c3aed'}
+                        onChange={e => handleCorChange(seguro.id, e.target.value)}
+                        style={{ width: 32, height: 28, padding: 1, cursor: 'pointer' }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ width: 'auto', color: '#b91c1c' }}
+                      onClick={() => handleDelete(seguro.id)}
+                    >
+                      🗑️ Excluir
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
