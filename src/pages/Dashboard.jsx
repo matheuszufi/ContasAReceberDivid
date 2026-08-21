@@ -239,6 +239,16 @@ export default function Dashboard() {
     return counts
   }, [inquilinos, ocupacoesYear])
 
+  const desocupacoesPorMes = useMemo(() => {
+    const counts = Array(12).fill(0)
+    inquilinos.forEach(i => {
+      if (!i.dataSaida || !i.dataSaida.startsWith(ocupacoesYear)) return
+      const monthIndex = Number(i.dataSaida.substring(5, 7)) - 1
+      if (monthIndex >= 0 && monthIndex < 12) counts[monthIndex] += 1
+    })
+    return counts
+  }, [inquilinos, ocupacoesYear])
+
   const handleOcupacoesYearChange = (direction) => {
     setOcupacoesYear(prev => String(Number(prev) + direction))
   }
@@ -511,9 +521,14 @@ export default function Dashboard() {
             {MONTH_LABELS.map((label, index) => (
               <div key={label} className="rounded-md border bg-muted/20 px-2 py-1.5">
                 <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
-                <div className="flex items-center gap-1">
-                  <Home className="size-3 text-muted-foreground" />
-                  <strong className="text-sm leading-none">{ocupacoesPorMes[index]}</strong>
+                <div className="mt-0.5 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1" title="Ocupações no mês">
+                    <Home className="size-3 text-muted-foreground" />
+                    <strong className="text-sm leading-none">{ocupacoesPorMes[index]}</strong>
+                  </div>
+                  <div className="text-[10px] text-muted-foreground" title="Desocupações no mês">
+                    <strong className="text-xs text-foreground">{desocupacoesPorMes[index]}</strong> D
+                  </div>
                 </div>
               </div>
             ))}
