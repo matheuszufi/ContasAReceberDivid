@@ -3,10 +3,19 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import { normalizeText } from '@/lib/utils'
 
 const BANCOS = [
   'Banco do Brasil', 'Bradesco', 'Caixa Econômica Federal', 'Itaú', 'Santander',
   'Nubank', 'Inter', 'C6 Bank', 'BTG Pactual', 'Sicoob', 'Sicredi', 'Outro',
+]
+
+const INCIDENCIA_TAXA_ADM_OPCOES = ['aluguel', 'servicos', 'iptu', 'condominio']
+
+const REPASSE_OPCOES = [
+  { value: 'garantido', label: 'Garantido' },
+  { value: 'garantido_meses', label: 'Garantido por alguns meses' },
+  { value: 'nao_garantido', label: 'Não garantido' },
 ]
 
 const formatDocumento = (v, tipo) => {
@@ -79,10 +88,28 @@ export default function CadastrarProprietario() {
 
   const [form, setForm] = useState(initialForm)
   const [imoveis, setImoveis] = useState([])
-  const [imoveisSelecionados, setImoveisSelecionados] = useState([])
+  const [imovelBusca, setImovelBusca] = useState('')
+  const [imoveisVinculos, setImoveisVinculos] = useState({})
   const [loading, setLoading] = useState(false)
   const [cepLoading, setCepLoading] = useState(false)
   const [error, setError] = useState(null)
+
+  const imovelLabel = (im) => {
+    if (!im) return ''
+    const endereco = im.endereco?.rua ? `${im.endereco.rua}, ${im.endereco.numero || 's/n'}` : ''
+    return [im.codigo, endereco].filter(Boolean).join(' - ') || im.id
+  }
+
+  const buildVinculoDefault = (im) => ({
+    nomeImovel: imovelLabel(im),
+    taxaContrato: '',
+    taxaAdministracao: '',
+    geraDimob: false,
+    geraNf: false,
+    repasseTipo: 'nao_garantido',
+    repasseMeses: '',
+    incidenciaTaxaAdm: [],
+  })
 
   useEffect(() => {
     return onValue(ref(db, 'imoveis'), snap => {
@@ -111,7 +138,23 @@ export default function CadastrarProprietario() {
           },
         })
 
-        setImoveisSelecionados(data.imoveisIds || [])
+        const vinculosSalvos = data.imoveisVinculos || {}
+        const ids = data.imoveisIds || Object.keys(vinculosSalvos)
+        const vinculos = {}
+        ids.forEach(imovelId => {
+          const salvo = vinculosSalvos[imovelId] || {}
+          vinculos[imovelId] = {
+            nomeImovel: salvo.nomeImovel || '',
+            taxaContrato: salvo.taxaContrato ?? '',
+            taxaAdministracao: salvo.taxaAdministracao ?? '',
+            geraDimob: !!salvo.geraDimob,
+            geraNf: !!salvo.geraNf,
+            repasseTipo: salvo.repasseTipo || 'nao_garantido',
+            repasseMeses: salvo.repasseMeses ?? '',
+            incidenciaTaxaAdm: Array.isArray(salvo.incidenciaTaxaAdm) ? salvo.incidenciaTaxaAdm : [],
+          }
+        })
+        setImoveisVinculos(vinculos)
       }
     })
   }, [id, isEdit])
@@ -197,12 +240,49 @@ export default function CadastrarProprietario() {
     }
   }
 
-  const toggleImovel = (id) => {
-    setImoveisSelecionados(prev =>
-      prev.includes(id)
-        ? prev.filter(i => i !== id)
-        : [...prev, id]
-    )
+  const updateVinculo = (imovelId, campo, valor) => {
+    setImoveisVinculos(prev => ({
+      ...prev,
+      [imovelId]: {
+        ...prev[imovelId],
+        [campo]: valor,
+      },
+    }))
+  }
+
+  const toggleIncidencia = (imovelId, item) => {
+    setImoveisVinculos(prev => {
+      const atual = prev[imovelId]?.incidenciaTaxaAdm || []
+      const proxima = atual.includes(item)
+        ? atual.filter(v => v !== item)
+        : [...atual, item]
+      return {
+        ...prev,
+        [imovelId]: {
+          ...prev[imovelId],
+          incidenciaTaxaAdm: proxima,
+        },
+      }
+    })
+  }
+
+  const adicionarImovel = (im) => {
+    setImoveisVinculos(prev => {
+      if (prev[im.id]) return prev
+      return {
+        ...prev,
+        [im.id]: buildVinculoDefault(im),
+      }
+    })
+    setImovelBusca('')
+  }
+
+  const removerImovel = (imovelId) => {
+    setImoveisVinculos(prev => {
+      const next = { ...prev }
+      delete next[imovelId]
+      return next
+    })
   }
 
   const handleSubmit = async (e) => {
@@ -211,9 +291,25 @@ export default function CadastrarProprietario() {
     setLoading(true)
 
     try {
+      const imoveisSelecionados = Object.keys(imoveisVinculos)
+      const imoveisVinculosParsed = Object.fromEntries(
+        Object.entries(imoveisVinculos).map(([imovelId, v]) => [
+          imovelId,
+          {
+            ...v,
+            taxaContrato: v.taxaContrato === '' ? '' : Number(v.taxaContrato) || 0,
+            taxaAdministracao: v.taxaAdministracao === '' ? '' : Number(v.taxaAdministracao) || 0,
+            repasseMeses: v.repasseTipo === 'garantido_meses'
+              ? (v.repasseMeses === '' ? '' : Number(v.repasseMeses) || 0)
+              : '',
+          },
+        ])
+      )
+
       const payload = {
         ...form,
         imoveisIds: imoveisSelecionados,
+        imoveisVinculos: imoveisVinculosParsed,
       }
 
       let proprietarioId = id
@@ -276,9 +372,9 @@ export default function CadastrarProprietario() {
           </div>
 
           <div className="form-section-body">
-            <div className="form-grid-2">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
 
-              <div className="form-group fg-full">
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
                 <label>Nome completo *</label>
                 <input
                   name="nome"
@@ -357,7 +453,7 @@ export default function CadastrarProprietario() {
           </div>
 
           <div className="form-section-body">
-            <div className="form-grid-2">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
 
               <div className="form-group">
                 <label>
@@ -376,7 +472,7 @@ export default function CadastrarProprietario() {
                 />
               </div>
 
-              <div className="form-group fg-full">
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
                 <label>Rua / Logradouro</label>
                 <input
                   name="rua"
@@ -466,75 +562,154 @@ export default function CadastrarProprietario() {
                 </p>
               </div>
             ) : (
-              <div className="form-group">
-
-                <label>
-                  Selecione os imóveis deste proprietário
-                </label>
-
-                <div className="imovel-select-grid">
-
-                  {imoveis.map(im => {
-
-                    const selected = imoveisSelecionados.includes(im.id)
-
-                    return (
-                      <div
-                        key={im.id}
-                        className={`imovel-select-card${selected ? ' selected' : ''}`}
-                        onClick={() => toggleImovel(im.id)}
-                      >
-
-                        <div className="isc-code">
-                          {im.codigo || im.id.substring(0, 8)}
-                        </div>
-
-                        <div className="isc-address">
-                          {im.endereco?.rua
-                            ? `${im.endereco.rua}, ${im.endereco.numero || 's/n'}`
-                            : im.tipo || 'Endereço não informado'}
-                        </div>
-
-                        <div className="isc-meta">
-
-                          {im.modelo && (
-                            <span
-                              className={`badge ${
-                                im.modelo === 'MA'
-                                  ? 'badge-green'
-                                  : im.modelo === 'ME'
-                                    ? 'badge-blue'
-                                    : 'badge-yellow'
-                              }`}
-                            >
-                              {im.modelo}
-                            </span>
-                          )}
-
-                          {im.status && (
-                            <span
-                              className={`badge ${
-                                im.status === 'Disponível'
-                                  ? 'badge-green'
-                                  : im.status === 'Ocupado'
-                                    ? 'badge-blue'
-                                    : 'badge-gray'
-                              }`}
-                            >
-                              {im.status}
-                            </span>
-                          )}
-
-                        </div>
-
-                      </div>
-                    )
-
-                  })}
-
+              <>
+                <div className="form-group" style={{ marginBottom: 12 }}>
+                  <label>Buscar e adicionar imóveis</label>
+                  <input
+                    value={imovelBusca}
+                    onChange={e => setImovelBusca(e.target.value)}
+                    placeholder="Digite código, rua ou tipo do imóvel"
+                  />
+                  {imovelBusca.trim() && (
+                    <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {imoveis
+                        .filter(im => !imoveisVinculos[im.id])
+                        .filter(im => normalizeText(imovelLabel(im)).includes(normalizeText(imovelBusca)))
+                        .slice(0, 12)
+                        .map(im => (
+                          <button
+                            key={im.id}
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ width: 'auto', padding: '4px 8px', fontSize: 12 }}
+                            onClick={() => adicionarImovel(im)}
+                          >
+                            + {imovelLabel(im)}
+                          </button>
+                        ))}
+                    </div>
+                  )}
                 </div>
 
-              </div>
+                {Object.keys(imoveisVinculos).length === 0 ? (
+                  <div className="info-banner">
+                    <p>Nenhum imóvel vinculado ainda. Busque pelo nome/código acima para adicionar.</p>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Imóvel</th>
+                          <th>Taxa Contrato (%)</th>
+                          <th>Taxa Adm (%)</th>
+                          <th>DIMOB</th>
+                          <th>NF</th>
+                          <th>Repasse</th>
+                          <th>Meses</th>
+                          <th>Incidência da Taxa Adm</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(imoveisVinculos).map(([imovelId, v]) => {
+                          const imovel = imoveis.find(im => im.id === imovelId)
+                          const nomeImovel = v.nomeImovel || imovelLabel(imovel)
+                          return (
+                            <tr key={imovelId}>
+                              <td style={{ minWidth: 180 }}>
+                                <input
+                                  value={nomeImovel}
+                                  onChange={e => updateVinculo(imovelId, 'nomeImovel', e.target.value)}
+                                  placeholder="Nome do imóvel"
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={v.taxaContrato}
+                                  onChange={e => updateVinculo(imovelId, 'taxaContrato', e.target.value)}
+                                  placeholder="0,00"
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.01"
+                                  value={v.taxaAdministracao}
+                                  onChange={e => updateVinculo(imovelId, 'taxaAdministracao', e.target.value)}
+                                  placeholder="0,00"
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="checkbox"
+                                  checked={!!v.geraDimob}
+                                  onChange={e => updateVinculo(imovelId, 'geraDimob', e.target.checked)}
+                                />
+                              </td>
+                              <td>
+                                <input
+                                  type="checkbox"
+                                  checked={!!v.geraNf}
+                                  onChange={e => updateVinculo(imovelId, 'geraNf', e.target.checked)}
+                                />
+                              </td>
+                              <td>
+                                <select
+                                  value={v.repasseTipo || 'nao_garantido'}
+                                  onChange={e => updateVinculo(imovelId, 'repasseTipo', e.target.value)}
+                                >
+                                  {REPASSE_OPCOES.map(o => (
+                                    <option key={o.value} value={o.value}>{o.label}</option>
+                                  ))}
+                                </select>
+                              </td>
+                              <td>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  disabled={v.repasseTipo !== 'garantido_meses'}
+                                  value={v.repasseMeses}
+                                  onChange={e => updateVinculo(imovelId, 'repasseMeses', e.target.value)}
+                                  placeholder="0"
+                                />
+                              </td>
+                              <td style={{ minWidth: 210 }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                  {INCIDENCIA_TAXA_ADM_OPCOES.map(item => (
+                                    <label key={item} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                                      <input
+                                        type="checkbox"
+                                        checked={(v.incidenciaTaxaAdm || []).includes(item)}
+                                        onChange={() => toggleIncidencia(imovelId, item)}
+                                      />
+                                      {item.toUpperCase()}
+                                    </label>
+                                  ))}
+                                </div>
+                              </td>
+                              <td>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  style={{ width: 'auto', color: '#b91c1c', padding: '4px 8px', fontSize: 12 }}
+                                  onClick={() => removerImovel(imovelId)}
+                                >
+                                  Remover
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
             )}
 
           </div>
@@ -550,7 +725,7 @@ export default function CadastrarProprietario() {
 
           <div className="form-section-body">
 
-            <div className="form-grid-2">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
 
               <div className="form-group">
                 <label>Banco</label>
@@ -638,7 +813,7 @@ export default function CadastrarProprietario() {
                 value={form.observacao}
                 onChange={handleChange}
                 placeholder="Informações adicionais sobre o proprietário..."
-                rows={4}
+                rows={3}
               />
 
             </div>
