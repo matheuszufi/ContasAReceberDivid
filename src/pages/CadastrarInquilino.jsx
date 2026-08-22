@@ -326,7 +326,7 @@ export default function CadastrarInquilino() {
 
   return (
     <Layout title={isEdit ? 'Editar Inquilino' : 'Cadastrar Inquilino'} subtitle={isEdit ? 'Atualize os dados do inquilino' : 'Preencha os dados do novo inquilino'}>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="tenant-compact-form">
         {error && <div className="error-msg">{error}</div>}
 
         {/* ── Dados Pessoais ── */}
@@ -339,10 +339,19 @@ export default function CadastrarInquilino() {
             <div className="form-grid-2">
               <div className="form-group fg-full">
                 <label>Nome completo *</label>
-                <input
-                  name="nome" value={form.nome} onChange={handleChange}
-                  required placeholder="Nome do inquilino"
-                />
+                <div className="tenant-name-row">
+                  <input
+                    name="nome" value={form.nome} onChange={handleChange}
+                    required placeholder="Nome do inquilino"
+                  />
+                  <label className="tenant-foreign-check">
+                    <input
+                      type="checkbox" name="estrangeiro"
+                      checked={form.estrangeiro} onChange={handleChange}
+                    />
+                    Estrangeiro
+                  </label>
+                </div>
               </div>
               <div className="form-group fg-full">
                 <label>Locatário (se houver)</label>
@@ -357,16 +366,6 @@ export default function CadastrarInquilino() {
                   <option value="Ativo">Ativo</option>
                   <option value="Inativo">Inativo</option>
                 </select>
-              </div>
-              <div className="form-group">
-                <label style={{ visibility: 'hidden' }}>Estrangeiro</label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 400 }}>
-                  <input
-                    type="checkbox" name="estrangeiro"
-                    checked={form.estrangeiro} onChange={handleChange}
-                  />
-                  Estrangeiro
-                </label>
               </div>
               <div className="form-group">
                 <label>Email</label>
@@ -705,7 +704,7 @@ required
               <textarea
                 name="observacao" value={form.observacao} onChange={handleChange}
                 placeholder="Informações adicionais sobre o inquilino ou contrato..."
-                rows={4}
+                rows={3}
               />
             </div>
           </div>

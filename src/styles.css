@@ -383,6 +383,123 @@
   .form-group select { cursor: pointer; appearance: auto; }
   .form-group textarea { resize: vertical; min-height: 90px; }
 
+  /* Cadastro de inquilino: maior densidade sem alterar os demais formulários. */
+  .tenant-compact-form .form-section {
+    margin-bottom: 12px;
+    border-radius: 8px;
+  }
+  .tenant-compact-form .form-section-header {
+    gap: 7px;
+    padding: 8px 14px;
+  }
+  .tenant-compact-form .form-section-body {
+    padding: 12px 14px;
+  }
+  .tenant-compact-form .form-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px 12px;
+    margin-bottom: 10px !important;
+  }
+  .tenant-compact-form .form-grid-2:last-child {
+    margin-bottom: 0 !important;
+  }
+  .tenant-compact-form .form-grid-2 .fg-full {
+    grid-column: span 2;
+  }
+  .tenant-compact-form .form-group {
+    min-width: 0;
+    margin-bottom: 8px;
+  }
+  .tenant-compact-form .form-grid-2 > .form-group {
+    margin-bottom: 0;
+  }
+  .tenant-compact-form .form-group label {
+    margin-bottom: 3px;
+    font-size: 10px;
+  }
+  .tenant-compact-form .form-group input,
+  .tenant-compact-form .form-group select,
+  .tenant-compact-form .form-group textarea {
+    padding: 6px 9px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .tenant-compact-form .form-group textarea {
+    min-height: 64px;
+  }
+  .tenant-compact-form .tenant-name-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .tenant-compact-form .tenant-name-row > input[type="text"] {
+    min-width: 0;
+    flex: 1;
+  }
+  .tenant-compact-form .tenant-foreign-check {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 5px;
+    margin: 0;
+    white-space: nowrap;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: none;
+  }
+  .tenant-compact-form .tenant-foreign-check input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    padding: 0;
+  }
+  .tenant-compact-form .radio-group {
+    gap: 5px;
+  }
+  .tenant-compact-form .radio-item {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+  .tenant-compact-form .checkbox-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 8px;
+  }
+  .tenant-compact-form .conta-card-header {
+    padding: 8px 10px;
+  }
+  .tenant-compact-form .conta-card-body {
+    padding: 0 10px 8px;
+  }
+  .tenant-compact-form .conta-card-valor,
+  .tenant-compact-form .conta-card-origem {
+    margin-top: 6px;
+  }
+  .tenant-compact-form .conta-card-valor input,
+  .tenant-compact-form .conta-card-origem input {
+    padding: 6px 9px;
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .tenant-compact-form .info-banner {
+    padding: 8px 10px;
+  }
+  .tenant-compact-form .form-actions {
+    margin-top: 12px;
+  }
+  @media (max-width: 960px) {
+    .tenant-compact-form .form-grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 640px) {
+    .tenant-compact-form .form-grid-2 {
+      grid-template-columns: 1fr;
+    }
+    .tenant-compact-form .form-grid-2 .fg-full {
+      grid-column: auto;
+    }
+  }
+
   /* Checkboxes */
   .checkbox-grid {
     display: grid;
