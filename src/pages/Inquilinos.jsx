@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ref, onValue, remove, update, get } from 'firebase/database'
 import { db } from '../firebase'
@@ -89,6 +89,7 @@ const COLUMNS_BY_KEY = Object.fromEntries(DEFAULT_COLUMNS.map(c => [c.key, c]))
 // Ordem reordenável = todas as colunas, exceto "nome" (fixa à esquerda) e "acoes" (fixa à direita, nem faz parte de DEFAULT_COLUMNS)
 const DEFAULT_COLUMN_ORDER = DEFAULT_COLUMNS.map(c => c.key).filter(k => k !== 'nome')
 const COLUMN_ORDER_STORAGE_KEY = 'inquilinos_column_order_v2'
+const InlineEditingContext = createContext(false)
 
 const MODELO_OPCOES = [
   { value: 'MA', label: 'MA' },
@@ -171,6 +172,7 @@ const loadColumnOrder = () => {
 
 // Célula genérica: exibe o valor; ao clicar, vira input/select/date/number editável
 function EditableCell({ value, display, onSave, type = 'text', inputType = 'text', options = [], placeholder = '—', width, className = '' }) {
+  const editingEnabled = useContext(InlineEditingContext)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const inputRef = useRef(null)
@@ -183,6 +185,7 @@ function EditableCell({ value, display, onSave, type = 'text', inputType = 'text
   }, [editing])
 
   const start = () => {
+    if (!editingEnabled) return
     setDraft(value ?? '')
     setEditing(true)
   }
@@ -199,7 +202,12 @@ function EditableCell({ value, display, onSave, type = 'text', inputType = 'text
 
   if (!editing) {
     return (
-      <td className={`editable-cell ${className}`} onClick={start} title="Clique para editar" style={width ? { minWidth: width } : undefined}>
+      <td
+        className={`${editingEnabled ? 'editable-cell' : ''} ${className}`}
+        onClick={editingEnabled ? start : undefined}
+        title={editingEnabled ? 'Clique para editar' : undefined}
+        style={width ? { minWidth: width } : undefined}
+      >
         {display !== undefined ? display : (value || <span className="cell-empty">{placeholder}</span>)}
       </td>
     )
@@ -247,6 +255,7 @@ function EditableCell({ value, display, onSave, type = 'text', inputType = 'text
 
 // Igual à EditableCell, mas sem o wrapper <td> — usada dentro de células que já têm outro conteúdo (ex.: checkbox + valor)
 function EditableValue({ value, display, onSave, inputType = 'text', placeholder = '—' }) {
+  const editingEnabled = useContext(InlineEditingContext)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const inputRef = useRef(null)
@@ -260,6 +269,7 @@ function EditableValue({ value, display, onSave, inputType = 'text', placeholder
 
   const start = (e) => {
     e.stopPropagation()
+    if (!editingEnabled) return
     setDraft(value ?? '')
     setEditing(true)
   }
@@ -276,7 +286,11 @@ function EditableValue({ value, display, onSave, inputType = 'text', placeholder
 
   if (!editing) {
     return (
-      <span className="editable-value" onClick={start} title="Clique para editar">
+      <span
+        className={editingEnabled ? 'editable-value' : ''}
+        onClick={editingEnabled ? start : undefined}
+        title={editingEnabled ? 'Clique para editar' : undefined}
+      >
         {display !== undefined ? display : (value || <span className="cell-empty">{placeholder}</span>)}
       </span>
     )
@@ -313,6 +327,7 @@ export default function Inquilinos() {
   const [desocSaving, setDesocSaving] = useState(false)
   const [contasCatalogo, setContasCatalogo] = useState([])
   const [segurosCatalogo, setSegurosCatalogo] = useState([])
+  const [inlineEditingEnabled, setInlineEditingEnabled] = useState(false)
 
   // Ordem das colunas da planilha (arrastável) — persistida no navegador do usuário
   const [columnOrder, setColumnOrder] = useState(loadColumnOrder)
@@ -779,6 +794,7 @@ export default function Inquilinos() {
           <select
             className={`badge-select ${inq.status === 'Ativo' ? 'badge-green' : 'badge-gray'}`}
             value={inq.status || 'Ativo'}
+            disabled={!inlineEditingEnabled}
             onClick={e => e.stopPropagation()}
             onChange={e => handleStatusChange(inq.id, e.target.value)}
           >
@@ -977,10 +993,11 @@ export default function Inquilinos() {
                   background: incluida ? '#f8fafc' : '#fff',
                 }}
               >
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12 }} onClick={e => e.stopPropagation()}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: inlineEditingEnabled ? 'pointer' : 'default', fontSize: 12 }} onClick={e => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     checked={incluida}
+                    disabled={!inlineEditingEnabled}
                     onChange={() => handleToggleContaInquilino(inq, imovel, contaId)}
                   />
                   <span>{icone} {label}</span>
@@ -1039,8 +1056,9 @@ export default function Inquilinos() {
                 <button
                   type="button"
                   title="Remover"
+                  disabled={!inlineEditingEnabled}
                   onClick={() => handleToggleContaInquilino(inq, imovel, contaId)}
-                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#b91c1c', fontSize: 12, lineHeight: 1 }}
+                  style={{ border: 'none', background: 'none', cursor: inlineEditingEnabled ? 'pointer' : 'default', color: inlineEditingEnabled ? '#b91c1c' : '#cbd5e1', fontSize: 12, lineHeight: 1 }}
                 >✕</button>
               </div>
             )
@@ -1207,17 +1225,35 @@ export default function Inquilinos() {
         </Card>
       </div>
 
+      <InlineEditingContext.Provider value={inlineEditingEnabled}>
       <Card>
-        <CardHeader className="flex-row items-center justify-between gap-4 border-b pb-4">
-          <div>
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-4 border-b pb-4">
+          <div className="min-w-0">
             <CardTitle className="text-lg">Todos os Inquilinos ({filtered.length})</CardTitle>
-            <CardDescription>Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas · "Nome" fica sempre travada</CardDescription>
+            <CardDescription>
+              {inlineEditingEnabled ? 'Clique em qualquer célula para editar · ' : ''}Arraste o cabeçalho para reordenar colunas · "Nome" fica sempre travada
+            </CardDescription>
           </div>
-          {!isColFiltersEmpty(colFilters) && (
-            <Button variant="outline" size="sm" onClick={limparColFilters}>
-              Limpar filtros
-            </Button>
-          )}
+          <div className="ml-auto flex shrink-0 items-center justify-end gap-3">
+            {!isColFiltersEmpty(colFilters) && (
+              <Button variant="outline" size="sm" onClick={limparColFilters}>
+                Limpar filtros
+              </Button>
+            )}
+            <label className="flex h-7 cursor-pointer items-center gap-2 text-sm font-medium">
+              <span>Editar células</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={inlineEditingEnabled}
+                aria-label="Permitir edição das células ao clicar"
+                onClick={() => setInlineEditingEnabled(enabled => !enabled)}
+                className={`relative h-6 w-11 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${inlineEditingEnabled ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+              >
+                <span className={`absolute left-0 top-0.5 size-5 rounded-full bg-background shadow-sm transition-transform ${inlineEditingEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </button>
+            </label>
+          </div>
         </CardHeader>
         <CardContent className="px-0">
         <div className="table-container table-scroll-x inquilinos-scroll-area">
@@ -1297,6 +1333,7 @@ export default function Inquilinos() {
         </div>
         </CardContent>
       </Card>
+      </InlineEditingContext.Provider>
       {desocModal && (
         <div
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
