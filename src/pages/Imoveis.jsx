@@ -601,7 +601,7 @@ export default function Imoveis() {
           {loading ? (
             <div className="empty-state"><div className="es-icon">⏳</div><p>Carregando...</p></div>
           ) : (
-            <table className="inquilinos-table">
+            <table className="inquilinos-table imoveis-list-table">
               <thead>
                 <tr>
                   <th className="col-sticky-th">{COLUMNS_BY_KEY.codigo.label}</th>
@@ -619,7 +619,7 @@ export default function Imoveis() {
                       {COLUMNS_BY_KEY[key].label}
                     </th>
                   ))}
-                  <th>Ações</th>
+                  <th className="col-actions-sticky">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -639,13 +639,13 @@ export default function Imoveis() {
                     <tr key={im.id}>
                       {cells.codigo}
                       {columnOrder.map(key => cells[key])}
-                      <td>
+                      <td className="col-actions-sticky">
                         <div className="flex gap-1.5">
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/imoveis/editar/${im.id}`)}>
-                            <Pencil /> Editar
+                          <Button variant="outline" size="icon-sm" onClick={() => navigate(`/imoveis/editar/${im.id}`)} title="Editar imóvel" aria-label="Editar imóvel">
+                            <Pencil />
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDelete(im.id)}>
-                            <Trash2 /> Excluir
+                          <Button variant="destructive" size="icon-sm" onClick={() => handleDelete(im.id)} title="Excluir imóvel" aria-label="Excluir imóvel">
+                            <Trash2 />
                           </Button>
                         </div>
                       </td>

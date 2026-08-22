@@ -1224,7 +1224,7 @@ export default function Inquilinos() {
           {loading ? (
             <div className="empty-state"><div className="es-icon">⏳</div><p>Carregando...</p></div>
           ) : (
-            <table className="inquilinos-table">
+            <table className="inquilinos-table inquilinos-list-table">
               <thead>
                 <tr>
                   <th className="col-sticky-th">{COLUMNS_BY_KEY.nome.label}</th>
@@ -1242,7 +1242,7 @@ export default function Inquilinos() {
                       {COLUMNS_BY_KEY[key].label}
                     </th>
                   ))}
-                  <th>Ações</th>
+                  <th className="col-actions-sticky">Ações</th>
                 </tr>
                 <tr className="filter-row">
                   <th className="col-sticky-th">
@@ -1255,7 +1255,7 @@ export default function Inquilinos() {
                     />
                   </th>
                   {columnOrder.map(key => renderFilterCell(key))}
-                  <th></th>
+                  <th className="col-actions-sticky"></th>
                 </tr>
               </thead>
               <tbody>
@@ -1275,7 +1275,7 @@ export default function Inquilinos() {
                     <tr key={inq.id}>
                       {cells.nome}
                       {columnOrder.map(key => cells[key])}
-                      <td>
+                      <td className="col-actions-sticky">
                         <div className="flex gap-1.5">
                           <Button variant="outline" size="sm" onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}>
                             <Pencil />

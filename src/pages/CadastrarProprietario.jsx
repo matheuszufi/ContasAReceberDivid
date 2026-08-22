@@ -108,6 +108,7 @@ export default function CadastrarProprietario() {
   const [imoveis, setImoveis] = useState([])
   const [inquilinos, setInquilinos] = useState([])
   const [contasCatalogo, setContasCatalogo] = useState([])
+  const [valoresVariaveis, setValoresVariaveis] = useState({})
   const [imovelBusca, setImovelBusca] = useState('')
   const [imoveisVinculos, setImoveisVinculos] = useState({})
   const [loading, setLoading] = useState(false)
@@ -150,6 +151,12 @@ export default function CadastrarProprietario() {
     return onValue(ref(db, 'contas'), snap => {
       const data = snap.val()
       setContasCatalogo(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+  }, [])
+
+  useEffect(() => {
+    return onValue(ref(db, 'valoresVariaveis'), snap => {
+      setValoresVariaveis(snap.val() || {})
     })
   }, [])
 
@@ -320,22 +327,35 @@ export default function CadastrarProprietario() {
     })
   }
 
-  // Inquilino ativo mais recente do imóvel (entre os que moram atualmente nele)
-  const getInquilinoAtivo = (imovelId) => {
-    const ativos = inquilinos.filter(i => i.imovelId === imovelId && i.status === 'Ativo')
-    if (ativos.length === 0) return null
-    return ativos.sort((a, b) => (b.dataEntrada || '').localeCompare(a.dataEntrada || ''))[0]
+  const getInquilinoNoMes = (imovelId) => {
+    const encontrados = inquilinos.filter(inquilino => {
+      if (inquilino.imovelId !== imovelId) return false
+      const entrada = inquilino.dataEntrada?.substring(0, 7)
+      const saida = inquilino.dataSaida?.substring(0, 7)
+      return (!entrada || extratoMes >= entrada) && (!saida || extratoMes <= saida)
+    })
+    if (encontrados.length === 0) return null
+    return encontrados.sort((a, b) => (b.dataEntrada || '').localeCompare(a.dataEntrada || ''))[0]
   }
 
-  // Valor de um componente (aluguel/serviços/iptu/condomínio) a partir do cadastro do inquilino ativo
-  const getValorComponente = (inquilino, item) => {
+  const getValorComponente = (inquilino, item, valoresLancados = {}) => {
     if (!inquilino) return 0
-    if (item === 'aluguel') return Number(inquilino.valorAluguel) || 0
+    if (item === 'aluguel') {
+      return '_aluguel' in valoresLancados
+        ? Number(valoresLancados._aluguel) || 0
+        : Number(inquilino.valorAluguel) || 0
+    }
     const termo = item === 'condominio' ? 'condom' : item === 'iptu' ? 'iptu' : 'serv'
-    const contasValores = inquilino.contasValores || {}
-    return Object.entries(contasValores).reduce((soma, [contaId, valor]) => {
+    const contaIds = new Set([
+      ...Object.keys(inquilino.contasValores || {}),
+      ...Object.keys(valoresLancados).filter(key => !key.startsWith('_')),
+    ])
+    return [...contaIds].reduce((soma, contaId) => {
       const nomeConta = normalizeText(contasCatalogo.find(c => c.id === contaId)?.nome || contaId)
-      return nomeConta.includes(termo) ? soma + (Number(valor) || 0) : soma
+      const valor = contaId in valoresLancados
+        ? Number(valoresLancados[contaId]) || 0
+        : Number(inquilino.contasValores?.[contaId]) || 0
+      return nomeConta.includes(termo) ? soma + valor : soma
     }, 0)
   }
 
@@ -345,7 +365,7 @@ export default function CadastrarProprietario() {
   const extratoImoveis = useMemo(() => {
     return Object.entries(imoveisVinculos).map(([imovelId, v]) => {
       const imovel = imoveis.find(im => im.id === imovelId)
-      const inquilino = getInquilinoAtivo(imovelId)
+      const inquilino = getInquilinoNoMes(imovelId)
       const nomeImovel = v.nomeImovel || imovelLabel(imovel)
 
       const mesEntrada = inquilino?.dataEntrada ? inquilino.dataEntrada.substring(0, 7) : null
@@ -353,7 +373,12 @@ export default function CadastrarProprietario() {
       const dentroDoPeriodo = !!inquilino && (!mesEntrada || extratoMes >= mesEntrada) && (!mesSaida || extratoMes <= mesSaida)
       const primeiroMes = dentroDoPeriodo && mesEntrada === extratoMes
 
-      const aluguel = dentroDoPeriodo ? (Number(inquilino.valorAluguel) || 0) : 0
+      const valoresMes = inquilino ? valoresVariaveis[inquilino.id]?.[extratoMes] || {} : {}
+      const { extras = {}, _registrado = {}, _obs, ...valoresLancados } = valoresMes
+
+      const aluguel = dentroDoPeriodo
+        ? getValorComponente(inquilino, 'aluguel', valoresLancados)
+        : 0
 
       const itensIncidencia = (v.incidenciaTaxaAdm && v.incidenciaTaxaAdm.length > 0)
         ? v.incidenciaTaxaAdm
@@ -361,16 +386,49 @@ export default function CadastrarProprietario() {
       const baseComponentes = itensIncidencia.map(item => ({
         item,
         label: INCIDENCIA_TAXA_ADM_LABELS[item] || item,
-        valor: dentroDoPeriodo ? getValorComponente(inquilino, item) : 0,
+        valor: dentroDoPeriodo ? getValorComponente(inquilino, item, valoresLancados) : 0,
       }))
       const baseTotal = baseComponentes.reduce((s, c) => s + c.valor, 0)
+
+      const contaIds = new Set([
+        ...Object.keys(valoresLancados).filter(key => !key.startsWith('_')),
+        ...Object.keys(_registrado).filter(key => _registrado[key] && !key.startsWith('_')),
+      ])
+      const contasRegistradas = [...contaIds].map(contaId => {
+        const valor = contaId in valoresLancados
+          ? Number(valoresLancados[contaId]) || 0
+          : Number(inquilino?.contasValores?.[contaId]) || 0
+        const pagador = inquilino?.contasPagador?.[contaId] || (inquilino?.contasVariavel?.[contaId] ? 'imobiliaria' : 'inquilino')
+        return {
+          id: contaId,
+          nome: contasCatalogo.find(conta => conta.id === contaId)?.nome || contaId,
+          valorLiquido: pagador === 'imobiliaria' ? -valor : valor,
+        }
+      }).filter(conta => conta.valorLiquido !== 0)
+
+      const contasEspeciais = [
+        ['_seguro', 'Seguro Fiança'],
+        ['_garagem', 'Garagem'],
+        ['_garantia', inquilino?.garantia === 'caucao' ? 'Caução' : 'Adiantamento'],
+      ].filter(([key]) => key in valoresLancados || _registrado[key])
+        .map(([key, nome]) => ({ id: key, nome, valorLiquido: Number(valoresLancados[key]) || 0 }))
+        .filter(conta => conta.valorLiquido !== 0)
+
+      const contasExtras = Object.entries(extras).map(([extraId, extra]) => ({
+        id: extraId,
+        nome: extra.nome || contasCatalogo.find(conta => conta.id === extra.contaId)?.nome || 'Conta extra',
+        valorLiquido: Number(extra.valor) || 0,
+      })).filter(conta => conta.valorLiquido !== 0)
+
+      const contasMes = [...contasRegistradas, ...contasEspeciais, ...contasExtras]
+      const totalContas = contasMes.reduce((total, conta) => total + conta.valorLiquido, 0)
 
       const pctAdm = Number(v.taxaAdministracao) || 0
       const pctContrato = Number(v.taxaContrato) || 0
       const taxaAdmValor = baseTotal * (pctAdm / 100)
       const taxaContratoValor = primeiroMes ? aluguel * (pctContrato / 100) : 0
 
-      const repasse = aluguel - taxaAdmValor - taxaContratoValor
+      const repasse = aluguel - taxaAdmValor - taxaContratoValor + totalContas
 
       return {
         imovelId,
@@ -385,6 +443,8 @@ export default function CadastrarProprietario() {
         pctContrato,
         taxaAdmValor,
         taxaContratoValor,
+        contasMes,
+        totalContas,
         repasse,
         geraDimob: !!v.geraDimob,
         geraNf: !!v.geraNf,
@@ -392,7 +452,7 @@ export default function CadastrarProprietario() {
         repasseMeses: v.repasseMeses,
       }
     })
-  }, [imoveisVinculos, imoveis, inquilinos, contasCatalogo, extratoMes])
+  }, [imoveisVinculos, imoveis, inquilinos, contasCatalogo, valoresVariaveis, extratoMes])
 
   const extratoAtivosNoMes = extratoImoveis.filter(e => e.dentroDoPeriodo)
 
@@ -400,8 +460,9 @@ export default function CadastrarProprietario() {
     aluguel: acc.aluguel + e.aluguel,
     taxaAdm: acc.taxaAdm + e.taxaAdmValor,
     taxaContrato: acc.taxaContrato + e.taxaContratoValor,
+    contas: acc.contas + e.totalContas,
     repasse: acc.repasse + e.repasse,
-  }), { aluguel: 0, taxaAdm: 0, taxaContrato: 0, repasse: 0 })
+  }), { aluguel: 0, taxaAdm: 0, taxaContrato: 0, contas: 0, repasse: 0 })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -978,6 +1039,10 @@ export default function CadastrarProprietario() {
                     <strong style={{ fontSize: 14, color: '#b91c1c' }}>{fmtMoney(extratoTotais.taxaContrato)}</strong>
                   </div>
                   <div className="property-linked-rate" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 1, minHeight: 44, padding: '6px 10px' }}>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Contas do Mês</span>
+                    <strong style={{ fontSize: 14, color: extratoTotais.contas < 0 ? '#b91c1c' : '#166534' }}>{fmtMoney(extratoTotais.contas)}</strong>
+                  </div>
+                  <div className="property-linked-rate" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 1, minHeight: 44, padding: '6px 10px' }}>
                     <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Repasse ao Proprietário</span>
                     <strong style={{ fontSize: 14, color: '#166534' }}>{fmtMoney(extratoTotais.repasse)}</strong>
                   </div>
@@ -993,6 +1058,7 @@ export default function CadastrarProprietario() {
                         <th>Base Adm.</th>
                         <th>Taxa Adm.</th>
                         <th>Taxa Contrato</th>
+                        <th>Contas do Mês</th>
                         <th>Repasse</th>
                       </tr>
                     </thead>
@@ -1015,6 +1081,13 @@ export default function CadastrarProprietario() {
                           <td title={e.baseComponentes.map(c => c.label).join(', ')}>{fmtMoney(e.baseTotal)}</td>
                           <td style={{ color: '#b91c1c' }}>{fmtMoney(e.taxaAdmValor)} <span style={{ color: 'var(--text-secondary)' }}>({e.pctAdm}%)</span></td>
                           <td style={{ color: '#b91c1c' }}>{e.primeiroMes ? `${fmtMoney(e.taxaContratoValor)} (${e.pctContrato}%)` : '—'}</td>
+                          <td>
+                            {e.contasMes.length === 0 ? '—' : e.contasMes.map(conta => (
+                              <div key={conta.id} style={{ whiteSpace: 'nowrap', marginBottom: 2 }}>
+                                {conta.nome}: <strong style={{ color: conta.valorLiquido < 0 ? '#b91c1c' : '#166534' }}>{fmtMoney(conta.valorLiquido)}</strong>
+                              </div>
+                            ))}
+                          </td>
                           <td style={{ color: '#166534', fontWeight: 600 }}>{fmtMoney(e.repasse)}</td>
                         </tr>
                       ))}
@@ -1024,7 +1097,7 @@ export default function CadastrarProprietario() {
 
                 <p style={{ margin: '8px 0 0', fontSize: 10.5, color: 'var(--text-secondary)' }}>
                   A taxa de administração incide sobre os itens marcados em "Incidência da Taxa Adm" de cada imóvel e é descontada todo mês.
-                  A taxa de contrato é calculada sobre o aluguel e descontada apenas no mês de entrada do inquilino atual (1º aluguel).
+                  A taxa de contrato é calculada sobre o aluguel e descontada apenas no mês de entrada do inquilino atual (1º aluguel). As contas registradas na Planilha Imóveis são somadas ou descontadas do repasse conforme o responsável pelo pagamento.
                 </p>
               </>
             )}

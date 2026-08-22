@@ -1578,6 +1578,31 @@
     background: #f8fafc;
   }
 
+  .inquilinos-table .col-actions-sticky {
+    position: sticky;
+    right: 0;
+    background: #fff;
+    box-shadow: -4px 0 6px -4px rgba(15, 23, 42, 0.18);
+    z-index: 2;
+  }
+
+  .proprietarios-table .col-actions-sticky { min-width: 130px; }
+  .inquilinos-list-table .col-actions-sticky { min-width: 150px; }
+  .imoveis-list-table .col-actions-sticky { min-width: 100px; }
+
+  .inquilinos-table thead .col-actions-sticky {
+    background: #f8fafc;
+    z-index: 5;
+  }
+
+  .inquilinos-table thead tr.filter-row .col-actions-sticky {
+    background: #fff;
+  }
+
+  .inquilinos-table tbody tr:hover .col-actions-sticky {
+    background: #f8fafc;
+  }
+
   /* ===================== Filtros por coluna (planilha de Inquilinos) ===================== */
   .col-filter-input,
   .col-filter-select {

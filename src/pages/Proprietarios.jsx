@@ -1,13 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ref, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import * as XLSX from 'xlsx'
+import { jsPDF } from 'jspdf'
+import dividLogo from '../assets/images/divid-logo.png'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Users, UserCheck, UserX, Plus, Upload, RotateCcw, Search, Pencil, Trash2 } from 'lucide-react'
+import { Users, UserCheck, UserX, Plus, Upload, RotateCcw, Search, Pencil, Trash2, HandCoins, FileText, Percent, Eye, X } from 'lucide-react'
+import { normalizeText } from '@/lib/utils'
 
 const DEFAULT_COLUMNS = [
   { key: 'nome', label: 'Nome' },
@@ -27,6 +30,31 @@ const DEFAULT_COLUMNS = [
 const COLUMNS_BY_KEY = Object.fromEntries(DEFAULT_COLUMNS.map(c => [c.key, c]))
 const DEFAULT_COLUMN_ORDER = DEFAULT_COLUMNS.map(c => c.key).filter(k => k !== 'nome')
 const COLUMN_ORDER_STORAGE_KEY = 'proprietarios_column_order_v2'
+
+const formatMoney = value => Number(value || 0).toLocaleString('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+})
+
+const formatCompetencia = value => {
+  if (!value) return '—'
+  const [ano, mes] = value.split('-')
+  return new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+const loadImage = src => new Promise((resolve, reject) => {
+  const image = new Image()
+  image.onload = () => resolve(image)
+  image.onerror = reject
+  image.src = src
+})
+
+const safeFileName = value => normalizeText(value || 'proprietario')
+  .replace(/[^a-z0-9]+/g, '_')
+  .replace(/^_|_$/g, '')
 
 const formatDocumento = (v, tipo = 'cpf') => {
   const value = String(v || '').replace(/\D/g, '')
@@ -136,11 +164,16 @@ function EditableCell({ value, display, onSave, type = 'text', options = [], inp
 export default function Proprietarios() {
   const navigate = useNavigate()
   const [proprietarios, setProprietarios] = useState([])
+  const [inquilinos, setInquilinos] = useState([])
+  const [contasCatalogo, setContasCatalogo] = useState([])
+  const [valoresVariaveis, setValoresVariaveis] = useState({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [columnOrder, setColumnOrder] = useState(loadColumnOrder)
   const [draggingKey, setDraggingKey] = useState(null)
   const [dragOverKey, setDragOverKey] = useState(null)
+  const [extratoProprietario, setExtratoProprietario] = useState(null)
+  const [extratoMes, setExtratoMes] = useState(() => new Date().toISOString().slice(0, 7))
 
   useEffect(() => {
     const r = ref(db, 'proprietarios')
@@ -151,6 +184,334 @@ export default function Proprietarios() {
     })
     return () => unsub()
   }, [])
+
+  useEffect(() => onValue(ref(db, 'inquilinos'), snap => {
+    const data = snap.val()
+    setInquilinos(data ? Object.entries(data).map(([id, value]) => ({ id, ...value })) : [])
+  }), [])
+
+  useEffect(() => onValue(ref(db, 'contas'), snap => {
+    const data = snap.val()
+    setContasCatalogo(data ? Object.entries(data).map(([id, value]) => ({ id, ...value })) : [])
+  }), [])
+
+  useEffect(() => onValue(ref(db, 'valoresVariaveis'), snap => {
+    setValoresVariaveis(snap.val() || {})
+  }), [])
+
+  const calcularExtrato = (proprietario, mes) => {
+    const itens = Object.entries(proprietario?.imoveisVinculos || {}).map(([imovelId, vinculo]) => {
+      const inquilino = inquilinos
+        .filter(item => {
+          if (item.imovelId !== imovelId) return false
+          const entrada = item.dataEntrada?.slice(0, 7)
+          const saida = item.dataSaida?.slice(0, 7)
+          return (!entrada || mes >= entrada) && (!saida || mes <= saida)
+        })
+        .sort((a, b) => (b.dataEntrada || '').localeCompare(a.dataEntrada || ''))[0]
+
+      if (!inquilino) return null
+
+      const valoresMes = valoresVariaveis[inquilino.id]?.[mes] || {}
+      const { extras = {}, _registrado = {}, _obs, ...valoresLancados } = valoresMes
+      const aluguel = '_aluguel' in valoresLancados
+        ? Number(valoresLancados._aluguel) || 0
+        : Number(inquilino.valorAluguel) || 0
+
+      const getValorConta = contaId => contaId in valoresLancados
+        ? Number(valoresLancados[contaId]) || 0
+        : Number(inquilino.contasValores?.[contaId]) || 0
+
+      const incidencia = vinculo.incidenciaTaxaAdm?.length ? vinculo.incidenciaTaxaAdm : ['aluguel']
+      const baseAdministrativa = incidencia.reduce((total, item) => {
+        if (item === 'aluguel') return total + aluguel
+
+        const termo = item === 'condominio' ? 'condom' : item === 'iptu' ? 'iptu' : 'serv'
+        const contaIds = new Set([
+          ...Object.keys(inquilino.contasValores || {}),
+          ...Object.keys(valoresLancados).filter(key => !key.startsWith('_')),
+        ])
+        const valorContas = [...contaIds].reduce((soma, contaId) => {
+          const nomeConta = normalizeText(contasCatalogo.find(conta => conta.id === contaId)?.nome || contaId)
+          return nomeConta.includes(termo) ? soma + getValorConta(contaId) : soma
+        }, 0)
+        return total + valorContas
+      }, 0)
+
+      const contaIdsRegistradas = new Set([
+        ...Object.keys(valoresLancados).filter(key => !key.startsWith('_')),
+        ...Object.keys(_registrado).filter(key => _registrado[key] && !key.startsWith('_')),
+      ])
+      const contasMes = [...contaIdsRegistradas].map(contaId => {
+        const valor = getValorConta(contaId)
+        const pagador = inquilino.contasPagador?.[contaId] || (inquilino.contasVariavel?.[contaId] ? 'imobiliaria' : 'inquilino')
+        const sinal = pagador === 'imobiliaria' ? -1 : 1
+        return {
+          id: contaId,
+          nome: contasCatalogo.find(conta => conta.id === contaId)?.nome || contaId,
+          valor,
+          valorLiquido: valor * sinal,
+          registrado: !!_registrado[contaId],
+        }
+      }).filter(conta => conta.valor !== 0)
+
+      const contasEspeciais = [
+        ['_seguro', 'Seguro Fiança'],
+        ['_garagem', 'Garagem'],
+        ['_garantia', inquilino.garantia === 'caucao' ? 'Caução' : 'Adiantamento'],
+      ].filter(([key]) => key in valoresLancados || _registrado[key])
+        .map(([key, nome]) => ({
+          id: key,
+          nome,
+          valor: Number(valoresLancados[key]) || 0,
+          valorLiquido: Number(valoresLancados[key]) || 0,
+          registrado: !!_registrado[key],
+        }))
+        .filter(conta => conta.valor !== 0)
+
+      const contasExtras = Object.entries(extras).map(([id, extra]) => ({
+        id,
+        nome: extra.nome || contasCatalogo.find(conta => conta.id === extra.contaId)?.nome || 'Conta extra',
+        valor: Number(extra.valor) || 0,
+        valorLiquido: Number(extra.valor) || 0,
+        registrado: !!extra.registrado,
+      })).filter(conta => conta.valor !== 0)
+
+      const lancamentosMes = [...contasMes, ...contasEspeciais, ...contasExtras]
+      const totalContas = lancamentosMes.reduce((total, conta) => total + conta.valorLiquido, 0)
+
+      const taxaAdministrativa = baseAdministrativa * ((Number(vinculo.taxaAdministracao) || 0) / 100)
+      const primeiroAluguel = inquilino.dataEntrada?.slice(0, 7) === mes
+      const taxaContrato = primeiroAluguel
+        ? aluguel * ((Number(vinculo.taxaContrato) || 0) / 100)
+        : 0
+
+      return {
+        imovelId,
+        imovel: vinculo.nomeImovel || imovelId,
+        inquilino: inquilino.nome || '—',
+        aluguel,
+        baseAdministrativa,
+        percentualAdministrativa: Number(vinculo.taxaAdministracao) || 0,
+        taxaAdministrativa,
+        percentualContrato: Number(vinculo.taxaContrato) || 0,
+        taxaContrato,
+        primeiroAluguel,
+        lancamentosMes,
+        totalContas,
+        repasse: aluguel - taxaAdministrativa - taxaContrato + totalContas,
+      }
+    }).filter(Boolean)
+
+    const totais = itens.reduce((total, item) => ({
+      aluguel: total.aluguel + item.aluguel,
+      taxaAdministrativa: total.taxaAdministrativa + item.taxaAdministrativa,
+      taxaContrato: total.taxaContrato + item.taxaContrato,
+      contas: total.contas + item.totalContas,
+      repasse: total.repasse + item.repasse,
+    }), { aluguel: 0, taxaAdministrativa: 0, taxaContrato: 0, contas: 0, repasse: 0 })
+
+    return { itens, totais }
+  }
+
+  const totaisFinanceiros = useMemo(() => {
+    const mesAtual = new Date().toISOString().slice(0, 7)
+    return proprietarios.reduce((total, proprietario) => {
+      const extrato = calcularExtrato(proprietario, mesAtual).totais
+      total.taxaAdministrativa += extrato.taxaAdministrativa
+      total.taxaContrato += extrato.taxaContrato
+      total.repasse += extrato.repasse
+      return total
+    }, { repasse: 0, taxaContrato: 0, taxaAdministrativa: 0 })
+  }, [proprietarios, inquilinos, contasCatalogo, valoresVariaveis])
+
+  const extratoSelecionado = useMemo(
+    () => calcularExtrato(extratoProprietario, extratoMes),
+    [extratoProprietario, extratoMes, inquilinos, contasCatalogo, valoresVariaveis]
+  )
+
+  const exportarExtratoExcel = () => {
+    if (!extratoProprietario) return
+
+    const linhas = [
+      ['divid.'],
+      ['Divid Compartilhamento de Imóveis LTDA'],
+      ['Rodovia José Carlos Daux, 4570, Sala 24 - Saco Grande'],
+      ['Florianópolis - SC, CEP 88032-005'],
+      ['CNPJ 33.070.390/0001-25'],
+      [],
+      ['DEMONSTRATIVO DO PROPRIETÁRIO'],
+      ['Proprietário', extratoProprietario.nome || '—'],
+      ['Competência', formatCompetencia(extratoMes)],
+      [],
+      ['Imóvel', 'Inquilino', 'Receita Operacional', 'Contas do Mês', 'Taxa Administrativa', 'Taxa Contrato/Serviços', 'Valor de Repasse'],
+      ...extratoSelecionado.itens.map(item => [
+        item.imovel,
+        item.inquilino,
+        item.aluguel,
+        item.lancamentosMes.map(conta => `${conta.nome}: ${formatMoney(conta.valorLiquido)}`).join(' | '),
+        -item.taxaAdministrativa,
+        item.primeiroAluguel ? -item.taxaContrato : 0,
+        item.repasse,
+      ]),
+      [],
+      ['TOTAIS', '', extratoSelecionado.totais.aluguel, extratoSelecionado.totais.contas, -extratoSelecionado.totais.taxaAdministrativa, -extratoSelecionado.totais.taxaContrato, extratoSelecionado.totais.repasse],
+      [],
+      ['Observação', 'A taxa de contrato é descontada somente no primeiro aluguel do inquilino.'],
+    ]
+
+    const worksheet = XLSX.utils.aoa_to_sheet(linhas)
+    worksheet['!cols'] = [
+      { wch: 28 }, { wch: 28 }, { wch: 20 }, { wch: 20 }, { wch: 22 }, { wch: 24 }, { wch: 20 },
+    ]
+    worksheet['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 6 } },
+      { s: { r: 3, c: 0 }, e: { r: 3, c: 6 } },
+      { s: { r: 4, c: 0 }, e: { r: 4, c: 6 } },
+      { s: { r: 6, c: 0 }, e: { r: 6, c: 6 } },
+      { s: { r: linhas.length - 1, c: 1 }, e: { r: linhas.length - 1, c: 6 } },
+    ]
+
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Extrato')
+    XLSX.writeFile(workbook, `extrato_${safeFileName(extratoProprietario.nome)}_${extratoMes}.xlsx`)
+  }
+
+  const exportarExtratoPdf = async () => {
+    if (!extratoProprietario) return
+
+    const document = new jsPDF({ unit: 'mm', format: 'a4' })
+    const pageWidth = document.internal.pageSize.getWidth()
+    const pageHeight = document.internal.pageSize.getHeight()
+    const margin = 12
+    const contentWidth = pageWidth - margin * 2
+    let y = 0
+
+    const drawHeader = async () => {
+      document.setDrawColor(25)
+      document.setLineWidth(0.35)
+      document.rect(5, 5, pageWidth - 10, pageHeight - 10)
+
+      try {
+        const logo = await loadImage(dividLogo)
+        document.addImage(logo, 'PNG', margin, 14, 42, 7)
+      } catch {
+        document.setFont('helvetica', 'bold')
+        document.setFontSize(25)
+        document.text('divid.', margin, 21)
+      }
+
+      document.setFont('helvetica', 'normal')
+      document.setFontSize(9)
+      document.text('Divid Compartilhamento de Imóveis LTDA', pageWidth - margin, 16, { align: 'right' })
+      document.text('Rodovia José Carlos Daux, 4570, Sala 24 - Saco Grande', pageWidth - margin, 22, { align: 'right' })
+      document.text('Florianópolis - SC, CEP 88032-005', pageWidth - margin, 28, { align: 'right' })
+      document.text('CNPJ 33.070.390/0001-25', pageWidth - margin, 34, { align: 'right' })
+
+      document.setFillColor(28, 28, 28)
+      document.rect(margin, 40, contentWidth, 9, 'F')
+      document.setTextColor(255)
+      document.setFont('helvetica', 'bold')
+      document.setFontSize(12)
+      document.text('Demonstrativo do proprietário', margin + 2, 46.2)
+      document.setTextColor(0)
+
+      document.setFontSize(10)
+      document.text('Proprietário', margin + 2, 57)
+      document.text(extratoProprietario.nome || '—', 72, 57)
+      document.text('Competência', margin + 2, 64)
+      document.text(formatCompetencia(extratoMes), 72, 64)
+      y = 74
+    }
+
+    const ensureSpace = async height => {
+      if (y + height <= pageHeight - 18) return
+      document.addPage()
+      await drawHeader()
+    }
+
+    const drawValueRow = (label, value, options = {}) => {
+      const { bold = false, gray = false, negative = false } = options
+      if (gray) {
+        document.setFillColor(220)
+        document.rect(margin, y - 4.5, contentWidth, 7, 'F')
+      }
+      document.setFont('helvetica', bold ? 'bold' : 'normal')
+      document.setFontSize(10)
+      document.text(label, margin + 2, y)
+      document.text(negative && value ? '-R$' : 'R$', 86, y)
+      document.text(value ? Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—', pageWidth - margin - 2, y, { align: 'right' })
+      y += 7
+    }
+
+    await drawHeader()
+
+    if (extratoSelecionado.itens.length === 0) {
+      document.setFont('helvetica', 'normal')
+      document.setFontSize(10)
+      document.text('Nenhum imóvel ocupado nesta competência.', margin + 2, y)
+      y += 12
+    } else {
+      for (const item of extratoSelecionado.itens) {
+        await ensureSpace(55 + item.lancamentosMes.length * 7)
+        document.setFillColor(220)
+        document.rect(margin, y - 4.5, contentWidth, 7, 'F')
+        document.setFont('helvetica', 'bold')
+        document.setFontSize(10)
+        document.text(item.imovel, margin + 2, y)
+        document.text(item.inquilino, pageWidth - margin - 2, y, { align: 'right' })
+        y += 8
+
+        drawValueRow('Receita Operacional', item.aluguel, { bold: true })
+        drawValueRow(`Taxa de Administração (${item.percentualAdministrativa}%)`, item.taxaAdministrativa, { negative: true })
+        drawValueRow(`Taxa de Contrato/Serviços (${item.percentualContrato}%)`, item.taxaContrato, { negative: item.primeiroAluguel })
+        item.lancamentosMes.forEach(conta => {
+          drawValueRow(conta.nome, Math.abs(conta.valorLiquido), { negative: conta.valorLiquido < 0 })
+        })
+        drawValueRow('Resultado Líquido', item.repasse, { bold: true, gray: true })
+        y += 4
+      }
+    }
+
+    await ensureSpace(44)
+    document.setFillColor(28, 28, 28)
+    document.rect(margin, y - 5, contentWidth, 8, 'F')
+    document.setTextColor(255)
+    document.setFont('helvetica', 'bold')
+    document.setFontSize(11)
+    document.text('Consolidado do proprietário', margin + 2, y)
+    document.setTextColor(0)
+    y += 10
+    drawValueRow('Total Receita Operacional', extratoSelecionado.totais.aluguel, { bold: true })
+    drawValueRow('Total Taxa de Administração', extratoSelecionado.totais.taxaAdministrativa, { negative: true })
+    drawValueRow('Total Taxa de Contrato/Serviços', extratoSelecionado.totais.taxaContrato, { negative: true })
+    drawValueRow('Total de Contas do Mês', Math.abs(extratoSelecionado.totais.contas), { negative: extratoSelecionado.totais.contas < 0 })
+    drawValueRow('Valor Total de Repasse', extratoSelecionado.totais.repasse, { bold: true, gray: true })
+
+    await ensureSpace(25)
+    document.setLineDashPattern([1, 1], 0)
+    document.rect(margin, y, contentWidth, 15)
+    document.setLineDashPattern([], 0)
+    document.setFont('helvetica', 'normal')
+    document.setFontSize(8.5)
+    document.text('A taxa de administração incide sobre a base configurada para cada imóvel.', margin + 2, y + 5)
+    document.text('A taxa de contrato é descontada somente no primeiro aluguel do inquilino.', margin + 2, y + 10)
+
+    const today = new Date().toLocaleDateString('pt-BR')
+    const pageCount = document.getNumberOfPages()
+    for (let page = 1; page <= pageCount; page += 1) {
+      document.setPage(page)
+      document.setFont('helvetica', 'bold')
+      document.setFontSize(9)
+      document.text('Florianópolis', margin + 2, pageHeight - 11)
+      document.text(today, pageWidth - margin - 2, pageHeight - 11, { align: 'right' })
+      if (pageCount > 1) document.text(`${page}/${pageCount}`, pageWidth / 2, pageHeight - 11, { align: 'center' })
+    }
+
+    document.save(`extrato_${safeFileName(extratoProprietario.nome)}_${extratoMes}.pdf`)
+  }
 
   const persistColumnOrder = (order) => {
     try { localStorage.setItem(COLUMN_ORDER_STORAGE_KEY, JSON.stringify(order)) } catch {}
@@ -394,7 +755,7 @@ export default function Proprietarios() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <Card>
           <CardContent className="flex items-center gap-4">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
@@ -428,6 +789,39 @@ export default function Proprietarios() {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+              <HandCoins className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{formatMoney(totaisFinanceiros.repasse)}</p>
+              <p className="truncate text-sm text-muted-foreground">Total de Repasse (mês atual)</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+              <FileText className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{formatMoney(totaisFinanceiros.taxaContrato)}</p>
+              <p className="truncate text-sm text-muted-foreground">Total Taxa de Contrato (mês atual)</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600">
+              <Percent className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{formatMoney(totaisFinanceiros.taxaAdministrativa)}</p>
+              <p className="truncate text-sm text-muted-foreground">Total Taxa Administrativa (mês atual)</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -440,7 +834,7 @@ export default function Proprietarios() {
           {loading ? (
             <div className="empty-state"><div className="es-icon">⏳</div><p>Carregando...</p></div>
           ) : (
-            <table className="inquilinos-table">
+            <table className="inquilinos-table proprietarios-table">
               <thead>
                 <tr>
                   <th className="col-sticky-th">{COLUMNS_BY_KEY.nome.label}</th>
@@ -458,7 +852,7 @@ export default function Proprietarios() {
                       {COLUMNS_BY_KEY[key].label}
                     </th>
                   ))}
-                  <th>Ações</th>
+                  <th className="col-actions-sticky">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -478,13 +872,16 @@ export default function Proprietarios() {
                     <tr key={p.id}>
                       {cells.nome}
                       {columnOrder.map(key => cells[key])}
-                      <td>
+                      <td className="col-actions-sticky">
                         <div className="flex gap-1.5">
-                          <Button variant="outline" size="sm" onClick={() => navigate(`/proprietarios/editar/${p.id}`)}>
-                            <Pencil /> Editar
+                          <Button variant="outline" size="icon-sm" onClick={() => setExtratoProprietario(p)} title="Visualizar extrato mensal" aria-label="Visualizar extrato mensal">
+                            <Eye />
                           </Button>
-                          <Button variant="destructive" size="sm" onClick={() => handleDelete(p.id)}>
-                            <Trash2 /> Excluir
+                          <Button variant="outline" size="icon-sm" onClick={() => navigate(`/proprietarios/editar/${p.id}`)} title="Editar proprietário" aria-label="Editar proprietário">
+                            <Pencil />
+                          </Button>
+                          <Button variant="destructive" size="icon-sm" onClick={() => handleDelete(p.id)} title="Excluir proprietário" aria-label="Excluir proprietário">
+                            <Trash2 />
                           </Button>
                         </div>
                       </td>
@@ -497,6 +894,94 @@ export default function Proprietarios() {
         </div>
         </CardContent>
       </Card>
+
+      {extratoProprietario && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="extrato-proprietario-titulo"
+          onMouseDown={e => e.target === e.currentTarget && setExtratoProprietario(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15, 23, 42, 0.55)' }}
+        >
+          <div style={{ width: 'min(980px, 100%)', maxHeight: '90vh', overflow: 'auto', borderRadius: 8, background: '#fff', boxShadow: '0 24px 60px rgba(15, 23, 42, 0.25)' }}>
+            <div style={{ position: 'sticky', top: 0, zIndex: 2, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, padding: '14px 18px', borderBottom: '1px solid var(--border)', background: '#fff' }}>
+              <div style={{ minWidth: 0 }}>
+                <h2 id="extrato-proprietario-titulo" style={{ margin: 0, fontSize: 18 }}>Extrato de {extratoProprietario.nome}</h2>
+                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>Contabilidade mensal dos imóveis vinculados</p>
+              </div>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label htmlFor="mesExtratoProprietario" style={{ fontSize: 12, fontWeight: 600 }}>Mês</label>
+                <Input
+                  id="mesExtratoProprietario"
+                  type="month"
+                  value={extratoMes}
+                  onChange={e => setExtratoMes(e.target.value)}
+                  className="h-9 w-auto"
+                />
+                <Button variant="outline" size="sm" onClick={exportarExtratoExcel} title="Exportar extrato em Excel">
+                  <FileText /> Excel
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportarExtratoPdf} title="Exportar extrato em PDF">
+                  <FileText /> PDF
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => setExtratoProprietario(null)} title="Fechar extrato">
+                  <X />
+                </Button>
+              </div>
+            </div>
+
+            <div style={{ padding: 18 }}>
+              <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Aluguéis</p><strong>{formatMoney(extratoSelecionado.totais.aluguel)}</strong></div>
+                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Taxa Administrativa</p><strong className="text-red-700">{formatMoney(extratoSelecionado.totais.taxaAdministrativa)}</strong></div>
+                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Taxa de Contrato</p><strong className="text-red-700">{formatMoney(extratoSelecionado.totais.taxaContrato)}</strong></div>
+                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Contas do Mês</p><strong>{formatMoney(extratoSelecionado.totais.contas)}</strong></div>
+                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Repasse</p><strong className="text-emerald-700">{formatMoney(extratoSelecionado.totais.repasse)}</strong></div>
+              </div>
+
+              <div className="table-container">
+                <table className="inquilinos-table" style={{ minWidth: 760 }}>
+                  <thead>
+                    <tr>
+                      <th>Imóvel</th>
+                      <th>Inquilino</th>
+                      <th>Aluguel</th>
+                      <th>Base Adm.</th>
+                      <th>Taxa Adm.</th>
+                      <th>Taxa Contrato</th>
+                      <th>Contas do Mês</th>
+                      <th>Repasse</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {extratoSelecionado.itens.length === 0 ? (
+                      <tr><td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: 28 }}>Nenhum imóvel ocupado neste mês.</td></tr>
+                    ) : extratoSelecionado.itens.map(item => (
+                      <tr key={item.imovelId}>
+                        <td><strong>{item.imovel}</strong></td>
+                        <td>{item.inquilino}</td>
+                        <td>{formatMoney(item.aluguel)}</td>
+                        <td>{formatMoney(item.baseAdministrativa)}</td>
+                        <td>{formatMoney(item.taxaAdministrativa)} <span className="text-muted-foreground">({item.percentualAdministrativa}%)</span></td>
+                        <td>{item.primeiroAluguel ? <>{formatMoney(item.taxaContrato)} <span className="text-muted-foreground">({item.percentualContrato}%)</span></> : '—'}</td>
+                        <td>
+                          {item.lancamentosMes.length === 0 ? '—' : item.lancamentosMes.map(conta => (
+                            <div key={conta.id} style={{ whiteSpace: 'nowrap' }}>
+                              {conta.nome}: <strong style={{ color: conta.valorLiquido < 0 ? '#b91c1c' : '#166534' }}>{formatMoney(conta.valorLiquido)}</strong>
+                            </div>
+                          ))}
+                        </td>
+                        <td><strong className="text-emerald-700">{formatMoney(item.repasse)}</strong></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p style={{ margin: '10px 0 0', fontSize: 11, color: 'var(--text-secondary)' }}>A taxa de contrato é descontada somente no mês de entrada do inquilino, correspondente ao primeiro aluguel.</p>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }
