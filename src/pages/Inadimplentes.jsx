@@ -351,7 +351,6 @@ export default function Inadimplentes() {
     })
     return Object.values(counts).sort((a, b) => b.total - a.total)
   })()
-  const topInadimplentes = rankingInadimplentes.slice(0, 5)
 
   const monthGroups = buildMonthGroups(debitos)
 
@@ -469,32 +468,19 @@ export default function Inadimplentes() {
           </Card>
         </div>
 
-        <Card className="flex-[1_1_400px] max-w-[700px] flex-row items-stretch">
-          <CardHeader className="flex w-48 shrink-0 flex-col items-start justify-center gap-2 border-r border-b-0 pr-4 pb-0">
+        <Card className="flex-[1_1_260px] max-w-[360px]">
+          <CardHeader className="flex-row items-center justify-between gap-3">
             <CardTitle className="flex items-center gap-1.5 text-base">
-              <Trophy className="size-4" /> Top 5 Inadimplentes
+              <Trophy className="size-4" /> Ranking de Inadimplentes
             </CardTitle>
-            {rankingInadimplentes.length > 5 && (
+            {rankingInadimplentes.length > 0 ? (
               <Button variant="outline" size="sm" onClick={() => setShowRankingModal(true)}>
                 Ver lista completa
               </Button>
+            ) : (
+              <span className="text-xs text-muted-foreground">Sem registros</span>
             )}
           </CardHeader>
-          <CardContent className="flex-1">
-            {topInadimplentes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum débito cadastrado.</p>
-            ) : (
-              <div className="flex flex-col gap-2">
-                {topInadimplentes.map((t, i) => (
-                  <div key={t.nome + i} className="flex items-center gap-2.5">
-                    <span className="w-4 text-xs font-bold text-muted-foreground">{i + 1}º</span>
-                    <span className="flex-1 truncate text-sm font-semibold">{t.nome}</span>
-                    <Badge variant="destructive" className="shrink-0">{t.total}</Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
         </Card>
       </div>
 

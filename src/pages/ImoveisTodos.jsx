@@ -708,11 +708,6 @@ export default function ImoveisTodos() {
                         title="Ver cadastro do imóvel"
                       >
                         <strong style={{ color: '#1d4ed8' }}>{imovel.codigo || '—'}</strong>
-                        {imovel.endereco?.rua && (
-                          <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                            {imovel.endereco.rua}{imovel.endereco.numero ? `, ${imovel.endereco.numero}` : ''}
-                          </div>
-                        )}
                       </td>
                       <td
                         style={{ ...tdL, cursor: 'pointer', color: '#1d4ed8' }}

@@ -500,6 +500,91 @@
     }
   }
 
+  /* Cadastro de imóvel: formulário denso e taxas herdadas do proprietário. */
+  .property-compact-form .form-section {
+    margin-bottom: 12px;
+    border-radius: 8px;
+  }
+  .property-compact-form .form-section-header {
+    gap: 7px;
+    padding: 8px 14px;
+  }
+  .property-compact-form .form-section-body {
+    padding: 12px 14px;
+  }
+  .property-compact-form .form-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px 12px;
+  }
+  .property-compact-form .form-grid-2 .fg-full {
+    grid-column: span 2;
+  }
+  .property-compact-form .form-group {
+    min-width: 0;
+    margin-bottom: 8px;
+  }
+  .property-compact-form .form-grid-2 > .form-group {
+    margin-bottom: 0;
+  }
+  .property-compact-form .form-group label {
+    margin-bottom: 3px;
+    font-size: 10px;
+  }
+  .property-compact-form .form-group input,
+  .property-compact-form .form-group select,
+  .property-compact-form .form-group textarea {
+    padding: 6px 9px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .property-compact-form .form-group textarea {
+    min-height: 64px;
+  }
+  .property-compact-form .radio-group {
+    gap: 5px;
+  }
+  .property-compact-form .radio-item {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+  .property-compact-form .info-banner {
+    padding: 8px 10px;
+  }
+  .property-compact-form .form-actions {
+    margin-top: 12px;
+  }
+  .property-linked-rate {
+    min-height: 31px;
+    display: flex;
+    align-items: center;
+    padding: 6px 9px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: #f8fafc;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .property-rate-hint {
+    margin: 7px 0 0;
+    color: var(--text-secondary);
+    font-size: 11px;
+  }
+  @media (max-width: 960px) {
+    .property-compact-form .form-grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 640px) {
+    .property-compact-form .form-grid-2 {
+      grid-template-columns: 1fr;
+    }
+    .property-compact-form .form-grid-2 .fg-full {
+      grid-column: auto;
+    }
+  }
+
   /* Checkboxes */
   .checkbox-grid {
     display: grid;

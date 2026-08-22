@@ -60,6 +60,8 @@ export default function CadastrarImovel() {
 
   const inquilinosAtivos = inquilinos.filter(inq => inq.status === 'Ativo')
   const inquilinosInativos = inquilinos.filter(inq => inq.status !== 'Ativo')
+  const proprietarioSelecionado = proprietarios.find(p => p.id === form.proprietarioId)
+  const vinculoProprietario = id ? proprietarioSelecionado?.imoveisVinculos?.[id] : null
 
   useEffect(() => {
     if (!isEdit) return
@@ -191,7 +193,7 @@ export default function CadastrarImovel() {
 
   return (
     <Layout title={isEdit ? 'Editar Imóvel' : 'Cadastrar Imóvel'} subtitle={isEdit ? 'Atualize os dados do imóvel' : 'Preencha os dados do novo imóvel'}>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="property-compact-form">
         {error && <div className="error-msg">{error}</div>}
 
         {/* ── Identificação ── */}
@@ -238,20 +240,43 @@ export default function CadastrarImovel() {
             <h3>Proprietário</h3>
           </div>
           <div className="form-section-body">
-            <div className="form-group">
-              <label>Proprietário do Imóvel</label>
-              <select name="proprietarioId" value={form.proprietarioId} onChange={handleChange}>
-                <option value="">Selecione o proprietário...</option>
-                {proprietarios.map(p => (
-                  <option key={p.id} value={p.id}>{p.nome}{p.cpf ? ` — ${p.cpf}` : ''}</option>
-                ))}
-              </select>
-              {proprietarios.length === 0 && (
-                <div className="info-banner" style={{ marginTop: '10px' }}>
-                  <p style={{ margin: 0 }}>Nenhum proprietário cadastrado. <button type="button" className="link-btn" onClick={() => navigate('/proprietarios/cadastrar')}>Cadastrar agora</button></p>
+            <div className="form-grid-2">
+              <div className="form-group">
+                <label>Proprietário do Imóvel</label>
+                <select name="proprietarioId" value={form.proprietarioId} onChange={handleChange}>
+                  <option value="">Selecione o proprietário...</option>
+                  {proprietarios.map(p => (
+                    <option key={p.id} value={p.id}>{p.nome}{p.cpf ? ` — ${p.cpf}` : ''}</option>
+                  ))}
+                </select>
+                {proprietarios.length === 0 && (
+                  <div className="info-banner" style={{ marginTop: '10px' }}>
+                    <p style={{ margin: 0 }}>Nenhum proprietário cadastrado. <button type="button" className="link-btn" onClick={() => navigate('/proprietarios/cadastrar')}>Cadastrar agora</button></p>
+                  </div>
+                )}
+              </div>
+              <div className="form-group">
+                <label>Taxa de Administração</label>
+                <div className="property-linked-rate">
+                  {vinculoProprietario?.taxaAdministracao !== '' && vinculoProprietario?.taxaAdministracao != null
+                    ? `${Number(vinculoProprietario.taxaAdministracao).toLocaleString('pt-BR')}%`
+                    : 'Não informada'}
                 </div>
-              )}
+              </div>
+              <div className="form-group">
+                <label>Taxa de Contrato</label>
+                <div className="property-linked-rate">
+                  {vinculoProprietario?.taxaContrato !== '' && vinculoProprietario?.taxaContrato != null
+                    ? `${Number(vinculoProprietario.taxaContrato).toLocaleString('pt-BR')}%`
+                    : 'Não informada'}
+                </div>
+              </div>
             </div>
+            {form.proprietarioId && !vinculoProprietario && (
+              <p className="property-rate-hint">
+                Configure as taxas deste imóvel no cadastro do proprietário.
+              </p>
+            )}
           </div>
         </div>
 
@@ -483,7 +508,7 @@ export default function CadastrarImovel() {
           <div className="form-section-body">
             <div className="form-group">
               <textarea name="observacao" value={form.observacao} onChange={handleChange}
-                placeholder="Informações adicionais sobre o imóvel..." rows={4} />
+                placeholder="Informações adicionais sobre o imóvel..." rows={3} />
             </div>
           </div>
         </div>
