@@ -446,7 +446,34 @@ export default function Proprietarios() {
       y += 7
     }
 
+    const drawConsolidado = title => {
+      document.setFillColor(28, 28, 28)
+      document.rect(margin, y - 5, contentWidth, 8, 'F')
+      document.setTextColor(255)
+      document.setFont('helvetica', 'bold')
+      document.setFontSize(11)
+      document.text(title, margin + 2, y)
+      document.setTextColor(0)
+      y += 10
+      drawValueRow('Total Receita Operacional', extratoSelecionado.totais.aluguel, { bold: true })
+      drawValueRow('Total Taxa de Administração', extratoSelecionado.totais.taxaAdministrativa, { negative: true })
+      drawValueRow('Total Taxa de Contrato/Serviços', extratoSelecionado.totais.taxaContrato, { negative: true })
+      drawValueRow('Total de Contas do Mês', Math.abs(extratoSelecionado.totais.contas), { negative: extratoSelecionado.totais.contas < 0 })
+      drawValueRow('Valor Total de Repasse', extratoSelecionado.totais.repasse, { bold: true, gray: true })
+    }
+
     await drawHeader()
+
+    const possuiMultiplosImoveis = extratoSelecionado.itens.length > 1
+    if (possuiMultiplosImoveis) {
+      drawConsolidado(`Consolidado geral — ${extratoSelecionado.itens.length} imóveis`)
+      y += 8
+      document.setFont('helvetica', 'normal')
+      document.setFontSize(9)
+      document.text('Esta página apresenta o total de todos os imóveis do proprietário na competência selecionada.', margin + 2, y)
+      document.addPage()
+      await drawHeader()
+    }
 
     if (extratoSelecionado.itens.length === 0) {
       document.setFont('helvetica', 'normal')
@@ -475,20 +502,10 @@ export default function Proprietarios() {
       }
     }
 
-    await ensureSpace(44)
-    document.setFillColor(28, 28, 28)
-    document.rect(margin, y - 5, contentWidth, 8, 'F')
-    document.setTextColor(255)
-    document.setFont('helvetica', 'bold')
-    document.setFontSize(11)
-    document.text('Consolidado do proprietário', margin + 2, y)
-    document.setTextColor(0)
-    y += 10
-    drawValueRow('Total Receita Operacional', extratoSelecionado.totais.aluguel, { bold: true })
-    drawValueRow('Total Taxa de Administração', extratoSelecionado.totais.taxaAdministrativa, { negative: true })
-    drawValueRow('Total Taxa de Contrato/Serviços', extratoSelecionado.totais.taxaContrato, { negative: true })
-    drawValueRow('Total de Contas do Mês', Math.abs(extratoSelecionado.totais.contas), { negative: extratoSelecionado.totais.contas < 0 })
-    drawValueRow('Valor Total de Repasse', extratoSelecionado.totais.repasse, { bold: true, gray: true })
+    if (!possuiMultiplosImoveis) {
+      await ensureSpace(44)
+      drawConsolidado('Consolidado do proprietário')
+    }
 
     await ensureSpace(25)
     document.setLineDashPattern([1, 1], 0)
