@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
@@ -11,6 +11,24 @@ const BANCOS = [
 ]
 
 const INCIDENCIA_TAXA_ADM_OPCOES = ['aluguel', 'servicos', 'iptu', 'condominio']
+
+const INCIDENCIA_TAXA_ADM_LABELS = {
+  aluguel: 'Aluguel',
+  servicos: 'Serviços',
+  iptu: 'IPTU',
+  condominio: 'Condomínio',
+}
+
+const fmtMoney = (v) =>
+  'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+
+const fmtMesAno = (ym) => {
+  if (!ym) return '—'
+  const [y, m] = ym.split('-')
+  return new Date(+y, +m - 1, 1)
+    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    .replace(/^./, c => c.toUpperCase())
+}
 
 const REPASSE_OPCOES = [
   { value: 'garantido', label: 'Garantido' },
@@ -88,11 +106,14 @@ export default function CadastrarProprietario() {
 
   const [form, setForm] = useState(initialForm)
   const [imoveis, setImoveis] = useState([])
+  const [inquilinos, setInquilinos] = useState([])
+  const [contasCatalogo, setContasCatalogo] = useState([])
   const [imovelBusca, setImovelBusca] = useState('')
   const [imoveisVinculos, setImoveisVinculos] = useState({})
   const [loading, setLoading] = useState(false)
   const [cepLoading, setCepLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [extratoMes, setExtratoMes] = useState(() => new Date().toISOString().slice(0, 7))
 
   const imovelLabel = (im) => {
     if (!im) return ''
@@ -115,6 +136,20 @@ export default function CadastrarProprietario() {
     return onValue(ref(db, 'imoveis'), snap => {
       const data = snap.val()
       setImoveis(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+  }, [])
+
+  useEffect(() => {
+    return onValue(ref(db, 'inquilinos'), snap => {
+      const data = snap.val()
+      setInquilinos(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
+    })
+  }, [])
+
+  useEffect(() => {
+    return onValue(ref(db, 'contas'), snap => {
+      const data = snap.val()
+      setContasCatalogo(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
     })
   }, [])
 
@@ -284,6 +319,89 @@ export default function CadastrarProprietario() {
       return next
     })
   }
+
+  // Inquilino ativo mais recente do imóvel (entre os que moram atualmente nele)
+  const getInquilinoAtivo = (imovelId) => {
+    const ativos = inquilinos.filter(i => i.imovelId === imovelId && i.status === 'Ativo')
+    if (ativos.length === 0) return null
+    return ativos.sort((a, b) => (b.dataEntrada || '').localeCompare(a.dataEntrada || ''))[0]
+  }
+
+  // Valor de um componente (aluguel/serviços/iptu/condomínio) a partir do cadastro do inquilino ativo
+  const getValorComponente = (inquilino, item) => {
+    if (!inquilino) return 0
+    if (item === 'aluguel') return Number(inquilino.valorAluguel) || 0
+    const termo = item === 'condominio' ? 'condom' : item === 'iptu' ? 'iptu' : 'serv'
+    const contasValores = inquilino.contasValores || {}
+    return Object.entries(contasValores).reduce((soma, [contaId, valor]) => {
+      const nomeConta = normalizeText(contasCatalogo.find(c => c.id === contaId)?.nome || contaId)
+      return nomeConta.includes(termo) ? soma + (Number(valor) || 0) : soma
+    }, 0)
+  }
+
+  // Extrato financeiro: para cada imóvel vinculado, calcula aluguel, base de incidência da taxa
+  // administrativa e o repasse do mês selecionado. A taxa de contrato só é descontada no mês em
+  // que o inquilino atual entrou (dataEntrada), nunca nos meses seguintes.
+  const extratoImoveis = useMemo(() => {
+    return Object.entries(imoveisVinculos).map(([imovelId, v]) => {
+      const imovel = imoveis.find(im => im.id === imovelId)
+      const inquilino = getInquilinoAtivo(imovelId)
+      const nomeImovel = v.nomeImovel || imovelLabel(imovel)
+
+      const mesEntrada = inquilino?.dataEntrada ? inquilino.dataEntrada.substring(0, 7) : null
+      const mesSaida = inquilino?.dataSaida ? inquilino.dataSaida.substring(0, 7) : null
+      const dentroDoPeriodo = !!inquilino && (!mesEntrada || extratoMes >= mesEntrada) && (!mesSaida || extratoMes <= mesSaida)
+      const primeiroMes = dentroDoPeriodo && mesEntrada === extratoMes
+
+      const aluguel = dentroDoPeriodo ? (Number(inquilino.valorAluguel) || 0) : 0
+
+      const itensIncidencia = (v.incidenciaTaxaAdm && v.incidenciaTaxaAdm.length > 0)
+        ? v.incidenciaTaxaAdm
+        : ['aluguel']
+      const baseComponentes = itensIncidencia.map(item => ({
+        item,
+        label: INCIDENCIA_TAXA_ADM_LABELS[item] || item,
+        valor: dentroDoPeriodo ? getValorComponente(inquilino, item) : 0,
+      }))
+      const baseTotal = baseComponentes.reduce((s, c) => s + c.valor, 0)
+
+      const pctAdm = Number(v.taxaAdministracao) || 0
+      const pctContrato = Number(v.taxaContrato) || 0
+      const taxaAdmValor = baseTotal * (pctAdm / 100)
+      const taxaContratoValor = primeiroMes ? aluguel * (pctContrato / 100) : 0
+
+      const repasse = aluguel - taxaAdmValor - taxaContratoValor
+
+      return {
+        imovelId,
+        nomeImovel,
+        inquilino,
+        dentroDoPeriodo,
+        primeiroMes,
+        aluguel,
+        baseComponentes,
+        baseTotal,
+        pctAdm,
+        pctContrato,
+        taxaAdmValor,
+        taxaContratoValor,
+        repasse,
+        geraDimob: !!v.geraDimob,
+        geraNf: !!v.geraNf,
+        repasseTipo: v.repasseTipo || 'nao_garantido',
+        repasseMeses: v.repasseMeses,
+      }
+    })
+  }, [imoveisVinculos, imoveis, inquilinos, contasCatalogo, extratoMes])
+
+  const extratoAtivosNoMes = extratoImoveis.filter(e => e.dentroDoPeriodo)
+
+  const extratoTotais = extratoAtivosNoMes.reduce((acc, e) => ({
+    aluguel: acc.aluguel + e.aluguel,
+    taxaAdm: acc.taxaAdm + e.taxaAdmValor,
+    taxaContrato: acc.taxaContrato + e.taxaContratoValor,
+    repasse: acc.repasse + e.repasse,
+  }), { aluguel: 0, taxaAdm: 0, taxaContrato: 0, repasse: 0 })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -820,6 +938,98 @@ export default function CadastrarProprietario() {
           </div>
         </div>
 
+        {/* ── Extrato Financeiro dos Imóveis ── */}
+        <div className="form-section">
+          <div className="form-section-header">
+            <span className="form-section-icon">🧾</span>
+            <h3>Extrato Financeiro dos Imóveis</h3>
+            {extratoImoveis.length > 0 && (
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label htmlFor="extratoMes" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Mês:</label>
+                <input
+                  id="extratoMes"
+                  type="month"
+                  value={extratoMes}
+                  onChange={e => setExtratoMes(e.target.value)}
+                  style={{ padding: '4px 6px', fontSize: 12, height: 30 }}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="form-section-body">
+            {extratoImoveis.length === 0 ? (
+              <div className="info-banner">
+                <p>Vincule imóveis a este proprietário para ver o extrato de repasses e taxas.</p>
+              </div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginBottom: 12 }}>
+                  <div className="property-linked-rate" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 1, minHeight: 44, padding: '6px 10px' }}>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Aluguéis ({fmtMesAno(extratoMes)})</span>
+                    <strong style={{ fontSize: 14 }}>{fmtMoney(extratoTotais.aluguel)}</strong>
+                  </div>
+                  <div className="property-linked-rate" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 1, minHeight: 44, padding: '6px 10px' }}>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Taxa Adm.</span>
+                    <strong style={{ fontSize: 14, color: '#b91c1c' }}>{fmtMoney(extratoTotais.taxaAdm)}</strong>
+                  </div>
+                  <div className="property-linked-rate" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 1, minHeight: 44, padding: '6px 10px' }}>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Taxa Contrato (1º aluguel)</span>
+                    <strong style={{ fontSize: 14, color: '#b91c1c' }}>{fmtMoney(extratoTotais.taxaContrato)}</strong>
+                  </div>
+                  <div className="property-linked-rate" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 1, minHeight: 44, padding: '6px 10px' }}>
+                    <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Repasse ao Proprietário</span>
+                    <strong style={{ fontSize: 14, color: '#166534' }}>{fmtMoney(extratoTotais.repasse)}</strong>
+                  </div>
+                </div>
+
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ fontSize: 12 }}>
+                    <thead>
+                      <tr>
+                        <th>Imóvel</th>
+                        <th>Inquilino</th>
+                        <th>Aluguel</th>
+                        <th>Base Adm.</th>
+                        <th>Taxa Adm.</th>
+                        <th>Taxa Contrato</th>
+                        <th>Repasse</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {extratoImoveis.map(e => (
+                        <tr key={e.imovelId} style={!e.dentroDoPeriodo ? { opacity: 0.55 } : undefined}>
+                          <td>{e.nomeImovel}</td>
+                          <td>
+                            {e.inquilino ? (
+                              <>
+                                {e.inquilino.nome}
+                                {!e.dentroDoPeriodo && <span className="badge badge-gray" style={{ marginLeft: 6, fontSize: 10 }}>fora do período</span>}
+                                {e.primeiroMes && <span className="badge badge-blue" style={{ marginLeft: 6, fontSize: 10 }}>1º aluguel</span>}
+                              </>
+                            ) : (
+                              <span className="badge badge-gray">sem inquilino</span>
+                            )}
+                          </td>
+                          <td>{fmtMoney(e.aluguel)}</td>
+                          <td title={e.baseComponentes.map(c => c.label).join(', ')}>{fmtMoney(e.baseTotal)}</td>
+                          <td style={{ color: '#b91c1c' }}>{fmtMoney(e.taxaAdmValor)} <span style={{ color: 'var(--text-secondary)' }}>({e.pctAdm}%)</span></td>
+                          <td style={{ color: '#b91c1c' }}>{e.primeiroMes ? `${fmtMoney(e.taxaContratoValor)} (${e.pctContrato}%)` : '—'}</td>
+                          <td style={{ color: '#166534', fontWeight: 600 }}>{fmtMoney(e.repasse)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <p style={{ margin: '8px 0 0', fontSize: 10.5, color: 'var(--text-secondary)' }}>
+                  A taxa de administração incide sobre os itens marcados em "Incidência da Taxa Adm" de cada imóvel e é descontada todo mês.
+                  A taxa de contrato é calculada sobre o aluguel e descontada apenas no mês de entrada do inquilino atual (1º aluguel).
+                </p>
+              </>
+            )}
+          </div>
+        </div>
 
         <div className="form-actions">
 
