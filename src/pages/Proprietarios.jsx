@@ -199,6 +199,20 @@ export default function Proprietarios() {
     setValoresVariaveis(snap.val() || {})
   }), [])
 
+  // Extrato financeiro: para cada imóvel vinculado ao proprietário, calcula aluguel, base de
+  // incidência da taxa administrativa e o repasse do mês selecionado.
+  //
+  // A base da taxa administrativa (baseAdministrativa) SÓ inclui os componentes marcados no
+  // checkbox "Incidência da Taxa Adm" daquele imóvel (aluguel / serviços / iptu / condomínio).
+  // Se nenhum item estiver marcado, a base é zero (sem fallback automático) — mesmo
+  // comportamento do extrato em CadastrarProprietario.jsx.
+  //
+  // A taxa de contrato só é descontada no mês em que o inquilino atual entrou (dataEntrada),
+  // nunca nos meses seguintes, e é calculada sobre o aluguel (não sobre a base da taxa adm).
+  //
+  // O repasse ao proprietário é: Base Adm. − Taxa Adm. − Taxa Contrato (quando houver), igual
+  // ao extrato de CadastrarProprietario.jsx. As contas do mês são calculadas e exibidas à
+  // parte (informativo), mas não entram no valor de repasse.
   const calcularExtrato = (proprietario, mes) => {
     const itens = Object.entries(proprietario?.imoveisVinculos || {}).map(([imovelId, vinculo]) => {
       const inquilino = inquilinos
@@ -222,7 +236,9 @@ export default function Proprietarios() {
         ? Number(valoresLancados[contaId]) || 0
         : Number(inquilino.contasValores?.[contaId]) || 0
 
-      const incidencia = vinculo.incidenciaTaxaAdm?.length ? vinculo.incidenciaTaxaAdm : ['aluguel']
+      // Só considera na base da taxa adm os itens explicitamente marcados em incidenciaTaxaAdm
+      // deste imóvel. Se nada estiver marcado, a base é zero (sem fallback automático).
+      const incidencia = vinculo.incidenciaTaxaAdm?.length ? vinculo.incidenciaTaxaAdm : []
       const baseAdministrativa = incidencia.reduce((total, item) => {
         if (item === 'aluguel') return total + aluguel
 
@@ -299,7 +315,7 @@ export default function Proprietarios() {
         primeiroAluguel,
         lancamentosMes,
         totalContas,
-        repasse: aluguel - taxaAdministrativa - taxaContrato + totalContas,
+        repasse: baseAdministrativa - taxaAdministrativa - taxaContrato,
       }
     }).filter(Boolean)
 
@@ -1002,4 +1018,3 @@ export default function Proprietarios() {
     </Layout>
   )
 }
-
