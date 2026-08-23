@@ -451,7 +451,7 @@ export default function CadastrarProprietario() {
       const taxaContratoValor = primeiroMes ? aluguel * (pctContrato / 100) : 0
 
       // Repasse = Base Adm. − Taxa Adm. − Taxa Contrato (quando houver, só no 1º mês) + Contas do mês
-      const repasse = baseTotal - taxaAdmValor - taxaContratoValor
+      const repasse = baseTotal - taxaAdmValor - taxaContratoValor + totalContas
 
       return {
         imovelId,
