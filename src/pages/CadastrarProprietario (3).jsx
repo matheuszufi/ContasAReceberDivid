@@ -394,11 +394,9 @@ export default function CadastrarProprietario() {
 
       // Só considera na base da taxa adm os itens marcados em incidenciaTaxaAdm deste imóvel.
       // Ex.: se só 'servicos' e 'condominio' estiverem marcados, IPTU e aluguel NÃO entram na base.
-      // Se nada estiver marcado, a base é zero (sem fallback automático) — a taxa adm só incide
-      // sobre o que estiver explicitamente assinalado no imóvel vinculado.
-      const itensIncidencia = v.incidenciaTaxaAdm && v.incidenciaTaxaAdm.length > 0
+      const itensIncidencia = (v.incidenciaTaxaAdm && v.incidenciaTaxaAdm.length > 0)
         ? v.incidenciaTaxaAdm
-        : []
+        : ['aluguel']
       const baseComponentes = itensIncidencia.map(item => ({
         item,
         label: INCIDENCIA_TAXA_ADM_LABELS[item] || item,
@@ -406,11 +404,7 @@ export default function CadastrarProprietario() {
       }))
       const baseTotal = baseComponentes.reduce((s, c) => s + c.valor, 0)
 
-      // Inclui tanto contas já configuradas no cadastro do inquilino (contasValores) quanto as
-      // lançadas especificamente neste mês, para que uma conta recém-adicionada ao inquilino
-      // (ex.: condomínio) reflita no repasse imediatamente, sem precisar de lançamento manual no mês.
       const contaIds = new Set([
-        ...Object.keys(inquilino?.contasValores || {}),
         ...Object.keys(valoresLancados).filter(key => !key.startsWith('_')),
         ...Object.keys(_registrado).filter(key => _registrado[key] && !key.startsWith('_')),
       ])

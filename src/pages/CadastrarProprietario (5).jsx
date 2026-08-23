@@ -394,11 +394,9 @@ export default function CadastrarProprietario() {
 
       // Só considera na base da taxa adm os itens marcados em incidenciaTaxaAdm deste imóvel.
       // Ex.: se só 'servicos' e 'condominio' estiverem marcados, IPTU e aluguel NÃO entram na base.
-      // Se nada estiver marcado, a base é zero (sem fallback automático) — a taxa adm só incide
-      // sobre o que estiver explicitamente assinalado no imóvel vinculado.
-      const itensIncidencia = v.incidenciaTaxaAdm && v.incidenciaTaxaAdm.length > 0
+      const itensIncidencia = (v.incidenciaTaxaAdm && v.incidenciaTaxaAdm.length > 0)
         ? v.incidenciaTaxaAdm
-        : []
+        : ['aluguel']
       const baseComponentes = itensIncidencia.map(item => ({
         item,
         label: INCIDENCIA_TAXA_ADM_LABELS[item] || item,
