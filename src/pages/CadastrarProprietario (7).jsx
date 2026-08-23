@@ -1052,7 +1052,7 @@ export default function CadastrarProprietario() {
                   </div>
                   <div className="property-linked-rate" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 1, minHeight: 44, padding: '6px 10px' }}>
                     <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Taxa Adm.</span>
-                    <strong style={{ fontSize: 14, color: '#b91c1c' }}>{fmtMoney(extratoTotais.taxaAdm)}</strong>
+                    <strong style={{ fontSize: 14, color: '#166534' }}>{fmtMoney(extratoTotais.taxaAdm)}</strong>
                   </div>
                   <div className="property-linked-rate" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 1, minHeight: 44, padding: '6px 10px' }}>
                     <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Taxa Contrato (1º aluguel)</span>
@@ -1064,7 +1064,7 @@ export default function CadastrarProprietario() {
                   </div>
                   <div className="property-linked-rate" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 1, minHeight: 44, padding: '6px 10px' }}>
                     <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Repasse ao Proprietário</span>
-                    <strong style={{ fontSize: 14, color: '#166534' }}>{fmtMoney(extratoTotais.repasse)}</strong>
+                    <strong style={{ fontSize: 14, color: '#b91c1c' }}>{fmtMoney(extratoTotais.repasse)}</strong>
                   </div>
                 </div>
 
@@ -1099,7 +1099,7 @@ export default function CadastrarProprietario() {
                           </td>
                           <td>{fmtMoney(e.aluguel)}</td>
                           <td title={e.baseComponentes.map(c => c.label).join(', ')}>{fmtMoney(e.baseTotal)}</td>
-                          <td style={{ color: '#b91c1c' }}>{fmtMoney(e.taxaAdmValor)} <span style={{ color: 'var(--text-secondary)' }}>({e.pctAdm}%)</span></td>
+                          <td style={{ color: '#166534' }}>{fmtMoney(e.taxaAdmValor)} <span style={{ color: 'var(--text-secondary)' }}>({e.pctAdm}%)</span></td>
                           <td style={{ color: '#b91c1c' }}>{e.primeiroMes ? `${fmtMoney(e.taxaContratoValor)} (${e.pctContrato}%)` : '—'}</td>
                           <td>
                             {e.contasMes.length === 0 ? '—' : e.contasMes.map(conta => (
@@ -1108,7 +1108,7 @@ export default function CadastrarProprietario() {
                               </div>
                             ))}
                           </td>
-                          <td style={{ color: '#166534', fontWeight: 600 }}>{fmtMoney(e.repasse)}</td>
+                          <td style={{ color: '#b91c1c', fontWeight: 600 }}>{fmtMoney(e.repasse)}</td>
                         </tr>
                       ))}
                     </tbody>
