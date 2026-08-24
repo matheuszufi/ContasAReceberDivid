@@ -854,70 +854,70 @@ export default function Proprietarios() {
 
       <div className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
             <Card>
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
-                  <Users className="size-4" />
+              <CardContent className="flex items-center gap-2 px-2.5 py-2">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-blue-500/10 text-blue-600">
+                  <Users className="size-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xl font-semibold tracking-tight">{proprietarios.length}</p>
-                  <p className="truncate text-xs text-muted-foreground">Total de Proprietários</p>
+                  <p className="text-lg font-semibold leading-tight tracking-tight">{proprietarios.length}</p>
+                  <p className="truncate text-[11px] leading-tight text-muted-foreground">Total de Proprietários</p>
                 </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-                  <UserCheck className="size-4" />
+              <CardContent className="flex items-center gap-2 px-2.5 py-2">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600">
+                  <UserCheck className="size-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xl font-semibold tracking-tight">{proprietarios.filter(p => p.status === 'Ativo').length}</p>
-                  <p className="truncate text-xs text-muted-foreground">Ativos</p>
+                  <p className="text-lg font-semibold leading-tight tracking-tight">{proprietarios.filter(p => p.status === 'Ativo').length}</p>
+                  <p className="truncate text-[11px] leading-tight text-muted-foreground">Ativos</p>
                 </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600">
-                  <UserX className="size-4" />
+              <CardContent className="flex items-center gap-2 px-2.5 py-2">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-red-500/10 text-red-600">
+                  <UserX className="size-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xl font-semibold tracking-tight">{proprietarios.filter(p => p.status === 'Inativo').length}</p>
-                  <p className="truncate text-xs text-muted-foreground">Inativos</p>
+                  <p className="text-lg font-semibold leading-tight tracking-tight">{proprietarios.filter(p => p.status === 'Inativo').length}</p>
+                  <p className="truncate text-[11px] leading-tight text-muted-foreground">Inativos</p>
                 </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
-                  <HandCoins className="size-4" />
+              <CardContent className="flex items-center gap-2 px-2.5 py-2">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-600">
+                  <HandCoins className="size-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-semibold tracking-tight">{formatMoney(totaisFinanceiros.repasse)}</p>
-                  <p className="truncate text-xs text-muted-foreground">Repasse (mês atual)</p>
+                  <p className="truncate text-base font-semibold leading-tight tracking-tight">{formatMoney(totaisFinanceiros.repasse)}</p>
+                  <p className="truncate text-[11px] leading-tight text-muted-foreground">Repasse (mês atual)</p>
                 </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
-                  <FileText className="size-4" />
+              <CardContent className="flex items-center gap-2 px-2.5 py-2">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-600">
+                  <FileText className="size-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-semibold tracking-tight">{formatMoney(totaisFinanceiros.taxaContrato)}</p>
-                  <p className="truncate text-xs text-muted-foreground">Taxa de Contrato</p>
+                  <p className="truncate text-base font-semibold leading-tight tracking-tight">{formatMoney(totaisFinanceiros.taxaContrato)}</p>
+                  <p className="truncate text-[11px] leading-tight text-muted-foreground">Taxa de Contrato</p>
                 </div>
               </CardContent>
             </Card>
             <Card>
-              <CardContent className="flex items-center gap-3 p-4">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600">
-                  <Percent className="size-4" />
+              <CardContent className="flex items-center gap-2 px-2.5 py-2">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-cyan-500/10 text-cyan-600">
+                  <Percent className="size-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-semibold tracking-tight">{formatMoney(totaisFinanceiros.taxaAdministrativa)}</p>
-                  <p className="truncate text-xs text-muted-foreground">Taxa Administrativa</p>
+                  <p className="truncate text-base font-semibold leading-tight tracking-tight">{formatMoney(totaisFinanceiros.taxaAdministrativa)}</p>
+                  <p className="truncate text-[11px] leading-tight text-muted-foreground">Taxa Administrativa</p>
                 </div>
               </CardContent>
             </Card>
