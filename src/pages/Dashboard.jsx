@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ref, onValue } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import { normalizeText } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -67,6 +68,19 @@ const GARANTIA_CHART_COLORS = {
 const fmtMoney = (value) =>
   'R$ ' + Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
+const fmtMoneyCompact = (value) => {
+  const num = Number(value || 0)
+  if (Math.abs(num) >= 1000) {
+    return num.toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+      notation: 'compact',
+      maximumFractionDigits: 1,
+    })
+  }
+  return fmtMoney(num)
+}
+
 const getMonthKey = (item) =>
   item.mesReferencia || (item.dataVencimento ? item.dataVencimento.substring(0, 7) : null)
 
@@ -124,7 +138,11 @@ export default function Dashboard() {
 
   const [imoveis, setImoveis] = useState([])
   const [inquilinos, setInquilinos] = useState([])
+  const [proprietarios, setProprietarios] = useState([])
+  const [contasCatalogo, setContasCatalogo] = useState([])
+  const [valoresVariaveis, setValoresVariaveis] = useState({})
   const [inadimplencias, setInadimplencias] = useState([])
+  const [lucroAno, setLucroAno] = useState(currentYear)
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [topFilter, setTopFilter] = useState('valor')
@@ -151,6 +169,9 @@ export default function Dashboard() {
   useEffect(() => {
     const imoveisRef = ref(db, 'imoveis')
     const inquilinosRef = ref(db, 'inquilinos')
+    const proprietariosRef = ref(db, 'proprietarios')
+    const contasRef = ref(db, 'contas')
+    const valoresVariaveisRef = ref(db, 'valoresVariaveis')
     const inadimplenciasRef = ref(db, 'inadimplencias')
     const segurosRef = ref(db, 'seguros')
 
@@ -162,6 +183,20 @@ export default function Dashboard() {
     const unsubInquilinos = onValue(inquilinosRef, snap => {
       const data = snap.val()
       setInquilinos(data ? Object.entries(data).map(([id, value]) => ({ id, ...value })) : [])
+    })
+
+    const unsubProprietarios = onValue(proprietariosRef, snap => {
+      const data = snap.val()
+      setProprietarios(data ? Object.entries(data).map(([id, value]) => ({ id, ...value })) : [])
+    })
+
+    const unsubContas = onValue(contasRef, snap => {
+      const data = snap.val()
+      setContasCatalogo(data ? Object.entries(data).map(([id, value]) => ({ id, ...value })) : [])
+    })
+
+    const unsubValoresVariaveis = onValue(valoresVariaveisRef, snap => {
+      setValoresVariaveis(snap.val() || {})
     })
 
     const unsubInadimplencias = onValue(inadimplenciasRef, snap => {
@@ -177,6 +212,9 @@ export default function Dashboard() {
     return () => {
       unsubImoveis()
       unsubInquilinos()
+      unsubProprietarios()
+      unsubContas()
+      unsubValoresVariaveis()
       unsubInadimplencias()
       unsubSeguros()
     }
@@ -235,6 +273,77 @@ export default function Dashboard() {
     const imovel = imovelMap[inquilino?.imovelId]
     return imovel?.codigo || inquilino?.codigoImovel || d.codigoImovel || ''
   }
+
+  // Soma o lucro da imobiliária (Taxa Adm + Taxa Contrato) mês a mês para o ano selecionado.
+  const lucroPorMes = useMemo(() => {
+    const calcularLucroMes = (mes) => {
+      return proprietarios.reduce((somaProprietario, proprietario) => {
+        const lucroProprietario = Object.entries(proprietario?.imoveisVinculos || {}).reduce((somaImovel, [imovelId, vinculo]) => {
+          const inquilino = inquilinos
+            .filter(item => {
+              if (item.imovelId !== imovelId) return false
+              const entrada = item.dataEntrada?.slice(0, 7)
+              const saida = item.dataSaida?.slice(0, 7)
+              return (!entrada || mes >= entrada) && (!saida || mes <= saida)
+            })
+            .sort((a, b) => (b.dataEntrada || '').localeCompare(a.dataEntrada || ''))[0]
+
+          if (!inquilino) return somaImovel
+
+          const valoresMes = valoresVariaveis[inquilino.id]?.[mes] || {}
+          const { _registrado = {}, _obs, extras = {}, ...valoresLancados } = valoresMes
+          const aluguel = '_aluguel' in valoresLancados
+            ? Number(valoresLancados._aluguel) || 0
+            : Number(inquilino.valorAluguel) || 0
+
+          const getValorConta = contaId => contaId in valoresLancados
+            ? Number(valoresLancados[contaId]) || 0
+            : Number(inquilino.contasValores?.[contaId]) || 0
+
+          const incidencia = vinculo.incidenciaTaxaAdm?.length ? vinculo.incidenciaTaxaAdm : []
+          const baseAdministrativa = incidencia.reduce((total, item) => {
+            if (item === 'aluguel') return total + aluguel
+
+            const termo = item === 'condominio' ? 'condom' : item === 'iptu' ? 'iptu' : 'serv'
+            const contaIds = new Set([
+              ...Object.keys(inquilino.contasValores || {}),
+              ...Object.keys(valoresLancados).filter(key => !key.startsWith('_')),
+            ])
+            const valorContas = [...contaIds].reduce((somaContas, contaId) => {
+              const nomeConta = normalizeText(contasCatalogo.find(conta => conta.id === contaId)?.nome || contaId)
+              return nomeConta.includes(termo) ? somaContas + getValorConta(contaId) : somaContas
+            }, 0)
+            return total + valorContas
+          }, 0)
+
+          const taxaAdministrativa = baseAdministrativa * ((Number(vinculo.taxaAdministracao) || 0) / 100)
+          const primeiroAluguel = inquilino.dataEntrada?.slice(0, 7) === mes
+          const taxaContrato = primeiroAluguel
+            ? aluguel * ((Number(vinculo.taxaContrato) || 0) / 100)
+            : 0
+
+          return somaImovel + taxaAdministrativa + taxaContrato
+        }, 0)
+
+        return somaProprietario + lucroProprietario
+      }, 0)
+    }
+
+    return Array.from({ length: 12 }, (_, index) => {
+      const mes = `${lucroAno}-${String(index + 1).padStart(2, '0')}`
+      return { mes, total: calcularLucroMes(mes) }
+    })
+  }, [proprietarios, inquilinos, contasCatalogo, valoresVariaveis, lucroAno])
+
+  const maxLucroValor = useMemo(
+    () => Math.max(...lucroPorMes.map(m => m.total), 0),
+    [lucroPorMes]
+  )
+
+  const maxLucroMes = useMemo(
+    () => lucroPorMes.find(m => m.total === maxLucroValor) || null,
+    [lucroPorMes, maxLucroValor]
+  )
 
   // Opções dos selects de filtro, calculadas a partir de toda a base (independente do período selecionado)
   const garantiaOptions = useMemo(
@@ -648,6 +757,66 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-3 border-b pb-4">
+          <div>
+            <CardTitle className="text-base">Lucro por Mês</CardTitle>
+            <CardDescription>Total de Taxa Adm + Taxa de Contrato gerado em cada mês de {lucroAno}.</CardDescription>
+          </div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Button variant="outline" size="icon" onClick={() => setLucroAno(String(Number(lucroAno) - 1))} aria-label="Ano anterior">
+              <ChevronLeft />
+            </Button>
+            <Badge variant="secondary" className="h-8 min-w-14 justify-center text-sm">{lucroAno}</Badge>
+            <Button variant="outline" size="icon" onClick={() => setLucroAno(String(Number(lucroAno) + 1))} aria-label="Próximo ano">
+              <ChevronRight />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {maxLucroValor <= 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">Nenhum lucro calculado para {lucroAno}.</p>
+          ) : (
+            <>
+              <div className="mb-4 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
+                <Trophy className="size-4 shrink-0 text-emerald-600" />
+                <p className="text-sm">
+                  <strong>{MONTH_LABELS[Number(maxLucroMes.mes.slice(-2)) - 1]} de {lucroAno}</strong> foi o mês com maior lucro da imobiliária:{' '}
+                  <strong className="text-emerald-700">{fmtMoney(maxLucroMes.total)}</strong>
+                </p>
+              </div>
+
+              <div className="flex items-end gap-1.5 sm:gap-2">
+                {lucroPorMes.map((m, index) => {
+                  const isMax = m.total > 0 && m.total === maxLucroValor
+                  const alturaPercentual = m.total > 0 ? Math.max((m.total / maxLucroValor) * 100, 4) : 0
+                  return (
+                    <div
+                      key={m.mes}
+                      className="flex flex-1 flex-col items-center gap-1.5"
+                      title={`${MONTH_LABELS[index]} de ${lucroAno}: ${fmtMoney(m.total)}`}
+                    >
+                      <span className="h-3.5 text-[10px] font-medium text-muted-foreground">
+                        {m.total > 0 ? fmtMoneyCompact(m.total) : ''}
+                      </span>
+                      <div className="flex w-full items-end justify-center" style={{ height: 130 }}>
+                        <div
+                          className={`w-full rounded-t-sm transition-all ${isMax ? 'bg-emerald-500' : 'bg-blue-400/70'}`}
+                          style={{ height: `${alturaPercentual}%` }}
+                        />
+                      </div>
+                      <span className={`text-xs ${isMax ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
+                        {MONTH_LABELS[index]}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

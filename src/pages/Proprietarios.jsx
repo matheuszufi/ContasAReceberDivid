@@ -10,10 +10,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Users, UserCheck, UserX, Plus, Upload, RotateCcw, Search, Pencil, Trash2, HandCoins, FileText, Percent, Eye, X, Trophy, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Users, UserCheck, UserX, Plus, Upload, RotateCcw, Search, Pencil, Trash2, HandCoins, FileText, Percent, Eye, X, Trophy } from 'lucide-react'
 import { normalizeText } from '@/lib/utils'
-
-const MONTH_LABELS_CURTOS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
 const DEFAULT_COLUMNS = [
   { key: 'nome', label: 'Nome' },
@@ -38,14 +36,6 @@ const formatMoney = value => Number(value || 0).toLocaleString('pt-BR', {
   style: 'currency',
   currency: 'BRL',
 })
-
-const formatMoneyCompact = value => {
-  const num = Number(value || 0)
-  if (Math.abs(num) >= 1000) {
-    return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 })
-  }
-  return formatMoney(num)
-}
 
 const formatCompetencia = value => {
   if (!value) return '—'
@@ -189,9 +179,6 @@ export default function Proprietarios() {
   // Ranking de proprietários por Taxa Adm + Taxa Contrato
   const [rankingMes, setRankingMes] = useState(() => new Date().toISOString().slice(0, 7))
   const [showRankingModal, setShowRankingModal] = useState(false)
-
-  // Gráfico de repasse total por mês
-  const [repasseAno, setRepasseAno] = useState(() => String(new Date().getFullYear()))
 
   useEffect(() => {
     const r = ref(db, 'proprietarios')
@@ -382,28 +369,6 @@ export default function Proprietarios() {
   }, [proprietarios, inquilinos, contasCatalogo, valoresVariaveis, rankingMes])
 
   const topRankingProprietarios = rankingProprietarios.slice(0, 5)
-
-  // Soma o lucro da imobiliária (Taxa Adm + Taxa Contrato) mês a mês, para o ano selecionado
-  const lucroPorMes = useMemo(() => {
-    return Array.from({ length: 12 }, (_, index) => {
-      const mes = `${repasseAno}-${String(index + 1).padStart(2, '0')}`
-      const total = proprietarios.reduce((soma, proprietario) => {
-        const totais = calcularExtrato(proprietario, mes).totais
-        return soma + totais.taxaAdministrativa + totais.taxaContrato
-      }, 0)
-      return { mes, total }
-    })
-  }, [proprietarios, inquilinos, contasCatalogo, valoresVariaveis, repasseAno])
-
-  const maxLucroValor = useMemo(
-    () => Math.max(...lucroPorMes.map(m => m.total), 0),
-    [lucroPorMes]
-  )
-
-  const maxLucroMes = useMemo(
-    () => lucroPorMes.find(m => m.total === maxLucroValor) || null,
-    [lucroPorMes, maxLucroValor]
-  )
 
   const extratoSelecionado = useMemo(
     () => calcularExtrato(extratoProprietario, extratoMes),
@@ -923,66 +888,6 @@ export default function Proprietarios() {
             </Card>
           </div>
 
-          {/* ── Repasse Total por Mês ── */}
-          <Card>
-            <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-3 border-b pb-4">
-              <div>
-                <CardTitle className="text-base">Lucro por Mês</CardTitle>
-                <CardDescription>Total de Taxa Adm + Taxa de Contrato gerado em cada mês de {repasseAno}.</CardDescription>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <Button variant="outline" size="icon" onClick={() => setRepasseAno(String(Number(repasseAno) - 1))} aria-label="Ano anterior">
-                  <ChevronLeft />
-                </Button>
-                <Badge variant="secondary" className="h-8 min-w-14 justify-center text-sm">{repasseAno}</Badge>
-                <Button variant="outline" size="icon" onClick={() => setRepasseAno(String(Number(repasseAno) + 1))} aria-label="Próximo ano">
-                  <ChevronRight />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {maxLucroValor <= 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">Nenhum lucro calculado para {repasseAno}.</p>
-              ) : (
-                <>
-                  <div className="mb-4 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
-                    <Trophy className="size-4 shrink-0 text-emerald-600" />
-                    <p className="text-sm">
-                      <strong>{MONTH_LABELS_CURTOS[Number(maxLucroMes.mes.slice(-2)) - 1]} de {repasseAno}</strong> foi o mês com maior lucro da imobiliária:{' '}
-                      <strong className="text-emerald-700">{formatMoney(maxLucroMes.total)}</strong>
-                    </p>
-                  </div>
-
-                  <div className="flex items-end gap-1.5 sm:gap-2">
-                    {lucroPorMes.map((m, index) => {
-                      const isMax = m.total > 0 && m.total === maxLucroValor
-                      const alturaPercentual = m.total > 0 ? Math.max((m.total / maxLucroValor) * 100, 4) : 0
-                      return (
-                        <div
-                          key={m.mes}
-                          className="flex flex-1 flex-col items-center gap-1.5"
-                          title={`${MONTH_LABELS_CURTOS[index]} de ${repasseAno}: ${formatMoney(m.total)}`}
-                        >
-                          <span className="h-3.5 text-[10px] font-medium text-muted-foreground">
-                            {m.total > 0 ? formatMoneyCompact(m.total) : ''}
-                          </span>
-                          <div className="flex w-full items-end justify-center" style={{ height: 130 }}>
-                            <div
-                              className={`w-full rounded-t-sm transition-all ${isMax ? 'bg-emerald-500' : 'bg-blue-400/70'}`}
-                              style={{ height: `${alturaPercentual}%` }}
-                            />
-                          </div>
-                          <span className={`text-xs ${isMax ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
-                            {MONTH_LABELS_CURTOS[index]}
-                          </span>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
         {/* ── Top Proprietários por Taxa Adm + Taxa Contrato ── */}

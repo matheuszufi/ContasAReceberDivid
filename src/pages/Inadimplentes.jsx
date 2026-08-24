@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ref, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
@@ -155,6 +155,8 @@ export default function Inadimplentes() {
   const [mesSelecionado, setMesSelecionado] = useState(null)
   const [showRankingModal, setShowRankingModal] = useState(false)
   const [editingGarantiaId, setEditingGarantiaId] = useState(null)
+  const [cardsDataInicio, setCardsDataInicio] = useState('')
+  const [cardsDataFim, setCardsDataFim] = useState('')
   const [segurosCatalogo, setSegurosCatalogo] = useState([])
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
   const statusFilterRef = useRef(null)
@@ -314,9 +316,15 @@ export default function Inadimplentes() {
     alert('Este inquilino não possui Seguro Fiança.')
   }
 
+  const getDateForCardFilter = (d) => {
+    if (d.dataVencimento) return d.dataVencimento
+    if (d.mesReferencia) return `${d.mesReferencia}-01`
+    return ''
+  }
+
   // Base filtrada pelos filtros da planilha (busca + filtros de coluna), sem considerar o mês selecionado.
-  // Os cards de resumo usam essa base, então refletem os filtros aplicados na tabela (o card "Inadimplência por Mês" não).
-  const filteredBase = debitos
+  // Os cards de resumo usam a base sem filtro de status para que "Total Recuperado" contabilize os pagos.
+  const baseSemStatus = useMemo(() => debitos
     .filter(d =>
       normalizeText(getInquilinoNome(d)).includes(normalizeText(search)) ||
       normalizeText(getCodigoImovel(d)).includes(normalizeText(search)) ||
@@ -327,16 +335,29 @@ export default function Inadimplentes() {
     .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
     .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
     .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
-    .filter(d => colFilters.status.includes(STATUS_OPCOES.find(o => o.value === d.status)?.value || 'selecione'))
+    .filter(d => {
+      const dataRef = getDateForCardFilter(d)
+      if (!cardsDataInicio && !cardsDataFim) return true
+      if (!dataRef) return false
+      if (cardsDataInicio && dataRef < cardsDataInicio) return false
+      if (cardsDataFim && dataRef > cardsDataFim) return false
+      return true
+    }),
+  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.garantia, colFilters.seguroAcionado, colFilters.mesReferencia, cardsDataInicio, cardsDataFim])
 
-  const pendentes    = filteredBase.filter(d => d.status !== 'pago')
+  // Filtro de status continua sendo aplicado na tabela.
+  const filteredBase = useMemo(() => baseSemStatus
+    .filter(d => colFilters.status.includes(STATUS_OPCOES.find(o => o.value === d.status)?.value || 'selecione')),
+  [baseSemStatus, colFilters.status])
+
+  const pendentes    = baseSemStatus.filter(d => d.status !== 'pago')
   const totalAberto  = pendentes.reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
-  const totalRecup   = filteredBase.filter(d => d.status === 'pago').reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
+  const totalRecup   = baseSemStatus.filter(d => d.status === 'pago').reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
 
   // Ranking dos inquilinos ativos com mais inadimplências cadastradas (histórico completo, não só em aberto)
   const rankingInadimplentes = (() => {
     const counts = {}
-    filteredBase.forEach(d => {
+    baseSemStatus.forEach(d => {
       const key = d.inquilinoId || d.inquilinoNome
       if (!key) return
       const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
@@ -359,8 +380,8 @@ export default function Inadimplentes() {
     : filteredBase
 
   // Opções únicas para os selects de filtro (calculadas a partir da lista atual)
-  const mesRefOptions = [...new Set(filteredBase.map(d => d.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a))
-  const garantiaOptions = [...new Set(filteredBase.map(d => getGarantia(d).key))]
+  const mesRefOptions = [...new Set(baseSemStatus.map(d => d.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a))
+  const garantiaOptions = [...new Set(baseSemStatus.map(d => getGarantia(d).key))]
 
   return (
     <Layout title="Inadimplentes" subtitle="Controle de clientes com débitos pendentes">
@@ -486,17 +507,42 @@ export default function Inadimplentes() {
 
       {/* ── Tabela ── */}
       <Card>
-        <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-4">
-          <CardTitle className="text-lg">
+        <CardHeader className="flex flex-col gap-3 border-b pb-4 md:flex-row md:items-end md:justify-between">
+          <CardTitle className="text-lg md:flex-1">
             {mesSelecionado
               ? `Débitos — ${formatMonthLabel(mesSelecionado)} (${filtered.length})`
               : `Todos os Débitos (${filtered.length})`}
           </CardTitle>
-          {(colFilters.inquilino || colFilters.imovel || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || !isDefaultStatusFiltro(colFilters.status)) && (
-            <Button variant="outline" size="sm" onClick={limparColFilters}>
-              Limpar filtros
-            </Button>
-          )}
+          <div className="flex w-full flex-wrap items-end justify-end gap-2 md:ml-auto md:w-auto">
+            <div>
+              <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Data inicial (cards)</label>
+              <input
+                type="date"
+                value={cardsDataInicio}
+                onChange={e => setCardsDataInicio(e.target.value)}
+                style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Data final (cards)</label>
+              <input
+                type="date"
+                value={cardsDataFim}
+                onChange={e => setCardsDataFim(e.target.value)}
+                style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+              />
+            </div>
+            {(cardsDataInicio || cardsDataFim) && (
+              <Button variant="outline" size="sm" onClick={() => { setCardsDataInicio(''); setCardsDataFim('') }}>
+                Limpar período dos cards
+              </Button>
+            )}
+            {(colFilters.inquilino || colFilters.imovel || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || !isDefaultStatusFiltro(colFilters.status)) && (
+              <Button variant="outline" size="sm" onClick={limparColFilters}>
+                Limpar filtros
+              </Button>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="px-0">
         <div className="table-container">
