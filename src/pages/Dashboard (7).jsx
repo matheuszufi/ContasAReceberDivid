@@ -140,7 +140,6 @@ export default function Dashboard() {
   const [garantiaFilterMonth, setGarantiaFilterMonth] = useState(currentMonth)
   const [garantiaFilterStart, setGarantiaFilterStart] = useState('')
   const [garantiaFilterEnd, setGarantiaFilterEnd] = useState('')
-  const [segurosCatalogo, setSegurosCatalogo] = useState([])
 
   const setColFilter = (field, value) =>
     setColFilters(prev => ({ ...prev, [field]: value }))
@@ -152,7 +151,6 @@ export default function Dashboard() {
     const imoveisRef = ref(db, 'imoveis')
     const inquilinosRef = ref(db, 'inquilinos')
     const inadimplenciasRef = ref(db, 'inadimplencias')
-    const segurosRef = ref(db, 'seguros')
 
     const unsubImoveis = onValue(imoveisRef, snap => {
       const data = snap.val()
@@ -169,16 +167,10 @@ export default function Dashboard() {
       setInadimplencias(data ? Object.entries(data).map(([id, value]) => ({ id, ...value })) : [])
     })
 
-    const unsubSeguros = onValue(segurosRef, snap => {
-      const data = snap.val()
-      setSegurosCatalogo(data ? Object.entries(data).map(([id, value]) => ({ id, ...value })) : [])
-    })
-
     return () => {
       unsubImoveis()
       unsubInquilinos()
       unsubInadimplencias()
-      unsubSeguros()
     }
   }, [])
 
@@ -452,20 +444,10 @@ export default function Dashboard() {
     })
   }, [inadimplencias, garantiaFilterMode, garantiaFilterMonth, garantiaFilterStart, garantiaFilterEnd])
 
-  // Mapa nome da seguradora -> cor cadastrada na página "Cadastrar Seguros"
-  const seguroCorPorNome = useMemo(
-    () => Object.fromEntries(
-      segurosCatalogo
-        .filter(s => s.tipo === 'Seguro Fiança')
-        .map(s => [s.nome, s.cor])
-    ),
-    [segurosCatalogo]
-  )
-
   // Agrupa por tipo de garantia contando cada INQUILINO uma única vez, mesmo que ele tenha
   // vários débitos cadastrados no período (pagos e/ou em aberto)
   const garantiaBreakdown = useMemo(() => {
-    const seen = new Map() // tenantKey -> { key, label, color }
+    const seen = new Map() // tenantKey -> { key, label }
     garantiaFilteredDebts.forEach(d => {
       const tenantKey = d.inquilinoId || d.inquilinoNome || d.id
       if (seen.has(tenantKey)) return
@@ -473,22 +455,20 @@ export default function Dashboard() {
       const garantiaInfo = getGarantia(d)
       let key = garantiaInfo.key
       let label = garantiaInfo.label
-      let color = null
 
       if (key === 'seguro') {
         const seguroTipo = inquilinoMap[d.inquilinoId]?.seguro || d.seguro
         const seguroLabel = SEGURO_FIANCA_LABELS[seguroTipo] || seguroTipo || 'Outro'
         key = `seguro_${seguroTipo || 'outro'}`
         label = `S.F. ${seguroLabel}`
-        color = seguroCorPorNome[seguroTipo] || null
       }
 
-      seen.set(tenantKey, { key, label, color })
+      seen.set(tenantKey, { key, label })
     })
 
     const counts = {}
-    seen.forEach(({ key, label, color }) => {
-      if (!counts[key]) counts[key] = { key, label, color, count: 0 }
+    seen.forEach(({ key, label }) => {
+      if (!counts[key]) counts[key] = { key, label, count: 0 }
       counts[key].count += 1
     })
 
@@ -496,21 +476,20 @@ export default function Dashboard() {
     return Object.values(counts)
       .map(c => ({ ...c, percent: total > 0 ? Math.round((c.count / total) * 100) : 0 }))
       .sort((a, b) => b.count - a.count)
-  }, [garantiaFilteredDebts, inquilinoMap, seguroCorPorNome])
+  }, [garantiaFilteredDebts, inquilinoMap])
 
   const garantiaTotal = useMemo(
     () => garantiaBreakdown.reduce((sum, c) => sum + c.count, 0),
     [garantiaBreakdown]
   )
 
-  // Calcula o ângulo inicial de cada fatia do donut; usa a cor cadastrada da seguradora
-  // quando disponível, senão cai na cor fixa por tipo de garantia
+  // Calcula o ângulo inicial de cada fatia do donut e associa a cor
   const garantiaSlices = useMemo(() => {
     let cumulative = 0
     return garantiaBreakdown.map(item => {
       const startPercent = cumulative
       cumulative += item.percent
-      return { ...item, startPercent, color: item.color || GARANTIA_CHART_COLORS[item.key] || '#94a3b8' }
+      return { ...item, startPercent, color: GARANTIA_CHART_COLORS[item.key] || '#94a3b8' }
     })
   }, [garantiaBreakdown])
 
