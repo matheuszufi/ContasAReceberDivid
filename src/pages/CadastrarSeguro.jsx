@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ref, push, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
@@ -12,27 +12,10 @@ const initialForm = {
   cor: '#7c3aed',
 }
 
-// Rótulos e cores das garantias que não são "Seguro" (essas usam a cor cadastrada da seguradora)
-const GARANTIA_LABELS = {
-  caucao: 'Caução',
-  adiantamento: 'Adiantamento',
-  sem_garantia: 'Sem Garantia',
-}
-const GARANTIA_CORES = {
-  'Caução': '#0ea5e9',
-  'Adiantamento': '#f59e0b',
-  'Sem Garantia': '#94a3b8',
-}
-
-// Mesmo padrão de donut usado no Dashboard
-const DONUT_RADIUS = 40
-const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS
-
 export default function CadastrarSeguro() {
   const navigate = useNavigate()
   const [form, setForm] = useState(initialForm)
   const [seguros, setSeguros] = useState([])
-  const [inquilinos, setInquilinos] = useState([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
 
@@ -44,54 +27,6 @@ export default function CadastrarSeguro() {
       setSeguros(lista)
     })
   }, [])
-
-  useEffect(() => {
-    return onValue(ref(db, 'inquilinos'), snap => {
-      const data = snap.val()
-      setInquilinos(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
-    })
-  }, [])
-
-  // Agrupa os inquilinos por garantia. Quando a garantia é "seguro", agrupa pela
-  // seguradora específica (inq.seguro), usando a cor cadastrada dessa seguradora.
-  const garantiaChartData = useMemo(() => {
-    const counts = {}
-    const cores = {}
-
-    inquilinos.forEach(inq => {
-      let label
-      let cor
-
-      if (inq.garantia === 'seguro' && inq.seguro) {
-        label = inq.seguro
-        const cadastrada = seguros.find(s => s.nome === inq.seguro)
-        cor = cadastrada?.cor || '#7c3aed'
-      } else {
-        label = GARANTIA_LABELS[inq.garantia] || 'Sem Garantia'
-        cor = GARANTIA_CORES[label] || '#cbd5e1'
-      }
-
-      counts[label] = (counts[label] || 0) + 1
-      cores[label] = cor
-    })
-
-    return Object.entries(counts)
-      .map(([name, value]) => ({ name, value, cor: cores[name] }))
-      .sort((a, b) => b.value - a.value)
-  }, [inquilinos, seguros])
-
-  const totalInquilinos = inquilinos.length
-
-  // Fatias do donut: mesmo cálculo de ângulo cumulativo usado no Dashboard
-  const garantiaSlices = useMemo(() => {
-    let cumulative = 0
-    return garantiaChartData.map(item => {
-      const percent = totalInquilinos > 0 ? Math.round((item.value / totalInquilinos) * 100) : 0
-      const startPercent = cumulative
-      cumulative += percent
-      return { ...item, percent, startPercent }
-    })
-  }, [garantiaChartData, totalInquilinos])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -133,9 +68,8 @@ export default function CadastrarSeguro() {
 
   return (
     <Layout title="Cadastrar Seguros" subtitle="Registre as seguradoras que poderão ser anexadas aos inquilinos">
-      {/* ── Formulário + Gráfico lado a lado ── */}
-      <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
-        <form onSubmit={handleSubmit} className="flex-1 min-w-0">
+      <div className="flex flex-col gap-6">
+        <form onSubmit={handleSubmit} className="min-w-0">
           {error && <div className="error-msg">{error}</div>}
 
           <div className="form-section">
@@ -176,64 +110,6 @@ export default function CadastrarSeguro() {
             </button>
           </div>
         </form>
-
-        {/* Gráfico no mesmo estilo de donut do Dashboard */}
-        <div className="card lg:w-[380px] lg:shrink-0">
-          <div className="card-header">
-            <h3>Garantias dos Inquilinos ({totalInquilinos})</h3>
-          </div>
-          <div className="card-body">
-            {totalInquilinos === 0 ? (
-              <div className="empty-state">
-                <div className="es-icon">📊</div>
-                <h3>Nenhum inquilino cadastrado</h3>
-                <p>O gráfico será exibido assim que houver inquilinos com garantia definida.</p>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4">
-                <div className="donut-chart" aria-label="Gráfico de pizza de garantias dos inquilinos">
-                  <svg viewBox="0 0 120 120" className="donut-svg">
-                    <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="24" />
-                    {garantiaSlices.map(slice => slice.percent > 0 && (
-                      <circle
-                        key={slice.name}
-                        cx="60"
-                        cy="60"
-                        r="40"
-                        fill="none"
-                        stroke={slice.cor}
-                        strokeWidth="24"
-                        strokeDasharray={`${(slice.percent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (slice.percent / 100) * DONUT_CIRCUMFERENCE}`}
-                        strokeDashoffset="0"
-                        transform={`rotate(${90 + (slice.startPercent / 100) * 360} 60 60)`}
-                        strokeLinecap="butt"
-                      />
-                    ))}
-                  </svg>
-                  <div className="donut-center">
-                    <strong>{totalInquilinos}</strong>
-                    <span>inquilinos</span>
-                  </div>
-                </div>
-
-                <div className="flex w-full flex-col gap-2">
-                  {garantiaSlices.map(item => (
-                    <div key={item.name} className="flex items-center justify-between gap-2 text-sm">
-                      <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                        <span
-                          className="shrink-0"
-                          style={{ width: 10, height: 10, borderRadius: '50%', background: item.cor, display: 'inline-block' }}
-                        />
-                        <span className="truncate">{item.name}</span>
-                      </span>
-                      <span className="shrink-0 font-medium">{item.value} ({item.percent}%)</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       </div>
 
       <div className="card" style={{ marginTop: 24 }}>

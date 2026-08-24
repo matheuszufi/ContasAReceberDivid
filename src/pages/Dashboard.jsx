@@ -633,6 +633,47 @@ export default function Dashboard() {
     return 'Todo o período'
   }, [garantiaFilterMode, garantiaFilterMonth, garantiaFilterStart, garantiaFilterEnd])
 
+  // Card "Garantias de Todos os Inquilinos"
+  const garantiasInquilinosBreakdown = useMemo(() => {
+    const counts = {}
+
+    inquilinos.forEach(inquilino => {
+      const garantia = inquilino.garantia || 'sem_garantia'
+      let key = garantia
+      let label = GARANTIA_LABELS[garantia] || garantia
+      let color = null
+
+      if (garantia === 'seguro') {
+        const seguroTipo = inquilino.seguro
+        const seguroLabel = SEGURO_FIANCA_LABELS[seguroTipo] || seguroTipo || 'Outro'
+        key = `seguro_${seguroTipo || 'outro'}`
+        label = `S.F. ${seguroLabel}`
+        color = seguroCorPorNome[seguroTipo] || null
+      }
+
+      if (!counts[key]) {
+        counts[key] = { key, label, color, count: 0 }
+      }
+      counts[key].count += 1
+    })
+
+    const total = inquilinos.length
+    return Object.values(counts)
+      .map(c => ({ ...c, percent: total > 0 ? Math.round((c.count / total) * 100) : 0 }))
+      .sort((a, b) => b.count - a.count)
+  }, [inquilinos, seguroCorPorNome])
+
+  const garantiaInquilinosTotal = inquilinos.length
+
+  const garantiaInquilinosSlices = useMemo(() => {
+    let cumulative = 0
+    return garantiasInquilinosBreakdown.map(item => {
+      const startPercent = cumulative
+      cumulative += item.percent
+      return { ...item, startPercent, color: item.color || GARANTIA_CHART_COLORS[item.key] || '#94a3b8' }
+    })
+  }, [garantiasInquilinosBreakdown])
+
   return (
     <Layout title="Dashboard" subtitle="Visão geral do sistema de gestão">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
@@ -1112,99 +1153,161 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      <Card className="mb-6">
-        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-4 border-b pb-4">
-          <div>
-            <CardTitle className="text-lg">Garantias dos Inadimplentes</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
-              Cada inquilino é contado uma vez (inclui pagos e em aberto), com detalhamento por seguradora quando aplicável.
-            </CardDescription>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Tabs value={garantiaFilterMode} onValueChange={setGarantiaFilterMode}>
-              <TabsList>
-                <TabsTrigger value="month">Por mês</TabsTrigger>
-                <TabsTrigger value="range">Por período</TabsTrigger>
-              </TabsList>
-            </Tabs>
-            {garantiaFilterMode === 'month' ? (
-              <input
-                type="month"
-                value={garantiaFilterMonth}
-                onChange={e => setGarantiaFilterMonth(e.target.value)}
-                style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
-              />
-            ) : (
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="date"
-                  value={garantiaFilterStart}
-                  onChange={e => setGarantiaFilterStart(e.target.value)}
-                  style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
-                />
-                <span className="text-xs text-muted-foreground">até</span>
-                <input
-                  type="date"
-                  value={garantiaFilterEnd}
-                  onChange={e => setGarantiaFilterEnd(e.target.value)}
-                  style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
-                />
-              </div>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-[0.6fr_1fr]">
-            <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border bg-card p-4">
-              <p className="mb-3 text-xs text-muted-foreground">{garantiaFilterLabel}</p>
-              <div className="donut-chart" aria-label="Gráfico de pizza de garantias">
-                <svg viewBox="0 0 120 120" className="donut-svg">
-                  <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="24" />
-                  {garantiaSlices.map(slice => slice.percent > 0 && (
-                    <circle
-                      key={slice.key}
-                      cx="60"
-                      cy="60"
-                      r="40"
-                      fill="none"
-                      stroke={slice.color}
-                      strokeWidth="24"
-                      strokeDasharray={`${(slice.percent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (slice.percent / 100) * DONUT_CIRCUMFERENCE}`}
-                      strokeDashoffset="0"
-                      transform={`rotate(${90 + (slice.startPercent / 100) * 360} 60 60)`}
-                      strokeLinecap="butt"
-                    />
-                  ))}
-                </svg>
-                <div className="donut-center">
-                  <strong>{garantiaTotal}</strong>
-                  <span>inquilinos</span>
-                </div>
-              </div>
+      <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Card>
+          <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-4 border-b pb-4">
+            <div>
+              <CardTitle className="text-lg">Garantias dos Inadimplentes</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Cada inquilino é contado uma vez (inclui pagos e em aberto), com detalhamento por seguradora quando aplicável.
+              </CardDescription>
             </div>
-            <div className="flex min-w-0 flex-col justify-center gap-2">
-              {garantiaBreakdown.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  Nenhum inadimplente no período selecionado.
-                </p>
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
+              <Tabs value={garantiaFilterMode} onValueChange={setGarantiaFilterMode}>
+                <TabsList>
+                  <TabsTrigger value="month">Por mês</TabsTrigger>
+                  <TabsTrigger value="range">Por período</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              {garantiaFilterMode === 'month' ? (
+                <input
+                  type="month"
+                  value={garantiaFilterMonth}
+                  onChange={e => setGarantiaFilterMonth(e.target.value)}
+                  style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                />
               ) : (
-                garantiaSlices.map(item => (
-                  <div key={item.key} className="flex items-center justify-between gap-2 text-sm">
-                    <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                      <span
-                        className="shrink-0"
-                        style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, display: 'inline-block' }}
-                      />
-                      <span className="truncate">{item.label}</span>
-                    </span>
-                    <span className="shrink-0 font-medium">{item.count} ({item.percent}%)</span>
-                  </div>
-                ))
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="date"
+                    value={garantiaFilterStart}
+                    onChange={e => setGarantiaFilterStart(e.target.value)}
+                    style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                  />
+                  <span className="text-xs text-muted-foreground">até</span>
+                  <input
+                    type="date"
+                    value={garantiaFilterEnd}
+                    onChange={e => setGarantiaFilterEnd(e.target.value)}
+                    style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                  />
+                </div>
               )}
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[0.6fr_1fr]">
+              <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border bg-card p-4">
+                <p className="mb-3 text-xs text-muted-foreground">{garantiaFilterLabel}</p>
+                <div className="donut-chart" aria-label="Gráfico de pizza de garantias dos inadimplentes">
+                  <svg viewBox="0 0 120 120" className="donut-svg">
+                    <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="24" />
+                    {garantiaSlices.map(slice => slice.percent > 0 && (
+                      <circle
+                        key={slice.key}
+                        cx="60"
+                        cy="60"
+                        r="40"
+                        fill="none"
+                        stroke={slice.color}
+                        strokeWidth="24"
+                        strokeDasharray={`${(slice.percent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (slice.percent / 100) * DONUT_CIRCUMFERENCE}`}
+                        strokeDashoffset="0"
+                        transform={`rotate(${90 + (slice.startPercent / 100) * 360} 60 60)`}
+                        strokeLinecap="butt"
+                      />
+                    ))}
+                  </svg>
+                  <div className="donut-center">
+                    <strong>{garantiaTotal}</strong>
+                    <span>inquilinos</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex min-w-0 flex-col justify-center gap-2">
+                {garantiaBreakdown.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Nenhum inadimplente no período selecionado.
+                  </p>
+                ) : (
+                  garantiaSlices.map(item => (
+                    <div key={item.key} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                        <span
+                          className="shrink-0"
+                          style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, display: 'inline-block' }}
+                        />
+                        <span className="truncate">{item.label}</span>
+                      </span>
+                      <span className="shrink-0 font-medium">{item.count} ({item.percent}%)</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="border-b pb-4">
+            <CardTitle className="text-lg">Garantias de Todos os Inquilinos</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              Distribuição atual das garantias cadastradas para todos os inquilinos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[0.6fr_1fr]">
+              <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border bg-card p-4">
+                <p className="mb-3 text-xs text-muted-foreground">Base atual</p>
+                <div className="donut-chart" aria-label="Gráfico de pizza de garantias de todos os inquilinos">
+                  <svg viewBox="0 0 120 120" className="donut-svg">
+                    <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="24" />
+                    {garantiaInquilinosSlices.map(slice => slice.percent > 0 && (
+                      <circle
+                        key={slice.key}
+                        cx="60"
+                        cy="60"
+                        r="40"
+                        fill="none"
+                        stroke={slice.color}
+                        strokeWidth="24"
+                        strokeDasharray={`${(slice.percent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (slice.percent / 100) * DONUT_CIRCUMFERENCE}`}
+                        strokeDashoffset="0"
+                        transform={`rotate(${90 + (slice.startPercent / 100) * 360} 60 60)`}
+                        strokeLinecap="butt"
+                      />
+                    ))}
+                  </svg>
+                  <div className="donut-center">
+                    <strong>{garantiaInquilinosTotal}</strong>
+                    <span>inquilinos</span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex min-w-0 flex-col justify-center gap-2">
+                {garantiasInquilinosBreakdown.length === 0 ? (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    Nenhum inquilino cadastrado.
+                  </p>
+                ) : (
+                  garantiaInquilinosSlices.map(item => (
+                    <div key={item.key} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                        <span
+                          className="shrink-0"
+                          style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, display: 'inline-block' }}
+                        />
+                        <span className="truncate">{item.label}</span>
+                      </span>
+                      <span className="shrink-0 font-medium">{item.count} ({item.percent}%)</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </Layout>
   )
 }
