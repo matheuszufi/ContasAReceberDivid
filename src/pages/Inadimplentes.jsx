@@ -769,10 +769,10 @@ export default function Inadimplentes() {
                     <td>
                       <div className="flex gap-1.5">
                         <Button size="sm" className="bg-[#25d366] text-white hover:bg-[#1fb057]" onClick={() => abrirWhatsApp(d)}>
-                          <MessageCircle /> WhatsApp
+                          <MessageCircle /> 
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => navigate(`/inadimplentes/editar/${d.id}`)}>
-                          <Pencil /> Editar
+                          <Pencil />
                         </Button>
                         <Button variant="destructive" size="icon" className="size-8" onClick={() => handleDelete(d.id)}>
                           <X />

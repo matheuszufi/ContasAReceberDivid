@@ -987,7 +987,7 @@
     color: var(--text-secondary);
   }
   .month-card.compact {
-    border-radius: 12px;
+    /* border-radius: 12px; */
     padding: 14px 16px;
     min-height: auto;
   }
@@ -1195,7 +1195,7 @@
     gap: 10px;
   }
   .month-grid.month-grid-compact .month-card {
-    border-radius: 12px;
+    /* border-radius: 12px; */
     padding: 12px 14px;
     justify-content: flex-start;
     min-height: 120px;
