@@ -165,8 +165,14 @@ export default function Desocupacoes() {
     update(ref(db, `inquilinos/${inquilinoId}`), { [campo]: valor })
   }
 
-  const handleStatusChange = (inquilinoId, status) => {
-    update(ref(db, `inquilinos/${inquilinoId}`), { status })
+  const handleStatusChange = (inq, status) => {
+    const updates = { status }
+    // ao inativar, o inquilino sai do imóvel e o imóvel volta a ficar disponível
+    if (status === 'Inativo' && inq.imovelId) {
+      updates.imovelId = null
+      update(ref(db, `imoveis/${inq.imovelId}`), { status: 'Disponível' })
+    }
+    update(ref(db, `inquilinos/${inq.id}`), updates)
   }
 
   const handleAdicionar = (e) => {
@@ -370,7 +376,7 @@ export default function Desocupacoes() {
                         </div>
                       </td>
                       <td>
-                        <StatusCell status={inq.status} onChange={v => handleStatusChange(inq.id, v)} />
+                        <StatusCell status={inq.status} onChange={v => handleStatusChange(inq, v)} />
                       </td>
                       <td className="flex gap-1.5">
                         <Button variant="outline" size="sm" onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}>

@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from 'react'
 import { ref, onValue, update } from 'firebase/database'
+import {
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
+} from 'firebase/auth'
 import { db } from '../firebase'
 import { useAuth } from '../auth'
 import Layout from '../components/Layout'
 
 const novoUsuarioInicial = { email: '', password: '', role: 'user' }
+const senhaFormInicial = { senhaAtual: '', novaSenha: '', confirmarSenha: '' }
 
 export default function Perfil() {
   const { user, isAdmin, createUser } = useAuth()
@@ -15,6 +21,11 @@ export default function Perfil() {
   const [novoUsuario, setNovoUsuario] = useState(novoUsuarioInicial)
   const [criandoUsuario, setCriandoUsuario] = useState(false)
   const [criarErro, setCriarErro] = useState(null)
+
+  const [senhaForm, setSenhaForm] = useState(senhaFormInicial)
+  const [alterandoSenha, setAlterandoSenha] = useState(false)
+  const [senhaErro, setSenhaErro] = useState(null)
+  const [senhaSucesso, setSenhaSucesso] = useState(false)
 
   useEffect(() => {
     return onValue(ref(db, 'usuariosMeta/hasAdmin'), snap => setHasAdmin(snap.val() === true))
@@ -80,6 +91,68 @@ export default function Perfil() {
     }
   }
 
+  const handleSenhaFormChange = (e) => {
+    const { name, value } = e.target
+    setSenhaForm(prev => ({ ...prev, [name]: value }))
+  }
+
+  const traduzirErroSenha = (err) => {
+    switch (err?.code) {
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        return 'Senha atual incorreta.'
+      case 'auth/weak-password':
+        return 'A nova senha é muito fraca. Use pelo menos 6 caracteres.'
+      case 'auth/requires-recent-login':
+        return 'Por segurança, faça login novamente antes de alterar sua senha.'
+      case 'auth/too-many-requests':
+        return 'Muitas tentativas. Aguarde alguns instantes e tente novamente.'
+      default:
+        return err?.message || 'Não foi possível alterar sua senha.'
+    }
+  }
+
+  const handleAlterarSenha = async (e) => {
+    e.preventDefault()
+    setSenhaErro(null)
+    setSenhaSucesso(false)
+
+    const { senhaAtual, novaSenha, confirmarSenha } = senhaForm
+
+    if (!senhaAtual) {
+      setSenhaErro('Informe sua senha atual.')
+      return
+    }
+    if (novaSenha.length < 6) {
+      setSenhaErro('A nova senha deve ter pelo menos 6 caracteres.')
+      return
+    }
+    if (novaSenha !== confirmarSenha) {
+      setSenhaErro('A confirmação não corresponde à nova senha.')
+      return
+    }
+    if (novaSenha === senhaAtual) {
+      setSenhaErro('A nova senha deve ser diferente da senha atual.')
+      return
+    }
+
+    setAlterandoSenha(true)
+    try {
+      // reautentica o usuário antes de trocar a senha (exigência do Firebase Auth)
+      const credential = EmailAuthProvider.credential(user.email, senhaAtual)
+      await reauthenticateWithCredential(user, credential)
+      await updatePassword(user, novaSenha)
+
+      setSenhaSucesso(true)
+      setSenhaForm(senhaFormInicial)
+    } catch (err) {
+      console.error('Erro ao alterar senha:', err)
+      setSenhaErro(traduzirErroSenha(err))
+    } finally {
+      setAlterandoSenha(false)
+    }
+  }
+
   return (
     <Layout title="Meu Perfil" subtitle="Gerencie seus dados de acesso">
       {error && <div className="error-msg">{error}</div>}
@@ -104,6 +177,60 @@ export default function Perfil() {
               {hasAdmin ? 'Já existe um administrador no sistema' : 'Tornar-se Administrador'}
             </button>
           )}
+        </div>
+      </div>
+
+      <div className="form-section">
+        <div className="form-section-header">
+          <span className="form-section-icon">🔒</span>
+          <h3>Alterar senha</h3>
+        </div>
+        <div className="form-section-body">
+          {senhaErro && <div className="error-msg">{senhaErro}</div>}
+          {senhaSucesso && <div className="success-msg">Senha alterada com sucesso.</div>}
+          <form onSubmit={handleAlterarSenha}>
+            <div className="form-group">
+              <label>Senha atual</label>
+              <input
+                name="senhaAtual"
+                type="password"
+                required
+                autoComplete="current-password"
+                value={senhaForm.senhaAtual}
+                onChange={handleSenhaFormChange}
+                placeholder="Digite sua senha atual"
+              />
+            </div>
+            <div className="form-group">
+              <label>Nova senha</label>
+              <input
+                name="novaSenha"
+                type="password"
+                required
+                minLength={6}
+                autoComplete="new-password"
+                value={senhaForm.novaSenha}
+                onChange={handleSenhaFormChange}
+                placeholder="Mínimo 6 caracteres"
+              />
+            </div>
+            <div className="form-group">
+              <label>Confirmar nova senha</label>
+              <input
+                name="confirmarSenha"
+                type="password"
+                required
+                minLength={6}
+                autoComplete="new-password"
+                value={senhaForm.confirmarSenha}
+                onChange={handleSenhaFormChange}
+                placeholder="Repita a nova senha"
+              />
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={alterandoSenha}>
+              {alterandoSenha ? 'Alterando...' : 'Alterar senha'}
+            </button>
+          </form>
         </div>
       </div>
 

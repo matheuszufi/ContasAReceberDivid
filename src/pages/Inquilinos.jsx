@@ -588,8 +588,14 @@ export default function Inquilinos() {
     await remove(ref(db, `inquilinos/${id}`))
   }
 
-  const handleStatusChange = async (id, status) => {
-    await update(ref(db, `inquilinos/${id}`), { status })
+  const handleStatusChange = async (inq, status) => {
+    const updates = { status }
+    // ao inativar, o inquilino sai do imóvel e o imóvel volta a ficar disponível
+    if (status === 'Inativo' && inq.imovelId) {
+      updates.imovelId = null
+      await update(ref(db, `imoveis/${inq.imovelId}`), { status: 'Disponível' })
+    }
+    await update(ref(db, `inquilinos/${inq.id}`), updates)
   }
 
   // Atualização genérica de um campo simples (texto) do inquilino
@@ -796,7 +802,7 @@ export default function Inquilinos() {
             value={inq.status || 'Ativo'}
             disabled={!inlineEditingEnabled}
             onClick={e => e.stopPropagation()}
-            onChange={e => handleStatusChange(inq.id, e.target.value)}
+            onChange={e => handleStatusChange(inq, e.target.value)}
           >
             <option value="Ativo">Ativo</option>
             <option value="Inativo">Inativo</option>

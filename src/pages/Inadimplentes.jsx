@@ -430,15 +430,15 @@ export default function Inadimplentes() {
                     <div className="mc-month">{formatMonthLabel(ym)}</div>
                     <div className="mc-stats">
                       <div className="mc-stat">
-                        <span className="mc-stat-label"><span className="mc-stat-icon">👤</span> Inadimplentes</span>
+                        <span className="mc-stat-label"><span className="mc-stat-icon"></span> Inadimplentes</span>
                         <span className="mc-stat-value">{s.totalInadimplentes}</span>
                       </div>
                       <div className="mc-stat">
-                        <span className="mc-stat-label"><span className="mc-stat-icon">💸</span> Em Aberto</span>
+                        <span className="mc-stat-label"><span className="mc-stat-icon"></span> Em Aberto</span>
                         <span className="mc-stat-value">{fmtMoney(s.valorAberto)}</span>
                       </div>
                       <div className="mc-stat">
-                        <span className="mc-stat-label"><span className="mc-stat-icon">✅</span> Recuperado</span>
+                        <span className="mc-stat-label"><span className="mc-stat-icon"></span> Recuperado</span>
                         <span className="mc-stat-value">{fmtMoney(s.valorRecuperado)}</span>
                       </div>
                     </div>
