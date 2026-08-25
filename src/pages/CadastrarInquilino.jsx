@@ -55,6 +55,7 @@ const initialForm = {
   garantia: '',
   seguro: '',
   valorSeguro: '',
+  seguroCobradoBoleto: false,
   valorGarantia: '',
   seguroFiancaMesInicio: '',
   seguroFiancaMesFim: '',
@@ -162,6 +163,7 @@ export default function CadastrarInquilino() {
         garantia: value,
         seguro: value === 'seguro' ? prev.seguro : '',
         valorSeguro: value === 'seguro' ? prev.valorSeguro : '',
+        seguroCobradoBoleto: value === 'seguro' ? prev.seguroCobradoBoleto : false,
         valorGarantia: (value === 'caucao' || value === 'adiantamento') ? prev.valorGarantia : '',
       }))
     } else {
@@ -240,6 +242,7 @@ export default function CadastrarInquilino() {
       vagas: parseInt(form.vagas) || 0,
       valorVaga: parseFloat(form.valorVaga) || 0,
       valorSeguro: parseFloat(form.valorSeguro) || 0,
+      seguroCobradoBoleto: form.garantia === 'seguro' ? !!form.seguroCobradoBoleto : false,
       valorGarantia: parseFloat(form.valorGarantia) || 0,
     }
 
@@ -657,6 +660,15 @@ required
                     value={form.valorSeguro} onChange={handleChange}
                     placeholder="0,00"
                   />
+                </div>
+                <div className="form-group fg-full">
+                  <label className="tenant-foreign-check">
+                    <input
+                      type="checkbox" name="seguroCobradoBoleto"
+                      checked={form.seguroCobradoBoleto} onChange={handleChange}
+                    />
+                    Cobrado no boleto do inquilino
+                  </label>
                 </div>
                 <div className="form-group">
                   <label>Primeiro mês de cobrança</label>

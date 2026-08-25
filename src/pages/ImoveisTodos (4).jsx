@@ -138,8 +138,6 @@ export default function ImoveisTodos() {
   const [modalParcela, setModalParcela] = useState(false)
   const [parcelaForm, setParcelaForm] = useState({ inquilinoId: '', descricao: '', valorParcela: '', mesInicio: '', mesFim: '' })
   const [parcelaSaving, setParcelaSaving] = useState(false)
-  const [inquilinoBusca, setInquilinoBusca] = useState('')
-  const [inquilinoSugestoesAberta, setInquilinoSugestoesAberta] = useState(false)
  
   const toggleSort = (field) => {
     if (sortBy === field) {
@@ -186,10 +184,6 @@ export default function ImoveisTodos() {
     const u6 = onValue(ref(db, 'cobrancasParceladas'), s => {
       const d = s.val()
       setCobrancasParceladas(d ? Object.entries(d).map(([id, v]) => ({ id, ...v })) : [])
-      setLoadedCP(true)
-    }, err => {
-      console.error('Erro ao carregar cobrancasParceladas (verifique as regras do Firebase):', err)
-      setCobrancasParceladas([])
       setLoadedCP(true)
     })
     return () => { u1(); u2(); u3(); u4(); u5(); u6() }
@@ -503,7 +497,6 @@ export default function ImoveisTodos() {
         criadoEm:     new Date().toISOString(),
       })
       setParcelaForm({ inquilinoId: '', descricao: '', valorParcela: '', mesInicio: '', mesFim: '' })
-      setInquilinoBusca('')
     } finally {
       setParcelaSaving(false)
     }
@@ -515,13 +508,6 @@ export default function ImoveisTodos() {
     } catch (err) {
       console.error('Erro ao remover cobrança parcelada:', err)
     }
-  }
-
-  const closeModalParcela = () => {
-    setModalParcela(false)
-    setParcelaForm({ inquilinoId: '', descricao: '', valorParcela: '', mesInicio: '', mesFim: '' })
-    setInquilinoBusca('')
-    setInquilinoSugestoesAberta(false)
   }
  
   const isCurrentYear   = year === currentYear
@@ -1220,26 +1206,13 @@ export default function ImoveisTodos() {
                       <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: 6, marginTop: 2, display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {parcelasModal.map(p => (
                           <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 13, color: '#334155' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                               🧾 {p.descricao}
-                              <span style={{ fontSize: 10, fontWeight: 700, background: '#f1f5f9', color: '#475569', borderRadius: 8, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, background: '#f1f5f9', color: '#475569', borderRadius: 8, padding: '1px 6px' }}>
                                 parcela {p.mesInicio} a {p.mesFim}
                               </span>
                             </span>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                              <strong>{fmtBRL(p.valorParcela)}</strong>
-                              <button
-                                onClick={() => {
-                                  if (window.confirm(`Excluir a cobrança parcelada "${p.descricao}" (${p.mesInicio} a ${p.mesFim})? Isso remove a parcela de todos os meses do período.`)) {
-                                    handleRemoveParcela(p.id)
-                                  }
-                                }}
-                                title="Excluir cobrança parcelada"
-                                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#f87171', fontSize: 15, padding: '0 2px', lineHeight: 1, flexShrink: 0 }}
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+                            <strong>{fmtBRL(p.valorParcela)}</strong>
                           </div>
                         ))}
                       </div>
@@ -1539,7 +1512,7 @@ export default function ImoveisTodos() {
       {modalParcela && (
         <div
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
-          onClick={closeModalParcela}
+          onClick={() => setModalParcela(false)}
         >
           <div
             style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 520, maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}
@@ -1547,63 +1520,22 @@ export default function ImoveisTodos() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0 }}>🧾 Nova Cobrança Parcelada</h3>
-              <button className="btn btn-secondary" style={{ width: 'auto', padding: '4px 10px' }} onClick={closeModalParcela}>✕</button>
+              <button className="btn btn-secondary" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => setModalParcela(false)}>✕</button>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-              <div style={{ position: 'relative' }}>
+              <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Inquilino *</div>
-                <input
-                  type="text"
-                  value={inquilinoBusca}
-                  onChange={e => {
-                    setInquilinoBusca(e.target.value)
-                    setInquilinoSugestoesAberta(true)
-                    if (parcelaForm.inquilinoId) setParcelaForm(p => ({ ...p, inquilinoId: '' }))
-                  }}
-                  onFocus={() => setInquilinoSugestoesAberta(true)}
-                  onBlur={() => setTimeout(() => setInquilinoSugestoesAberta(false), 150)}
-                  placeholder="Digite o nome do inquilino..."
-                  autoComplete="off"
-                  style={{
-                    width: '100%', padding: '6px 8px', boxSizing: 'border-box',
-                    border: `1.5px solid ${parcelaForm.inquilinoId ? '#86efac' : '#e2e8f0'}`,
-                    borderRadius: 6, fontSize: 13, outline: 'none',
-                    background: parcelaForm.inquilinoId ? '#f0fdf4' : '#fff',
-                  }}
-                />
-                {inquilinoSugestoesAberta && inquilinoBusca.trim() && (() => {
-                  const termo = inquilinoBusca.toLowerCase()
-                  const matches = rows.filter(({ inquilino }) => inquilino.nome?.toLowerCase().includes(termo))
-                  return (
-                    <div style={{
-                      position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2,
-                      background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 6,
-                      boxShadow: '0 8px 20px rgba(0,0,0,0.12)', maxHeight: 220, overflowY: 'auto', zIndex: 10,
-                    }}>
-                      {matches.length === 0 ? (
-                        <div style={{ padding: '8px 10px', fontSize: 12, color: '#94a3b8' }}>Nenhum inquilino encontrado.</div>
-                      ) : (
-                        matches.map(({ imovel, inquilino }) => (
-                          <div
-                            key={inquilino.id}
-                            onMouseDown={() => {
-                              setParcelaForm(p => ({ ...p, inquilinoId: inquilino.id }))
-                              setInquilinoBusca(`${inquilino.nome} (${imovel.codigo})`)
-                              setInquilinoSugestoesAberta(false)
-                            }}
-                            style={{ padding: '7px 10px', fontSize: 13, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', gap: 8 }}
-                            onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
-                            onMouseLeave={e => (e.currentTarget.style.background = '')}
-                          >
-                            <span>{inquilino.nome}</span>
-                            <span style={{ color: '#94a3b8', fontSize: 11 }}>{imovel.codigo}</span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )
-                })()}
+                <select
+                  value={parcelaForm.inquilinoId}
+                  onChange={e => setParcelaForm(p => ({ ...p, inquilinoId: e.target.value }))}
+                  style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}
+                >
+                  <option value="">Selecione...</option>
+                  {rows.map(({ imovel, inquilino }) => (
+                    <option key={inquilino.id} value={inquilino.id}>{imovel.codigo} — {inquilino.nome}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Descrição</div>

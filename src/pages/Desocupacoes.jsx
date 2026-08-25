@@ -6,7 +6,7 @@ import Layout from '../components/Layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Package, House, Search, Plus, Pencil, Trash2, X } from 'lucide-react'
+import { Package, House, Search, Plus, Pencil, Trash2, X, Undo2 } from 'lucide-react'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 
@@ -138,6 +138,15 @@ export default function Desocupacoes() {
     [inquilinos]
   )
 
+  // Já desocuparam: inquilinos inativados (assim que o status vira Inativo, saem da
+  // planilha "Desocupando" acima e entram aqui, mantendo o histórico de data/contas)
+  const jaDesocuparam = useMemo(
+    () => inquilinos
+      .filter(i => i.status === 'Inativo' && (i.dataSaida || i.desocupando))
+      .sort((a, b) => (b.dataSaida || '').localeCompare(a.dataSaida || '')),
+    [inquilinos]
+  )
+
   const disponiveisParaAdicionar = useMemo(
     () => inquilinos
       .filter(i => !i.dataSaida && !i.desocupando)
@@ -155,6 +164,17 @@ export default function Desocupacoes() {
       )
     })
   }, [desocupando, imovelMap, search])
+
+  const filteredDesocupados = useMemo(() => {
+    const termo = search.toLowerCase()
+    return jaDesocuparam.filter(i => {
+      const imovel = imovelMap[i.imovelId]
+      return (
+        (i.nome || '').toLowerCase().includes(termo) ||
+        (imovel?.codigo || i.codigoImovel || '').toLowerCase().includes(termo)
+      )
+    })
+  }, [jaDesocuparam, imovelMap, search])
 
   const imoveisEnvolvidos = useMemo(
     () => new Set(desocupando.map(i => i.imovelId).filter(Boolean)).size,
@@ -187,6 +207,13 @@ export default function Desocupacoes() {
     update(ref(db, `inquilinos/${inquilinoId}`), { desocupando: false, dataSaida: '' })
   }
 
+  // Reverte um inquilino já desocupado de volta para "Ativo", caso tenha sido
+  // inativado por engano ou precise voltar a aparecer como inquilino corrente
+  const handleReativar = (inquilinoId) => {
+    if (!window.confirm('Reativar este inquilino?')) return
+    update(ref(db, `inquilinos/${inquilinoId}`), { status: 'Ativo' })
+  }
+
   const abrirAdicionarConta = (inq) => {
     setAddingExtraFor(inq.id)
     setNovaContaNome('')
@@ -216,6 +243,68 @@ export default function Desocupacoes() {
     const monthKey = inq.dataSaida.substring(0, 7)
     remove(ref(db, `valoresVariaveis/${inq.id}/${monthKey}/extras/${item.key}`))
   }
+
+  // Renderiza a lista de badges de contas (reaproveitada pelas duas tabelas)
+  const renderContasMes = (inq, itens, editable) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, maxWidth: 340 }}>
+      {itens.map(item => (
+        <span
+          key={item.key}
+          title={item.label}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 3,
+            background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 12,
+            padding: '2px 6px', fontSize: 11, whiteSpace: 'nowrap',
+          }}
+        >
+          {item.icone} {item.label}: {fmtMoney(item.valor)}
+          {editable && item.key.startsWith('extra_') && (
+            <X
+              className="size-3 cursor-pointer text-muted-foreground hover:text-destructive"
+              onClick={() => handleRemoverConta(inq, item)}
+            />
+          )}
+        </span>
+      ))}
+      {editable && inq.dataSaida && (
+        addingExtraFor === inq.id ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <input
+              autoFocus
+              type="text"
+              placeholder="Nome"
+              value={novaContaNome}
+              onChange={e => setNovaContaNome(e.target.value)}
+              style={{ width: 90, fontSize: 11, padding: '2px 4px' }}
+            />
+            <input
+              type="number"
+              step="0.01"
+              placeholder="Valor"
+              value={novaContaValor}
+              onChange={e => setNovaContaValor(e.target.value)}
+              style={{ width: 70, fontSize: 11, padding: '2px 4px' }}
+            />
+            <Button size="sm" className="h-6 px-2" onClick={() => handleAdicionarConta(inq)}>OK</Button>
+            <Button size="sm" variant="outline" className="h-6 px-2" onClick={cancelarAdicionarConta}>✕</Button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => abrirAdicionarConta(inq)}
+            title="Adicionar conta"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 2,
+              border: '1px dashed #cbd5e1', borderRadius: 12, background: 'transparent',
+              padding: '2px 6px', fontSize: 11, cursor: 'pointer', color: '#64748b',
+            }}
+          >
+            <Plus className="size-3" /> conta
+          </button>
+        )
+      )}
+    </div>
+  )
 
   return (
     <Layout title="Desocupações" subtitle="Controle de inquilinos em processo de desocupação">
@@ -247,7 +336,7 @@ export default function Desocupacoes() {
         </form>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
           <CardContent className="flex items-center gap-4">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
@@ -270,9 +359,20 @@ export default function Desocupacoes() {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-slate-500/10 text-slate-600">
+              <Trash2 className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-2xl font-semibold tracking-tight">{jaDesocuparam.length}</p>
+              <p className="truncate text-sm text-muted-foreground">Já Desocuparam</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      <Card>
+      <Card className="mb-6">
         <CardHeader className="border-b pb-4">
           <CardTitle className="text-lg">Inquilinos Desocupando ({filtered.length})</CardTitle>
         </CardHeader>
@@ -315,66 +415,7 @@ export default function Desocupacoes() {
                           onBlur={e => handleCampoChange(inq.id, 'dataSaida', e.target.value)}
                         />
                       </td>
-                      <td>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, maxWidth: 340 }}>
-                          {contasMes.map(item => (
-                            <span
-                              key={item.key}
-                              title={item.label}
-                              style={{
-                                display: 'inline-flex', alignItems: 'center', gap: 3,
-                                background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 12,
-                                padding: '2px 6px', fontSize: 11, whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {item.icone} {item.label}: {fmtMoney(item.valor)}
-                              {item.key.startsWith('extra_') && (
-                                <X
-                                  className="size-3 cursor-pointer text-muted-foreground hover:text-destructive"
-                                  onClick={() => handleRemoverConta(inq, item)}
-                                />
-                              )}
-                            </span>
-                          ))}
-                          {inq.dataSaida && (
-                            addingExtraFor === inq.id ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                                <input
-                                  autoFocus
-                                  type="text"
-                                  placeholder="Nome"
-                                  value={novaContaNome}
-                                  onChange={e => setNovaContaNome(e.target.value)}
-                                  style={{ width: 90, fontSize: 11, padding: '2px 4px' }}
-                                />
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  placeholder="Valor"
-                                  value={novaContaValor}
-                                  onChange={e => setNovaContaValor(e.target.value)}
-                                  style={{ width: 70, fontSize: 11, padding: '2px 4px' }}
-                                />
-                                <Button size="sm" className="h-6 px-2" onClick={() => handleAdicionarConta(inq)}>OK</Button>
-                                <Button size="sm" variant="outline" className="h-6 px-2" onClick={cancelarAdicionarConta}>✕</Button>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => abrirAdicionarConta(inq)}
-                                title="Adicionar conta"
-                                style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 2,
-                                  border: '1px dashed #cbd5e1', borderRadius: 12, background: 'transparent',
-                                  padding: '2px 6px', fontSize: 11, cursor: 'pointer', color: '#64748b',
-                                }}
-                              >
-                                <Plus className="size-3" /> conta
-                              </button>
-                            )
-                          )}
-                        </div>
-                      </td>
+                      <td>{renderContasMes(inq, contasMes, true)}</td>
                       <td>
                         <StatusCell status={inq.status} onChange={v => handleStatusChange(inq, v)} />
                       </td>
@@ -384,6 +425,61 @@ export default function Desocupacoes() {
                         </Button>
                         <Button variant="destructive" size="sm" onClick={() => handleRemover(inq.id)}>
                           <Trash2 /> Remover
+                        </Button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="border-b pb-4">
+          <CardTitle className="text-lg">Inquilinos que já Desocuparam ({filteredDesocupados.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="px-0">
+        <div className="table-container">
+          {loading ? (
+            <div className="empty-state">Carregando...</div>
+          ) : filteredDesocupados.length === 0 ? (
+            <div className="empty-state">Nenhum inquilino desocupou ainda.</div>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Inquilino</th>
+                  <th>Imóvel</th>
+                  <th>Modelo</th>
+                  <th>Data de Saída</th>
+                  <th>Contas do Mês de Desocupação</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredDesocupados.map(inq => {
+                  const imovel = imovelMap[inq.imovelId]
+                  const contasMes = getContasMes(inq)
+                  return (
+                    <tr key={inq.id}>
+                      <td>{inq.nome}</td>
+                      <td>{imovel?.codigo || inq.codigoImovel || '—'}</td>
+                      <td>
+                        {imovel?.modelo
+                          ? <span className={`badge ${modeloBadge[imovel.modelo] || 'badge-gray'}`}>{imovel.modelo}</span>
+                          : '—'}
+                      </td>
+                      <td>{inq.dataSaida ? new Date(inq.dataSaida + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</td>
+                      <td>{renderContasMes(inq, contasMes, false)}</td>
+                      <td className="flex gap-1.5">
+                        <Button variant="outline" size="sm" onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}>
+                          <Pencil /> Editar
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleReativar(inq.id)}>
+                          <Undo2 /> Reativar
                         </Button>
                       </td>
                     </tr>
