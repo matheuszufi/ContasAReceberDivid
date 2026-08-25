@@ -732,7 +732,7 @@ export default function Inadimplentes() {
                         return (
                           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                             <span
-                              style={{fontSize: 11, fontWeight: 600, borderRadius: 10, padding: '2px 8px', background: style.bg, whiteSpace: 'nowrap', color: style.color, border: `1px solid ${style.border}`, cursor: 'pointer'}}
+                              style={{fontSize: 11, fontWeight: 600, borderRadius: 0, padding: '2px 8px', background: style.bg, whiteSpace: 'nowrap', color: style.color, border: `1px solid ${style.border}`, cursor: 'pointer'}}
                               title="Clique para alterar a garantia"
                               onClick={() => setEditingGarantiaId(d.id)}
                             >
@@ -743,7 +743,7 @@ export default function Inadimplentes() {
                                 type="button"
                                 title="Abrir portal da seguradora"
                                 onClick={() => abrirGarantia(d)}
-                                style={{ fontSize: 11, lineHeight: 1, padding: '3px 5px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}
+                                style={{ fontSize: 11, lineHeight: 1, padding: '3px 5px', borderRadius: 0, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer' }}
                               >
                                 🔗
                               </button>
@@ -760,7 +760,7 @@ export default function Inadimplentes() {
                             value={current.value}
                             onChange={e => handleSeguroAcionadoChange(d.id, e.target.value)}
                             style={{
-                              fontSize: 11, fontWeight: 600, borderRadius: 10, padding: '2px 8px',
+                              fontSize: 11, fontWeight: 600, borderRadius: 0, padding: '2px 8px',
                               background: current.bg,
                               color: current.color,
                               border: `1px solid ${current.border}`,
@@ -790,7 +790,7 @@ export default function Inadimplentes() {
                             value={current.value}
                             onChange={e => handleStatusChange(d.id, e.target.value)}
                             style={{
-                              fontSize: 11, fontWeight: 600, borderRadius: 10, padding: '2px 8px',
+                              fontSize: 11, fontWeight: 600, borderRadius: 0, padding: '2px 8px',
                               background: current.bg,
                               color: current.color,
                               border: `1px solid ${current.border}`,
@@ -809,7 +809,7 @@ export default function Inadimplentes() {
                         type="date"
                         value={d.ultimaCobranca || ''}
                         onChange={e => handleUltimaCobrancaChange(d.id, e.target.value)}
-                        style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                        style={{ fontSize: 12, padding: '2px 6px', borderRadius: 0, border: '1px solid #e2e8f0' }}
                       />
                     </td>
                     <td>
