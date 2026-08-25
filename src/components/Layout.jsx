@@ -7,6 +7,7 @@ const navSections = [
     label: 'Principal',
     items: [
       { path: '/dashboard', icon: '', label: 'Dashboard' },
+      { path: '/perfil',    icon: '', label: 'Meu Perfil' },
     ]
   },
   {

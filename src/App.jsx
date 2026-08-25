@@ -1,7 +1,6 @@
 import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
-import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Imoveis from './pages/Imoveis'
 import ImoveisTodos from './pages/ImoveisTodos'
@@ -20,6 +19,7 @@ import TimelineInadimplencia from './pages/TimelineInadimplencia'
 import SeguroFianca from './pages/SeguroFianca'
 import SeguroIncendio from './pages/SeguroIncendio'
 import Desocupacoes from './pages/Desocupacoes'
+import Perfil from './pages/Perfil'
 import { useAuth } from './auth'
 import { firebaseError } from './firebase'
 
@@ -69,7 +69,6 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
-      <Route path="/register" element={<Register />} />
       <Route path="/dashboard"                  element={<PrivateRoute><Dashboard /></PrivateRoute>} />
       <Route path="/imoveis"                    element={<PrivateRoute><Imoveis /></PrivateRoute>} />
       <Route path="/imoveis-todos"              element={<PrivateRoute><ImoveisTodos /></PrivateRoute>} />
@@ -92,6 +91,7 @@ export default function App() {
       <Route path="/seguro-fianca"               element={<PrivateRoute><SeguroFianca /></PrivateRoute>} />
       <Route path="/seguro-incendio"             element={<PrivateRoute><SeguroIncendio /></PrivateRoute>} />
       <Route path="/desocupacoes"                element={<PrivateRoute><Desocupacoes /></PrivateRoute>} />
+      <Route path="/perfil"                      element={<PrivateRoute><Perfil /></PrivateRoute>} />
     </Routes>
   )
 }

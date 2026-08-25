@@ -42,6 +42,7 @@ const missingKeys = requiredEnvKeys.filter(([envKey, configKey]) => {
 let app = null;
 let auth = null;
 let db = null;
+let secondaryAuth = null;
 let firebaseError = null;
 
 if (missingKeys.length > 0) {
@@ -54,11 +55,14 @@ if (missingKeys.length > 0) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getDatabase(app);
+    // app secundário isolado: cria contas sem trocar a sessão do administrador logado
+    const secondaryApp = initializeApp(firebaseConfig, 'AdminUserCreation');
+    secondaryAuth = getAuth(secondaryApp);
   } catch (error) {
     firebaseError = error;
     console.error('Firebase initialization failed:', error);
   }
 }
 
-export { firebaseError, auth, db };
+export { firebaseError, auth, db, secondaryAuth };
 

@@ -39,9 +39,6 @@ export default function Login() {
           <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required placeholder="••••••••" />
         </div>
         <button type="submit" className="btn btn-primary btn-block">Entrar</button>
-        <button type="button" className="btn btn-secondary btn-block" onClick={() => navigate('/register')}>
-          Criar conta
-        </button>
       </form>
     </div>
   )
