@@ -727,7 +727,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card>
           <CardContent className="flex items-center gap-4">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+            <div className="flex size-11 shrink-0 items-center justify-center  bg-blue-500/10 text-blue-600">
               <Building2 className="size-5" />
             </div>
             <div className="min-w-0">
@@ -738,7 +738,7 @@ export default function Dashboard() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-4">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
+            <div className="flex size-11 shrink-0 items-center justify-center bg-emerald-500/10 text-emerald-600">
               <Users className="size-5" />
             </div>
             <div className="min-w-0">
@@ -749,7 +749,7 @@ export default function Dashboard() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-4">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
+            <div className="flex size-11 shrink-0 items-center justify-center bg-amber-500/10 text-amber-600">
               <TriangleAlert className="size-5" />
             </div>
             <div className="min-w-0">
@@ -760,7 +760,7 @@ export default function Dashboard() {
         </Card>
         <Card>
           <CardContent className="flex items-center gap-4">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
+            <div className="flex size-11 shrink-0 items-center justify-center bg-violet-500/10 text-violet-600">
               <Wallet className="size-5" />
             </div>
             <div className="min-w-0">
@@ -832,7 +832,7 @@ export default function Dashboard() {
         <CardContent className="px-4 py-3">
           <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-12">
             {MONTH_LABELS.map((label, index) => (
-              <div key={label} className="rounded-md border bg-muted/20 px-2 py-1.5">
+              <div key={label} className=" border bg-muted/20 px-2 py-1.5">
                 <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
                 <div className="mt-0.5 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1" title="Ocupações no mês">
@@ -956,7 +956,7 @@ export default function Dashboard() {
         </div>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.5fr_0.8fr_300px]">
-            <div className="flex min-w-0 flex-col rounded-lg border bg-card p-4">
+            <div className="flex min-w-0 flex-col border bg-card p-4">
               <div className="mb-3">
                 <h4 className="font-medium">Recuperação de Inadimplência</h4>
                 <p className="text-xs text-muted-foreground">{selectedPeriodLabel}</p>
@@ -1073,7 +1073,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col rounded-lg border bg-card p-4">
+            <div className="flex min-w-0 flex-col border bg-card p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="font-medium">Pagamentos por mês</h4>
@@ -1163,7 +1163,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col rounded-lg border bg-card p-4">
+            <div className="flex min-w-0 flex-col border bg-card p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="font-medium">Maiores inadimplentes</h4>
@@ -1245,7 +1245,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-[0.6fr_1fr]">
-              <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border bg-card p-4">
+              <div className="flex min-w-0 flex-col items-center justify-center border bg-card p-4">
                 <p className="mb-3 text-xs text-muted-foreground">{garantiaFilterLabel}</p>
                 <div className="donut-chart" aria-label="Gráfico de pizza de garantias dos inadimplentes">
                   <svg viewBox="0 0 120 120" className="donut-svg">
@@ -1335,7 +1335,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-[0.6fr_1fr]">
-              <div className="flex min-w-0 flex-col items-center justify-center rounded-lg border bg-card p-4">
+              <div className="flex min-w-0 flex-col items-center justify-center border bg-card p-4">
                 <p className="mb-3 text-center text-xs text-muted-foreground">{garantiaInquilinosFilterLabel}</p>
                 <div className="donut-chart" aria-label="Gráfico de pizza de garantias de todos os inquilinos">
                   <svg viewBox="0 0 120 120" className="donut-svg">
