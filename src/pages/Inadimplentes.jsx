@@ -39,6 +39,7 @@ const SEGURO_ACIONADO_OPCOES = [
   { value: 'necessita_documentos',  label: 'Necessita Documentos',  bg: '#fffbeb', color: '#b45309', border: '#fde68a' },
   { value: 'pagamento_aprovado',    label: 'Pagamento Aprovado',    bg: '#f0fdf4', color: '#166534', border: '#86efac' },
   { value: 'pagamento_reprovado',   label: 'Pagamento Reprovado',   bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+  { value: 'juridico',   label: 'Jurídico',   bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
 ]
 
 const GARANTIA_LABELS = {
