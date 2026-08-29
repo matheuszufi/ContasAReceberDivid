@@ -67,11 +67,11 @@ const GARANTIA_CHART_COLORS = {
 
 // Cores usadas no card "Recuperação de Inadimplência" (donut + tooltips + cards mensais)
 const RECOVERY_COLORS = {
-  recuperado: '#22c55e',
-  aprovadoSeguradora: '#eab308',
+  recuperado: '#22c55e9f',
+  aprovadoSeguradora: '#a6ea08a6',
   aguardarAcionar: '#64748b',
-  juridico: '#ef4444',
-  acionado: '#3b82f6',
+  juridico: '#ef4444a6',
+  acionado: '#3b83f68f',
 }
 
 const fmtMoney = (value) =>
@@ -1207,8 +1207,8 @@ export default function Dashboard() {
                         right: 0,
                         bottom: `${card.recoveredPercent}%`,
                         height: `${card.approvedPercent}%`,
-                        background: 'rgba(234, 179, 8, 0.3)',
-                        borderTop: card.approvedPercent > 0 ? '2px solid #eab308' : 'none',
+                        background: 'rgba(166, 234, 8, 0.3)',
+                        borderTop: card.approvedPercent > 0 ? '2px solid #a8e00ea1' : 'none',
                         transition: 'height 0.3s ease, bottom 0.3s ease',
                         pointerEvents: 'none',
                         zIndex: 0,

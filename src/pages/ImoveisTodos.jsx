@@ -293,9 +293,9 @@ export default function ImoveisTodos() {
  
   const openModal = (row, mi) => {
     const key = monthKey(mi)
-    setModal({ ...row, mi, key, items: getItems(row.inquilino.id, mi) })
     const saved = valoresVariaveis[row.inquilino.id]?.[key] || {}
-    const { extras, _obs, _registrado, ...vals } = saved
+    setModal({ ...row, mi, key, items: getItems(row.inquilino.id, mi), travado: !!saved._travado })
+    const { extras, _obs, _registrado, _travado, _travadoEm, ...vals } = saved
     console.log('[openModal] inquilino', row.inquilino.id, 'mes', key, 'dados carregados:', saved)
     setVarValues(vals || {})
     setRegistradoVar(_registrado || {})
@@ -433,6 +433,68 @@ export default function ImoveisTodos() {
       setRegistradoVar(prev => ({ ...prev, ...patch }))
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/_registrado`), patch)
         .catch(err => { console.error('Erro ao marcar todas:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
+    }
+  }
+
+  // ---- Travar / destravar célula ----
+  // Ao travar, grava explicitamente todos os componentes do valor mensal (aluguel, contas,
+  // seguro, garagem, garantia) em valoresVariaveis. Como o restante do código já dá prioridade
+  // a valores explícitos (`k in cellVarVals`) sobre os valores recalculados a partir do
+  // cadastro, isso "congela" a célula: futuras alterações no aluguel/contas do inquilino ou
+  // imóvel não afetam mais um mês travado.
+  const handleLockCell = async (imovel, inquilino, mi) => {
+    const cellKey = monthKey(mi)
+    const vv = valoresVariaveis[inquilino.id]?.[cellKey] || {}
+    const jaTravado = !!vv._travado
+
+    if (jaTravado) {
+      try {
+        await update(ref(db, `valoresVariaveis/${inquilino.id}/${cellKey}`), { _travado: false })
+      } catch (err) {
+        console.error('Erro ao destravar célula:', err)
+        setSaveError(`Erro ao destravar célula: ${err.message}`)
+      }
+      return
+    }
+
+    const { extras: _extras, _registrado, _travado, _travadoEm, ...cellVarVals } = vv
+    const { mesInicio } = getMesRange(inquilino)
+
+    const aluguelCheio = Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
+    const aluguel = '_aluguel' in cellVarVals
+      ? Number(cellVarVals._aluguel) || 0
+      : (cellKey === mesInicio ? aluguelCheio * getFracaoEntrada(inquilino) : aluguelCheio)
+
+    const valorSeguro = '_seguro' in cellVarVals
+      ? Number(cellVarVals._seguro) || 0
+      : ((inquilino.garantia === 'seguro' && isMesDentroRange(cellKey, inquilino.seguroFiancaMesInicio, inquilino.seguroFiancaMesFim)) ? Number(inquilino.valorSeguro) || 0 : 0)
+
+    const valorGaragem = '_garagem' in cellVarVals
+      ? Number(cellVarVals._garagem) || 0
+      : (Number(inquilino.vagas) || 0) * (Number(inquilino.valorVaga) || 0)
+
+    const valorGarantia = (inquilino.garantia === 'caucao' || inquilino.garantia === 'adiantamento') && cellKey === mesInicio
+      ? Number(inquilino.valorGarantia) || 0
+      : 0
+
+    const contasDoImovel = (imovel.contasInclusas || inquilino.contasInclusas || [])
+    const payload = { _aluguel: aluguel, _travado: true, _travadoEm: new Date().toISOString() }
+
+    contasDoImovel.forEach(k => {
+      if (isContaPagaImobiliaria(inquilino, k)) return
+      if (isSeguroIncendioKey(k) && !isMesDentroRange(cellKey, inquilino.seguroIncendioMesInicio, inquilino.seguroIncendioMesFim)) return
+      payload[k] = k in cellVarVals ? (Number(cellVarVals[k]) || 0) : (Number(inquilino.contasValores?.[k]) || 0)
+    })
+
+    if (valorSeguro > 0)   payload._seguro   = valorSeguro
+    if (valorGaragem > 0)  payload._garagem  = valorGaragem
+    if (valorGarantia > 0) payload._garantia = valorGarantia
+
+    try {
+      await update(ref(db, `valoresVariaveis/${inquilino.id}/${cellKey}`), payload)
+    } catch (err) {
+      console.error('Erro ao travar célula:', err)
+      setSaveError(`Erro ao travar célula: ${err.message}`)
     }
   }
  
@@ -806,7 +868,7 @@ export default function ImoveisTodos() {
                         }
  
                         const vv          = valoresVariaveis[inquilino.id]?.[cellKey] || {}
-                        const { extras: cellExtras, _registrado: cellRegistradoVar, ...cellVarVals } = vv
+                        const { extras: cellExtras, _registrado: cellRegistradoVar, _travado: cellTravado, ...cellVarVals } = vv
                         const aluguelCheio = Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
                         const aluguel      = '_aluguel' in cellVarVals ? Number(cellVarVals._aluguel) || 0 : (cellKey === mesInicio ? aluguelCheio * getFracaoEntrada(inquilino) : aluguelCheio)
                         const valorSeguro  = '_seguro'  in cellVarVals ? Number(cellVarVals._seguro)  || 0 : ((inquilino.garantia === 'seguro' && isMesDentroRange(cellKey, inquilino.seguroFiancaMesInicio, inquilino.seguroFiancaMesFim)) ? Number(inquilino.valorSeguro) || 0 : 0)
@@ -857,37 +919,43 @@ export default function ImoveisTodos() {
                             ? { bg: '#fee2e2', border: '#fca5a5', color: '#991b1b', icon: '' }
                             : { bg: '#f1f5f9', border: '#e2e8f0', color: '#94a3b8', icon: '' }
  
-                        const cellBg = isDesocupacao
-                          ? '#cbd5e1'
-                          : variavelAlerta
-                            ? '#ede9fe'
-                            : isCellGreen
-                              ? '#dcfce7'
-                              : isCellYellow
-                                ? '#fee2e2'
-                                : summary
-                                  ? STATUS_STYLE[summary]?.bg
-                                  : isReajuste
-                                    ? (isCur ? '#eff6ff' : '#fffbeb')
-                                    : isCur
-                                      ? '#eff6ff'
-                                      : temExtra
-                                        ? '#fff7ed'
-                                        : undefined
+                        const cellBg = cellTravado
+                          ? '#bbf7d0'
+                          : isDesocupacao
+                            ? '#cbd5e1'
+                            : variavelAlerta
+                              ? '#ede9fe'
+                              : isCellGreen
+                                ? '#dcfce7'
+                                : isCellYellow
+                                  ? '#fee2e2'
+                                  : summary
+                                    ? STATUS_STYLE[summary]?.bg
+                                    : isReajuste
+                                      ? (isCur ? '#eff6ff' : '#fffbeb')
+                                      : isCur
+                                        ? '#eff6ff'
+                                        : temExtra
+                                          ? '#fff7ed'
+                                          : undefined
  
                         return (
                           <td
                             key={mi}
                             style={{
                               ...tdC,
+                              position: 'relative',
                               ...(cellBg ? { background: cellBg } : {}),
+                              ...(cellTravado ? { boxShadow: 'inset 0 0 0 1.5px #22c55e' } : {}),
                               ...(isReajuste ? { borderBottom: '2.5px solid #f59e0b' } : {}),
                               ...(isDesocupacao ? { borderLeft: '3px solid #ef4444' } : {}),
                               ...(variavelAlerta && !isDesocupacao ? { borderLeft: '3px solid #a855f7' } : {}),
                               ...(temExtra ? { borderRight: '3px solid #f97316' } : {}),
                             }}
                             onClick={() => openModal({ imovel, inquilino }, mi)}
-                            title={isDesocupacao
+                            title={cellTravado
+                              ? 'Valores travados — clique para ver detalhes'
+                              : isDesocupacao
                               ? 'Mês de desocupação — clique para ver detalhes'
                               : variavelPendente
                               ? `Falta lançar: ${pendentesNomes.join(', ')}`
@@ -899,6 +967,14 @@ export default function ImoveisTodos() {
                                 ? `${items.length} registro(s) — clique para detalhes`
                                 : 'Clique para registrar conta'}
                           >
+                            <input
+                              type="checkbox"
+                              checked={!!cellTravado}
+                              onChange={() => {}}
+                              onClick={e => { e.stopPropagation(); handleLockCell(imovel, inquilino, mi) }}
+                              title={cellTravado ? 'Destravar valores deste mês' : 'Travar valores deste mês (impede alterações futuras)'}
+                              style={{ position: 'absolute', top: 3, right: 3, width: 13, height: 13, cursor: 'pointer', zIndex: 2, accentColor: '#16a34a' }}
+                            />
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                               <div style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 3,
@@ -994,6 +1070,10 @@ export default function ImoveisTodos() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#94a3b8' }}>
           <span style={{ color: '#cbd5e1', fontSize: 16 }}>+</span> Não registrado
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#166534' }}>
+          <span style={{ background: '#bbf7d0', border: '1px solid #22c55e', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>☑</span>
+          Valores travados (não se alteram com reajustes futuros)
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#b45309' }}>
           <span style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: 4, padding: '1px 6px', fontWeight: 700 }}>📅</span>
           12º aluguel (reajuste)
@@ -1031,7 +1111,14 @@ export default function ImoveisTodos() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
               <div>
-                <h3 style={{ margin: 0 }}>{modal.imovel.codigo} — {MESES[modal.mi]}/{year}</h3>
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {modal.imovel.codigo} — {MESES[modal.mi]}/{year}
+                  {modal.travado && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 6, padding: '2px 8px' }}>
+                      🔒 Travado
+                    </span>
+                  )}
+                </h3>
                 <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 13 }}>
                   👤 {modal.inquilino.nome}{modal.inquilino.numeroQuarto ? <span style={{ marginLeft: 8, background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 5, padding: '1px 7px', fontSize: 12, fontWeight: 600, color: '#475569' }}>Quarto {modal.inquilino.numeroQuarto}</span> : ''}
                 </p>
@@ -1051,7 +1138,18 @@ export default function ImoveisTodos() {
                   return null
                 })()}
               </div>
-              <button className="btn btn-secondary" style={{ width: 'auto', padding: '4px 10px', flexShrink: 0 }} onClick={closeModal}>✕</button>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                {modal.travado && (
+                  <button
+                    className="btn btn-secondary"
+                    style={{ width: 'auto', padding: '4px 10px' }}
+                    onClick={() => { handleLockCell(modal.imovel, modal.inquilino, modal.mi); setModal(m => ({ ...m, travado: false })) }}
+                  >
+                    🔓 Destravar
+                  </button>
+                )}
+                <button className="btn btn-secondary" style={{ width: 'auto', padding: '4px 10px' }} onClick={closeModal}>✕</button>
+              </div>
             </div>
  
             {(() => {
@@ -1127,7 +1225,7 @@ export default function ImoveisTodos() {
                 )
               }
               return (
-                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 16px', marginBottom: 16 }}>
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 16px', marginBottom: 16, ...(modal.travado ? { opacity: 0.65, pointerEvents: 'none' } : {}) }}>
                   <div style={{ fontWeight: 700, fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Composição do Valor Mensal
                   </div>
