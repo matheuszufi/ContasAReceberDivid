@@ -758,7 +758,7 @@ export default function Dashboard() {
     <Layout title="Dashboard" subtitle="Visão geral do sistema de gestão">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-4">
         <Card>
-          <CardContent className="flex items-center gap-3">
+          <CardContent className="flex items-center gap-3 py-3">
             <div className="flex size-9 shrink-0 items-center justify-center  bg-blue-500/10 text-blue-600">
               <Building2 className="size-4" />
             </div>
@@ -769,7 +769,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3">
+          <CardContent className="flex items-center gap-3 py-3">
             <div className="flex size-9 shrink-0 items-center justify-center bg-emerald-500/10 text-emerald-600">
               <Users className="size-4" />
             </div>
@@ -780,7 +780,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3">
+          <CardContent className="flex items-center gap-3 py-3">
             <div className="flex size-9 shrink-0 items-center justify-center bg-amber-500/10 text-amber-600">
               <TriangleAlert className="size-4" />
             </div>
@@ -791,7 +791,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3">
+          <CardContent className="flex items-center gap-3 py-3">
             <div className="flex size-9 shrink-0 items-center justify-center bg-violet-500/10 text-violet-600">
               <Wallet className="size-4" />
             </div>
@@ -807,13 +807,13 @@ export default function Dashboard() {
         <div className="mb-4 flex flex-wrap gap-3">
           {segurosExpirandoFianca.length > 0 && (
             <Card className="flex-1 border-amber-300" style={{ background: '#fffbeb' }}>
-              <CardHeader className="">
+              <CardHeader className="py-2">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b45309' }}>
                   <TriangleAlert className="size-4" />
                   Seguro Fiança — Último mês de cobrança ({segurosExpirandoFianca.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="">
+              <CardContent className="py-2">
                 <div className="flex flex-col gap-1">
                   {segurosExpirandoFianca.map(i => (
                     <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
@@ -827,13 +827,13 @@ export default function Dashboard() {
           )}
           {segurosExpirandoIncendio.length > 0 && (
             <Card className="flex-1 border-orange-300" style={{ background: '#fff7ed' }}>
-              <CardHeader className="">
+              <CardHeader className="py-2">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#c2410c' }}>
                   <TriangleAlert className="size-4" />
                   Seguro Incêndio — Último mês de cobrança ({segurosExpirandoIncendio.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="">
+              <CardContent className="py-2">
                 <div className="flex flex-col gap-1">
                   {segurosExpirandoIncendio.map(i => (
                     <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
@@ -1195,6 +1195,7 @@ export default function Dashboard() {
                         bottom: 0,
                         height: `${card.recoveredPercent}%`,
                         background: 'rgba(34, 197, 94, 0.25)',
+                        borderTop: card.recoveredPercent > 0 ? '2px solid #22c55e' : 'none',
                         transition: 'height 0.3s ease',
                         pointerEvents: 'none',
                         zIndex: 0,
@@ -1209,6 +1210,7 @@ export default function Dashboard() {
                         bottom: `${card.recoveredPercent}%`,
                         height: `${card.approvedPercent}%`,
                         background: 'rgba(166, 234, 8, 0.3)',
+                        borderTop: card.approvedPercent > 0 ? '2px solid #a8e00ea1' : 'none',
                         transition: 'height 0.3s ease, bottom 0.3s ease',
                         pointerEvents: 'none',
                         zIndex: 0,
@@ -1223,6 +1225,7 @@ export default function Dashboard() {
                         bottom: `${card.recoveredPercent + card.approvedPercent}%`,
                         height: `${card.waitingPercent}%`,
                         background: 'rgba(100, 116, 139, 0.3)',
+                        borderTop: card.waitingPercent > 0 ? '2px solid #64748b' : 'none',
                         transition: 'height 0.3s ease, bottom 0.3s ease',
                         pointerEvents: 'none',
                         zIndex: 0,
@@ -1237,6 +1240,7 @@ export default function Dashboard() {
                         bottom: `${card.recoveredPercent + card.approvedPercent + card.waitingPercent}%`,
                         height: `${card.juridicoPercent}%`,
                         background: 'rgba(239, 68, 68, 0.3)',
+                        borderTop: card.juridicoPercent > 0 ? '2px solid #ef4444' : 'none',
                         transition: 'height 0.3s ease, bottom 0.3s ease',
                         pointerEvents: 'none',
                         zIndex: 0,
@@ -1251,6 +1255,7 @@ export default function Dashboard() {
                         bottom: `${card.recoveredPercent + card.approvedPercent + card.waitingPercent + card.juridicoPercent}%`,
                         height: `${card.acionadoPercent}%`,
                         background: 'rgba(59, 130, 246, 0.3)',
+                        borderTop: card.acionadoPercent > 0 ? '2px solid #3b82f6' : 'none',
                         transition: 'height 0.3s ease, bottom 0.3s ease',
                         pointerEvents: 'none',
                         zIndex: 0,
