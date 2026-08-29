@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ref, onValue, update } from 'firebase/database'
+import { ref, onValue } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { normalizeText } from '@/lib/utils'
@@ -19,105 +19,7 @@ import {
   ChevronRight,
   Trophy,
   Home,
-  TrendingUp,
-  MapPin,
 } from 'lucide-react'
-
-// --- Mapa de imóveis (Leaflet + OpenStreetMap) ---
-// Pré-requisito: `npm install leaflet` no projeto.
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
-import markerIcon from 'leaflet/dist/images/marker-icon.png'
-import markerShadow from 'leaflet/dist/images/marker-shadow.png'
-
-// Corrige o caminho padrão dos ícones do Leaflet, que quebra com bundlers (Vite/CRA/Webpack)
-delete L.Icon.Default.prototype._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: markerIcon2x,
-  iconUrl: markerIcon,
-  shadowUrl: markerShadow,
-})
-
-// Monta a string de busca de endereço a partir do objeto `endereco` salvo no imóvel
-const buildEnderecoQuery = (endereco) => {
-  if (!endereco) return ''
-  const partes = [
-    endereco.rua ? `${endereco.rua}${endereco.numero ? ', ' + endereco.numero : ''}` : '',
-    endereco.bairro || '',
-    endereco.cidade || '',
-    endereco.estado || '',
-    endereco.cep || '',
-    'Brasil',
-  ].filter(Boolean)
-  return partes.join(', ')
-}
-
-// Geocodifica um endereço usando a API pública Nominatim (OpenStreetMap) - gratuita, sem API key
-const geocodeEndereco = async (query) => {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`
-  const res = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } })
-  if (!res.ok) return null
-  const data = await res.json()
-  if (!data || !data[0]) return null
-  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
-}
-
-// Componente do mapa: recebe a lista de imóveis e plota um marcador para cada um que já
-// possui coordenadas (im.geo.lat / im.geo.lng)
-function MapaImoveis({ imoveis }) {
-  const mapContainerRef = useRef(null)
-  const mapRef = useRef(null)
-  const markersLayerRef = useRef(null)
-
-  // Inicializa o mapa uma única vez
-  useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return
-    mapRef.current = L.map(mapContainerRef.current, {
-      center: [-15.793889, -47.882778], // Brasília, usado como centro inicial
-      zoom: 4,
-      scrollWheelZoom: false,
-    })
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contribuidores',
-      maxZoom: 19,
-    }).addTo(mapRef.current)
-    markersLayerRef.current = L.layerGroup().addTo(mapRef.current)
-
-    return () => {
-      mapRef.current?.remove()
-      mapRef.current = null
-    }
-  }, [])
-
-  // Atualiza os marcadores sempre que a lista de imóveis (ou suas coordenadas) mudar
-  useEffect(() => {
-    if (!mapRef.current || !markersLayerRef.current) return
-    markersLayerRef.current.clearLayers()
-
-    const pontos = imoveis.filter(im => im.geo?.lat && im.geo?.lng)
-
-    pontos.forEach(im => {
-      const enderecoTexto = [im.endereco?.rua, im.endereco?.numero, im.endereco?.bairro, im.endereco?.cidade]
-        .filter(Boolean)
-        .join(', ')
-      const marker = L.marker([im.geo.lat, im.geo.lng])
-      marker.bindPopup(`
-        <strong>${im.codigo || 'Sem código'}</strong><br/>
-        ${enderecoTexto || 'Endereço não informado'}<br/>
-        <span style="color:#64748b">${im.status || ''}</span>
-      `)
-      marker.addTo(markersLayerRef.current)
-    })
-
-    if (pontos.length > 0) {
-      const bounds = L.latLngBounds(pontos.map(im => [im.geo.lat, im.geo.lng]))
-      mapRef.current.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 })
-    }
-  }, [imoveis])
-
-  return <div ref={mapContainerRef} style={{ width: '100%', height: 420, borderRadius: 8 }} />
-}
 
 const MONTH_LABELS = [
   'Jan', 'Fev', 'Mar', 'Abr',
@@ -361,48 +263,6 @@ export default function Dashboard() {
     }
   }, [])
 
-  // Geocodifica em segundo plano os imóveis que ainda não têm coordenadas salvas (im.geo),
-  // gravando o resultado em `imoveis/{id}/geo` para não precisar geocodificar de novo depois.
-  // Processa um endereço por vez, respeitando o limite de 1 requisição/segundo da Nominatim.
-  const geocodingAttemptedRef = useRef(new Set())
-
-  useEffect(() => {
-    let cancelled = false
-
-    const processarFila = async () => {
-      const pendentes = imoveis.filter(im =>
-        !im.geo &&
-        !geocodingAttemptedRef.current.has(im.id) &&
-        im.endereco && (im.endereco.rua || im.endereco.cep)
-      )
-
-      for (const im of pendentes) {
-        if (cancelled) return
-        geocodingAttemptedRef.current.add(im.id)
-        const query = buildEnderecoQuery(im.endereco)
-        if (!query) continue
-
-        try {
-          const coords = await geocodeEndereco(query)
-          if (cancelled) return
-          if (coords) {
-            await update(ref(db, `imoveis/${im.id}/geo`), { lat: coords.lat, lng: coords.lng, atualizadoEm: Date.now() })
-          } else {
-            await update(ref(db, `imoveis/${im.id}/geo`), { lat: null, lng: null, erro: true })
-          }
-        } catch (err) {
-          console.error('Erro ao geocodificar imóvel', im.id, err)
-        }
-
-        // respeita o limite de uso justo da API pública do Nominatim (1 req/s)
-        await new Promise(resolve => setTimeout(resolve, 1100))
-      }
-    }
-
-    processarFila()
-    return () => { cancelled = true }
-  }, [imoveis])
-
   const totalImoveis = imoveis.length
   const totalInquilinosAtivos = useMemo(
     () => inquilinos.filter(i => i.status === 'Ativo').length,
@@ -414,18 +274,6 @@ export default function Dashboard() {
       .filter(i => i.status === 'Ativo')
       .reduce((sum, inquilino) => sum + (parseFloat(inquilino.valorAluguel) || 0) + (parseFloat(inquilino.valorVaga) || 0), 0),
     [inquilinos]
-  )
-
-  const valorMedioAluguel = useMemo(() => {
-    const ativos = inquilinos.filter(i => i.status === 'Ativo' && (parseFloat(i.valorAluguel) || 0) > 0)
-    if (ativos.length === 0) return 0
-    const soma = ativos.reduce((sum, i) => sum + (parseFloat(i.valorAluguel) || 0), 0)
-    return soma / ativos.length
-  }, [inquilinos])
-
-  const imoveisComGeoCount = useMemo(
-    () => imoveis.filter(im => im.geo?.lat && im.geo?.lng).length,
-    [imoveis]
   )
 
   const pendentes = useMemo(
@@ -914,7 +762,7 @@ export default function Dashboard() {
 
   return (
     <Layout title="Dashboard" subtitle="Visão geral do sistema de gestão">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-4">
         <Card>
           <CardContent className="flex items-center gap-3">
             <div className="flex size-9 shrink-0 items-center justify-center  bg-blue-500/10 text-blue-600">
@@ -959,35 +807,7 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardContent className="flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center bg-cyan-500/10 text-cyan-600">
-              <TrendingUp className="size-4" />
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(valorMedioAluguel)}</p>
-              <p className="truncate text-xs text-muted-foreground">Valor Médio dos Aluguéis</p>
-            </div>
-          </CardContent>
-        </Card>
       </div>
-
-      <Card className="mb-4">
-        <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="size-4 text-muted-foreground" />
-            <div>
-              <CardTitle className="text-base">Mapa de Imóveis</CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                {imoveisComGeoCount} de {totalImoveis} imóveis localizados no mapa a partir do endereço cadastrado.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-3">
-          <MapaImoveis imoveis={imoveis} />
-        </CardContent>
-      </Card>
 
       {(segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0) && (
         <div className="mb-4 flex flex-wrap gap-3">
