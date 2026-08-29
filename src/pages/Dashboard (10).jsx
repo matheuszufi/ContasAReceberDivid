@@ -90,10 +90,6 @@ const fmtMoneyCompact = (value) => {
   return fmtMoney(num)
 }
 
-// Formata valor + porcentagem lado a lado, ex: "R$ 1.200,00 (35%)"
-const fmtMoneyWithPercent = (value, percent) =>
-  `${fmtMoney(value)} (${percent}%)`
-
 const getMonthKey = (item) =>
   item.mesReferencia || (item.dataVencimento ? item.dataVencimento.substring(0, 7) : null)
 
@@ -762,67 +758,67 @@ export default function Dashboard() {
 
   return (
     <Layout title="Dashboard" subtitle="Visão geral do sistema de gestão">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
         <Card>
-          <CardContent className="flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center  bg-blue-500/10 text-blue-600">
-              <Building2 className="size-4" />
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center  bg-blue-500/10 text-blue-600">
+              <Building2 className="size-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xl font-semibold tracking-tight">{totalImoveis}</p>
-              <p className="truncate text-xs text-muted-foreground">Total de Imóveis</p>
+              <p className="text-2xl font-semibold tracking-tight">{totalImoveis}</p>
+              <p className="truncate text-sm text-muted-foreground">Total de Imóveis</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center bg-emerald-500/10 text-emerald-600">
-              <Users className="size-4" />
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center bg-emerald-500/10 text-emerald-600">
+              <Users className="size-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xl font-semibold tracking-tight">{totalInquilinosAtivos}</p>
-              <p className="truncate text-xs text-muted-foreground">Inquilinos Ativos</p>
+              <p className="text-2xl font-semibold tracking-tight">{totalInquilinosAtivos}</p>
+              <p className="truncate text-sm text-muted-foreground">Inquilinos Ativos</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center bg-amber-500/10 text-amber-600">
-              <TriangleAlert className="size-4" />
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center bg-amber-500/10 text-amber-600">
+              <TriangleAlert className="size-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-xl font-semibold tracking-tight">{uniqueInadimplentes}</p>
-              <p className="truncate text-xs text-muted-foreground">Inadimplentes</p>
+              <p className="text-2xl font-semibold tracking-tight">{uniqueInadimplentes}</p>
+              <p className="truncate text-sm text-muted-foreground">Inadimplentes</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center bg-violet-500/10 text-violet-600">
-              <Wallet className="size-4" />
+          <CardContent className="flex items-center gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center bg-violet-500/10 text-violet-600">
+              <Wallet className="size-5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(receitaMensal)}</p>
-              <p className="truncate text-xs text-muted-foreground">Receita Mensal</p>
+              <p className="truncate text-2xl font-semibold tracking-tight">{fmtMoney(receitaMensal)}</p>
+              <p className="truncate text-sm text-muted-foreground">Receita Mensal</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {(segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0) && (
-        <div className="mb-4 flex flex-wrap gap-3">
+        <div className="mb-6 flex flex-wrap gap-4">
           {segurosExpirandoFianca.length > 0 && (
             <Card className="flex-1 border-amber-300" style={{ background: '#fffbeb' }}>
-              <CardHeader className="">
-                <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b45309' }}>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base" style={{ color: '#b45309' }}>
                   <TriangleAlert className="size-4" />
                   Seguro Fiança — Último mês de cobrança ({segurosExpirandoFianca.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="">
-                <div className="flex flex-col gap-1">
+              <CardContent>
+                <div className="flex flex-col gap-1.5">
                   {segurosExpirandoFianca.map(i => (
-                    <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
+                    <div key={i.id} className="flex items-center justify-between gap-2 text-sm">
                       <span className="font-medium">{i.nome}</span>
                       <span className="text-muted-foreground">{SEGURO_FIANCA_LABELS[i.seguro] || i.seguro || '—'}</span>
                     </div>
@@ -833,16 +829,16 @@ export default function Dashboard() {
           )}
           {segurosExpirandoIncendio.length > 0 && (
             <Card className="flex-1 border-orange-300" style={{ background: '#fff7ed' }}>
-              <CardHeader className="">
-                <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#c2410c' }}>
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base" style={{ color: '#c2410c' }}>
                   <TriangleAlert className="size-4" />
                   Seguro Incêndio — Último mês de cobrança ({segurosExpirandoIncendio.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="">
-                <div className="flex flex-col gap-1">
+              <CardContent>
+                <div className="flex flex-col gap-1.5">
                   {segurosExpirandoIncendio.map(i => (
-                    <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
+                    <div key={i.id} className="flex items-center justify-between gap-2 text-sm">
                       <span className="font-medium">{i.nome}</span>
                       <span className="text-muted-foreground">Seguro Incêndio</span>
                     </div>
@@ -854,32 +850,32 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-2">
-            <CardTitle className="text-sm">Ocupações por Mês</CardTitle>
+            <CardTitle className="text-base">Ocupações por Mês</CardTitle>
             <div className="flex shrink-0 items-center gap-1">
-              <Button variant="outline" size="icon" className="size-6" onClick={() => handleOcupacoesYearChange(-1)} aria-label="Ano anterior">
-                <ChevronLeft className="size-3.5" />
+              <Button variant="outline" size="icon" className="size-7" onClick={() => handleOcupacoesYearChange(-1)} aria-label="Ano anterior">
+                <ChevronLeft className="size-4" />
               </Button>
-              <Badge variant="secondary" className="h-6 min-w-11 justify-center px-2 text-xs">{ocupacoesYear}</Badge>
-              <Button variant="outline" size="icon" className="size-6" onClick={() => handleOcupacoesYearChange(1)} aria-label="Próximo ano">
-                <ChevronRight className="size-3.5" />
+              <Badge variant="secondary" className="h-7 min-w-12 justify-center px-2 text-xs">{ocupacoesYear}</Badge>
+              <Button variant="outline" size="icon" className="size-7" onClick={() => handleOcupacoesYearChange(1)} aria-label="Próximo ano">
+                <ChevronRight className="size-4" />
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="px-3 py-2">
-            <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6">
+          <CardContent className="px-4 py-3">
+            <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4 md:grid-cols-6">
               {MONTH_LABELS.map((label, index) => (
-                <div key={label} className=" border bg-muted/20 px-1.5 py-1">
-                  <p className="text-[9px] font-medium text-muted-foreground">{label}</p>
-                  <div className="mt-0.5 flex items-center justify-between gap-1.5">
+                <div key={label} className=" border bg-muted/20 px-2 py-1.5">
+                  <p className="text-[10px] font-medium text-muted-foreground">{label}</p>
+                  <div className="mt-0.5 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1" title="Ocupações no mês">
                       <Home className="size-3 text-muted-foreground" />
-                      <strong className="text-xs leading-none">{ocupacoesPorMes[index]}</strong>
+                      <strong className="text-sm leading-none">{ocupacoesPorMes[index]}</strong>
                     </div>
-                    <div className="text-[9px] text-muted-foreground" title="Desocupações no mês">
-                      <strong className="text-[11px] text-foreground">{desocupacoesPorMes[index]}</strong> D
+                    <div className="text-[10px] text-muted-foreground" title="Desocupações no mês">
+                      <strong className="text-xs text-foreground">{desocupacoesPorMes[index]}</strong> D
                     </div>
                   </div>
                 </div>
@@ -889,54 +885,54 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
+          <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-3 border-b pb-4">
             <div>
-              <CardTitle className="text-sm">Lucro por Mês</CardTitle>
-              <CardDescription className="text-[11px]">Taxa Adm + Taxa de Contrato em {lucroAno}.</CardDescription>
+              <CardTitle className="text-base">Lucro por Mês</CardTitle>
+              <CardDescription>Total de Taxa Adm + Taxa de Contrato gerado em cada mês de {lucroAno}.</CardDescription>
             </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <Button variant="outline" size="icon" className="size-6" onClick={() => setLucroAno(String(Number(lucroAno) - 1))} aria-label="Ano anterior">
-                <ChevronLeft className="size-3.5" />
+            <div className="flex shrink-0 items-center gap-1.5">
+              <Button variant="outline" size="icon" onClick={() => setLucroAno(String(Number(lucroAno) - 1))} aria-label="Ano anterior">
+                <ChevronLeft />
               </Button>
-              <Badge variant="secondary" className="h-6 min-w-11 justify-center px-2 text-xs">{lucroAno}</Badge>
-              <Button variant="outline" size="icon" className="size-6" onClick={() => setLucroAno(String(Number(lucroAno) + 1))} aria-label="Próximo ano">
-                <ChevronRight className="size-3.5" />
+              <Badge variant="secondary" className="h-8 min-w-14 justify-center text-sm">{lucroAno}</Badge>
+              <Button variant="outline" size="icon" onClick={() => setLucroAno(String(Number(lucroAno) + 1))} aria-label="Próximo ano">
+                <ChevronRight />
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="px-3 py-2">
+          <CardContent>
             {maxLucroValor <= 0 ? (
-              <p className="py-6 text-center text-xs text-muted-foreground">Nenhum lucro calculado para {lucroAno}.</p>
+              <p className="py-8 text-center text-sm text-muted-foreground">Nenhum lucro calculado para {lucroAno}.</p>
             ) : (
               <>
-                <div className="mb-2 flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5">
-                  <Trophy className="size-3.5 shrink-0 text-emerald-600" />
-                  <p className="text-xs">
-                    <strong>{MONTH_LABELS[Number(maxLucroMes.mes.slice(-2)) - 1]}/{lucroAno}</strong> maior lucro:{' '}
+                <div className="mb-4 flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  <Trophy className="size-4 shrink-0 text-emerald-600" />
+                  <p className="text-sm">
+                    <strong>{MONTH_LABELS[Number(maxLucroMes.mes.slice(-2)) - 1]} de {lucroAno}</strong> foi o mês com maior lucro da imobiliária:{' '}
                     <strong className="text-emerald-700">{fmtMoney(maxLucroMes.total)}</strong>
                   </p>
                 </div>
 
-                <div className="flex items-end gap-1">
+                <div className="flex items-end gap-1.5 sm:gap-2">
                   {lucroPorMes.map((m, index) => {
                     const isMax = m.total > 0 && m.total === maxLucroValor
                     const alturaPercentual = m.total > 0 ? Math.max((m.total / maxLucroValor) * 100, 4) : 0
                     return (
                       <div
                         key={m.mes}
-                        className="flex flex-1 flex-col items-center gap-1"
+                        className="flex flex-1 flex-col items-center gap-1.5"
                         title={`${MONTH_LABELS[index]} de ${lucroAno}: ${fmtMoney(m.total)}`}
                       >
-                        <span className="h-3 text-[9px] font-medium text-muted-foreground">
+                        <span className="h-3.5 text-[10px] font-medium text-muted-foreground">
                           {m.total > 0 ? fmtMoneyCompact(m.total) : ''}
                         </span>
-                        <div className="flex w-full items-end justify-center" style={{ height: 80 }}>
+                        <div className="flex w-full items-end justify-center" style={{ height: 130 }}>
                           <div
                             className={`w-full rounded-t-sm transition-all ${isMax ? 'bg-emerald-500' : 'bg-blue-400/70'}`}
                             style={{ height: `${alturaPercentual}%` }}
                           />
                         </div>
-                        <span className={`text-[10px] ${isMax ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
+                        <span className={`text-xs ${isMax ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
                           {MONTH_LABELS[index]}
                         </span>
                       </div>
@@ -949,29 +945,29 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card className="mb-4">
-        <CardHeader className="flex w-full flex-row items-center justify-between gap-4 border-b py-3">
+      <Card className="mb-6">
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-4 border-b pb-4">
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-            <CardTitle className="shrink-0 text-base">Inadimplência por Período</CardTitle>
+            <CardTitle className="shrink-0 text-lg">Inadimplência por Período</CardTitle>
             <CardDescription className="truncate text-xs text-muted-foreground">
               Navegue por ano e filtre por mês para ver valores e recuperação.
             </CardDescription>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
-            <Button variant="outline" size="icon" className="size-7" onClick={() => handleYearChange(-1)} aria-label="Ano anterior">
-              <ChevronLeft className="size-4" />
+            <Button variant="outline" size="icon" onClick={() => handleYearChange(-1)} aria-label="Ano anterior">
+              <ChevronLeft />
             </Button>
-            <Badge variant="secondary" className="h-7 min-w-12 justify-center text-xs">{selectedYear}</Badge>
-            <Button variant="outline" size="icon" className="size-7" onClick={() => handleYearChange(1)} aria-label="Próximo ano">
-              <ChevronRight className="size-4" />
+            <Badge variant="secondary" className="h-8 min-w-14 justify-center text-sm">{selectedYear}</Badge>
+            <Button variant="outline" size="icon" onClick={() => handleYearChange(1)} aria-label="Próximo ano">
+              <ChevronRight />
             </Button>
           </div>
         </CardHeader>
-        <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 border-b px-4 py-3">
           <select
             value={colFilters.modelo}
             onChange={e => setColFilter('modelo', e.target.value)}
-            style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+            style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
           >
             <option value="">Modelo: Todos</option>
             {modeloOptions.map(m => (
@@ -981,7 +977,7 @@ export default function Dashboard() {
           <select
             value={colFilters.garantia}
             onChange={e => setColFilter('garantia', e.target.value)}
-            style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+            style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
           >
             <option value="">Garantia: Todas</option>
             {garantiaOptions.map(g => (
@@ -989,16 +985,16 @@ export default function Dashboard() {
             ))}
           </select>
           {(colFilters.modelo || colFilters.garantia) && (
-            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={limparColFilters}>
+            <Button variant="outline" size="sm" onClick={limparColFilters}>
               Limpar filtros
             </Button>
           )}
         </div>
-        <CardContent className="p-3">
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.5fr_0.8fr_300px]">
-            <div className="flex min-w-0 flex-col border bg-card p-3">
-              <div className="mb-2">
-                <h4 className="text-sm font-medium">Recuperação de Inadimplência</h4>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[0.5fr_0.8fr_300px]">
+            <div className="flex min-w-0 flex-col border bg-card p-4">
+              <div className="mb-3">
+                <h4 className="font-medium">Recuperação de Inadimplência</h4>
                 <p className="text-xs text-muted-foreground">{selectedPeriodLabel}</p>
               </div>
               <div className="donut-chart" aria-label="Gráfico de pizza de recuperação">
@@ -1071,7 +1067,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <TooltipProvider>
-                <div className="mt-2 space-y-1.5 text-xs">
+                <div className="mt-3 space-y-2 text-sm">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex cursor-default items-center justify-between gap-2">
@@ -1080,7 +1076,8 @@ export default function Dashboard() {
                           <span className="truncate">Recuperado</span>
                         </span>
                         <span className="shrink-0 font-medium">
-                          {fmtMoneyWithPercent(selectedMonthTotals.recuperado, pie.recoveredPercent)}
+                          {fmtMoney(selectedMonthTotals.recuperado)}
+                          <span className="ml-1 text-muted-foreground">({pie.recoveredPercent}%)</span>
                         </span>
                       </div>
                     </TooltipTrigger>
@@ -1094,7 +1091,8 @@ export default function Dashboard() {
                           <span className="truncate">Aprovado seguradora</span>
                         </span>
                         <span className="shrink-0 font-medium">
-                          {fmtMoneyWithPercent(selectedMonthTotals.aprovadoSeguradora, pie.approvedPercent)}
+                          {fmtMoney(selectedMonthTotals.aprovadoSeguradora)}
+                          <span className="ml-1 text-muted-foreground">({pie.approvedPercent}%)</span>
                         </span>
                       </div>
                     </TooltipTrigger>
@@ -1108,7 +1106,8 @@ export default function Dashboard() {
                           <span className="truncate">Aguardar para acionar</span>
                         </span>
                         <span className="shrink-0 font-medium">
-                          {fmtMoneyWithPercent(selectedMonthTotals.aguardarAcionar, pie.waitingPercent)}
+                          {fmtMoney(selectedMonthTotals.aguardarAcionar)}
+                          <span className="ml-1 text-muted-foreground">({pie.waitingPercent}%)</span>
                         </span>
                       </div>
                     </TooltipTrigger>
@@ -1125,7 +1124,8 @@ export default function Dashboard() {
                           <span className="truncate">Acionado</span>
                         </span>
                         <span className="shrink-0 font-medium">
-                          {fmtMoneyWithPercent(selectedMonthTotals.acionado, pie.acionadoPercent)}
+                          {fmtMoney(selectedMonthTotals.acionado)}
+                          <span className="ml-1 text-muted-foreground">({pie.acionadoPercent}%)</span>
                         </span>
                       </div>
                     </TooltipTrigger>
@@ -1142,7 +1142,8 @@ export default function Dashboard() {
                           <span className="truncate">Jurídico</span>
                         </span>
                         <span className="shrink-0 font-medium">
-                          {fmtMoneyWithPercent(selectedMonthTotals.juridico, pie.juridicoPercent)}
+                          {fmtMoney(selectedMonthTotals.juridico)}
+                          <span className="ml-1 text-muted-foreground">({pie.juridicoPercent}%)</span>
                         </span>
                       </div>
                     </TooltipTrigger>
@@ -1156,7 +1157,8 @@ export default function Dashboard() {
                           <span className="truncate">Aberto</span>
                         </span>
                         <span className="shrink-0 font-medium">
-                          {fmtMoneyWithPercent(selectedMonthTotals.inadimplente, pie.inadimplentePercent)}
+                          {fmtMoney(selectedMonthTotals.inadimplente)}
+                          <span className="ml-1 text-muted-foreground">({pie.inadimplentePercent}%)</span>
                         </span>
                       </div>
                     </TooltipTrigger>
@@ -1165,8 +1167,8 @@ export default function Dashboard() {
                 </div>
               </TooltipProvider>
 
-              <Separator className="my-2" />
-              <div className="flex items-center justify-between gap-2 text-xs">
+              <Separator className="my-3" />
+              <div className="flex items-center justify-between gap-2 text-sm">
                 <span className="text-muted-foreground">Total</span>
                 <strong className="shrink-0">
                   {fmtMoney(
@@ -1181,10 +1183,10 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col border bg-card p-3">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-col border bg-card p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h4 className="text-sm font-medium">Pagamentos por mês</h4>
+                  <h4 className="font-medium">Pagamentos por mês</h4>
                   <p className="text-xs text-muted-foreground">Ano {selectedYear}</p>
                 </div>
                 <Tabs value={periodMode === 'month' ? '' : periodMode} onValueChange={setPeriodMode}>
@@ -1213,6 +1215,7 @@ export default function Dashboard() {
                         bottom: 0,
                         height: `${card.recoveredPercent}%`,
                         background: 'rgba(34, 197, 94, 0.25)',
+                        borderTop: card.recoveredPercent > 0 ? '2px solid #22c55e' : 'none',
                         transition: 'height 0.3s ease',
                         pointerEvents: 'none',
                         zIndex: 0,
@@ -1227,6 +1230,7 @@ export default function Dashboard() {
                         bottom: `${card.recoveredPercent}%`,
                         height: `${card.approvedPercent}%`,
                         background: 'rgba(166, 234, 8, 0.3)',
+                        borderTop: card.approvedPercent > 0 ? '2px solid #a8e00ea1' : 'none',
                         transition: 'height 0.3s ease, bottom 0.3s ease',
                         pointerEvents: 'none',
                         zIndex: 0,
@@ -1241,6 +1245,7 @@ export default function Dashboard() {
                         bottom: `${card.recoveredPercent + card.approvedPercent}%`,
                         height: `${card.waitingPercent}%`,
                         background: 'rgba(100, 116, 139, 0.3)',
+                        borderTop: card.waitingPercent > 0 ? '2px solid #64748b' : 'none',
                         transition: 'height 0.3s ease, bottom 0.3s ease',
                         pointerEvents: 'none',
                         zIndex: 0,
@@ -1255,6 +1260,7 @@ export default function Dashboard() {
                         bottom: `${card.recoveredPercent + card.approvedPercent + card.waitingPercent}%`,
                         height: `${card.juridicoPercent}%`,
                         background: 'rgba(239, 68, 68, 0.3)',
+                        borderTop: card.juridicoPercent > 0 ? '2px solid #ef4444' : 'none',
                         transition: 'height 0.3s ease, bottom 0.3s ease',
                         pointerEvents: 'none',
                         zIndex: 0,
@@ -1269,6 +1275,7 @@ export default function Dashboard() {
                         bottom: `${card.recoveredPercent + card.approvedPercent + card.waitingPercent + card.juridicoPercent}%`,
                         height: `${card.acionadoPercent}%`,
                         background: 'rgba(59, 130, 246, 0.3)',
+                        borderTop: card.acionadoPercent > 0 ? '2px solid #3b82f6' : 'none',
                         transition: 'height 0.3s ease, bottom 0.3s ease',
                         pointerEvents: 'none',
                         zIndex: 0,
@@ -1307,10 +1314,10 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col border bg-card p-3">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex min-w-0 flex-col border bg-card p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h4 className="text-sm font-medium">Maiores inadimplentes</h4>
+                  <h4 className="font-medium">Maiores inadimplentes</h4>
                   <p className="text-xs text-muted-foreground">{selectedPeriodLabel}</p>
                 </div>
                 <Tabs value={topFilter} onValueChange={setTopFilter}>
@@ -1320,22 +1327,22 @@ export default function Dashboard() {
                   </TabsList>
                 </Tabs>
               </div>
-              <div className="flex flex-col gap-0.5">
+              <div className="flex flex-col gap-1">
                 {topInadimplentes.length === 0 ? (
-                  <p className="py-6 text-center text-xs text-muted-foreground">Nenhum inadimplente no período.</p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">Nenhum inadimplente no período.</p>
                 ) : (
                   topInadimplentes.map((item, index) => (
-                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <Badge variant={index === 0 ? 'default' : 'secondary'} className="h-5 w-5 justify-center rounded-full p-0 text-[10px]">
-                          {index === 0 ? <Trophy className="size-3" /> : `#${index + 1}`}
+                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-muted/50">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <Badge variant={index === 0 ? 'default' : 'secondary'} className="h-6 w-6 justify-center rounded-full p-0">
+                          {index === 0 ? <Trophy className="size-3.5" /> : `#${index + 1}`}
                         </Badge>
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-medium">{item.name}</p>
-                          <p className="text-[11px] text-muted-foreground">{item.count} inadimplência{item.count === 1 ? '' : 's'}</p>
+                          <p className="truncate text-sm font-medium">{item.name}</p>
+                          <p className="text-xs text-muted-foreground">{item.count} inadimplência{item.count === 1 ? '' : 's'}</p>
                         </div>
                       </div>
-                      <strong className="shrink-0 text-xs">{fmtMoney(item.total)}</strong>
+                      <strong className="shrink-0 text-sm">{fmtMoney(item.total)}</strong>
                     </div>
                   ))
                 )}
@@ -1345,11 +1352,11 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      <div className="mb-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
+      <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Card>
-          <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-3 border-b py-3">
+          <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-4 border-b pb-4">
             <div>
-              <CardTitle className="text-base">Garantias dos Inadimplentes</CardTitle>
+              <CardTitle className="text-lg">Garantias dos Inadimplentes</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Cada inquilino é contado uma vez (inclui pagos e em aberto), com detalhamento por seguradora quando aplicável.
               </CardDescription>
@@ -1366,7 +1373,7 @@ export default function Dashboard() {
                   type="month"
                   value={garantiaFilterMonth}
                   onChange={e => setGarantiaFilterMonth(e.target.value)}
-                  style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                  style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                 />
               ) : (
                 <div className="flex items-center gap-1.5">
@@ -1374,23 +1381,23 @@ export default function Dashboard() {
                     type="month"
                     value={garantiaFilterStart}
                     onChange={e => setGarantiaFilterStart(e.target.value)}
-                    style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                   />
                   <span className="text-xs text-muted-foreground">até</span>
                   <input
                     type="month"
                     value={garantiaFilterEnd}
                     onChange={e => setGarantiaFilterEnd(e.target.value)}
-                    style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                   />
                 </div>
               )}
             </div>
           </CardHeader>
-          <CardContent className="p-3">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-[0.6fr_1fr]">
-              <div className="flex min-w-0 flex-col items-center justify-center border bg-card p-3">
-                <p className="mb-2 text-xs text-muted-foreground">{garantiaFilterLabel}</p>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[0.6fr_1fr]">
+              <div className="flex min-w-0 flex-col items-center justify-center border bg-card p-4">
+                <p className="mb-3 text-xs text-muted-foreground">{garantiaFilterLabel}</p>
                 <div className="donut-chart" aria-label="Gráfico de pizza de garantias dos inadimplentes">
                   <svg viewBox="0 0 120 120" className="donut-svg">
                     <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="24" />
@@ -1416,18 +1423,18 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-              <div className="flex min-w-0 flex-col justify-center gap-1.5">
+              <div className="flex min-w-0 flex-col justify-center gap-2">
                 {garantiaBreakdown.length === 0 ? (
-                  <p className="py-6 text-center text-xs text-muted-foreground">
+                  <p className="py-8 text-center text-sm text-muted-foreground">
                     Nenhum inadimplente no período selecionado.
                   </p>
                 ) : (
                   garantiaSlices.map(item => (
-                    <div key={item.key} className="flex items-center justify-between gap-2 text-xs">
+                    <div key={item.key} className="flex items-center justify-between gap-2 text-sm">
                       <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
                         <span
                           className="shrink-0"
-                          style={{ width: 9, height: 9, borderRadius: '50%', background: item.color, display: 'inline-block' }}
+                          style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, display: 'inline-block' }}
                         />
                         <span className="truncate">{item.label}</span>
                       </span>
@@ -1441,9 +1448,9 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-3 lg:flex-row lg:items-center lg:justify-between">
+          <CardHeader className="flex w-full flex-col flex-wrap gap-3 border-b pb-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <CardTitle className="text-base">Garantias de Todos os Inquilinos</CardTitle>
+              <CardTitle className="text-lg">Garantias de Todos os Inquilinos</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Distribuição das garantias cadastradas, filtrável por status e por período de vigência do contrato.
               </CardDescription>
@@ -1460,27 +1467,27 @@ export default function Dashboard() {
                   type="month"
                   value={garantiaInquilinosPeriodStart}
                   onChange={e => setGarantiaInquilinosPeriodStart(e.target.value)}
-                  style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                  style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                 />
                 <span className="text-xs text-muted-foreground">até</span>
                 <input
                   type="month"
                   value={garantiaInquilinosPeriodEnd}
                   onChange={e => setGarantiaInquilinosPeriodEnd(e.target.value)}
-                  style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                  style={{ fontSize: 12, padding: '5px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                 />
                 {(garantiaInquilinosPeriodStart || garantiaInquilinosPeriodEnd) && (
-                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={limparFiltroGarantiaInquilinosPeriodo}>
+                  <Button variant="outline" size="sm" onClick={limparFiltroGarantiaInquilinosPeriodo}>
                     Limpar
                   </Button>
                 )}
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-3">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-[0.6fr_1fr]">
-              <div className="flex min-w-0 flex-col items-center justify-center border bg-card p-3">
-                <p className="mb-2 text-center text-xs text-muted-foreground">{garantiaInquilinosFilterLabel}</p>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-[0.6fr_1fr]">
+              <div className="flex min-w-0 flex-col items-center justify-center border bg-card p-4">
+                <p className="mb-3 text-center text-xs text-muted-foreground">{garantiaInquilinosFilterLabel}</p>
                 <div className="donut-chart" aria-label="Gráfico de pizza de garantias de todos os inquilinos">
                   <svg viewBox="0 0 120 120" className="donut-svg">
                     <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="24" />
@@ -1506,18 +1513,18 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-              <div className="flex min-w-0 flex-col justify-center gap-1.5">
+              <div className="flex min-w-0 flex-col justify-center gap-2">
                 {garantiasInquilinosBreakdown.length === 0 ? (
-                  <p className="py-6 text-center text-xs text-muted-foreground">
+                  <p className="py-8 text-center text-sm text-muted-foreground">
                     Nenhum inquilino encontrado para os filtros selecionados.
                   </p>
                 ) : (
                   garantiaInquilinosSlices.map(item => (
-                    <div key={item.key} className="flex items-center justify-between gap-2 text-xs">
+                    <div key={item.key} className="flex items-center justify-between gap-2 text-sm">
                       <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
                         <span
                           className="shrink-0"
-                          style={{ width: 9, height: 9, borderRadius: '50%', background: item.color, display: 'inline-block' }}
+                          style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, display: 'inline-block' }}
                         />
                         <span className="truncate">{item.label}</span>
                       </span>
