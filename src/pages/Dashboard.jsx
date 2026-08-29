@@ -526,7 +526,7 @@ export default function Dashboard() {
         if (topFilter === 'quantidade') return b.count - a.count
         return b.total - a.total
       })
-      .slice(0, 5)
+      .slice(0, 10)
   }, [periodDebts, inquilinoMap, topFilter])
 
   const pie = getPieSegments(
@@ -1307,7 +1307,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col border bg-card p-3">
+            <div className="flex min-h-0 min-w-0 flex-col border bg-card p-3">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-medium">Maiores inadimplentes</h4>
@@ -1320,7 +1320,7 @@ export default function Dashboard() {
                   </TabsList>
                 </Tabs>
               </div>
-              <div className="flex flex-col gap-0.5">
+              <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
                 {topInadimplentes.length === 0 ? (
                   <p className="py-6 text-center text-xs text-muted-foreground">Nenhum inadimplente no período.</p>
                 ) : (
