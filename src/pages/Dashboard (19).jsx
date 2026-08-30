@@ -24,6 +24,9 @@ import {
   MapPin,
   Search,
   X,
+  RefreshCw,
+  LocateFixed,
+  Info,
 } from 'lucide-react'
 
 // --- Mapa de imóveis (Leaflet + OpenStreetMap) ---
@@ -42,23 +45,52 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 })
 
-// Monta a string de busca de endereço a partir do objeto `endereco` salvo no imóvel
-const buildEnderecoQuery = (endereco) => {
-  if (!endereco) return ''
-  const partes = [
-    endereco.rua ? `${endereco.rua}${endereco.numero ? ', ' + endereco.numero : ''}` : '',
-    endereco.bairro || '',
-    endereco.cidade || '',
-    endereco.estado || '',
-    endereco.cep || '',
-    'Brasil',
-  ].filter(Boolean)
-  return partes.join(', ')
+// Monta uma lista de tentativas de busca de endereço, da mais específica para a mais genérica.
+// O Nominatim (OpenStreetMap) tem cobertura irregular de endereços no Brasil, então em vez de
+// tentar só o endereço completo (e desistir se não achar), vamos "degradando" a consulta até
+// achar algo — marcando o nível de precisão de cada tentativa para avisar o usuário quando a
+// localização for aproximada.
+const buildEnderecoQueries = (endereco) => {
+  if (!endereco) return []
+  const ruaNumero = endereco.rua ? `${endereco.rua}${endereco.numero ? ', ' + endereco.numero : ''}` : ''
+  const rua = endereco.rua || ''
+  const bairro = endereco.bairro || ''
+  const cidade = endereco.cidade || ''
+  const estado = endereco.estado || ''
+  const cep = endereco.cep || ''
+
+  const queries = []
+
+  if (ruaNumero && cidade) {
+    // 1) Endereço completo: rua+número, bairro, cidade, estado, CEP
+    queries.push({ texto: [ruaNumero, bairro, cidade, estado, cep, 'Brasil'].filter(Boolean).join(', '), precisao: 'exata' })
+    // 2) Sem bairro/CEP, que às vezes atrapalham o Nominatim em vez de ajudar
+    queries.push({ texto: [ruaNumero, cidade, estado, 'Brasil'].filter(Boolean).join(', '), precisao: 'exata' })
+  }
+  if (rua && cidade) {
+    // 3) Rua sem número
+    queries.push({ texto: [rua, bairro, cidade, estado, 'Brasil'].filter(Boolean).join(', '), precisao: 'aproximada' })
+  }
+  if (bairro && cidade) {
+    // 4) Só bairro + cidade
+    queries.push({ texto: [bairro, cidade, estado, 'Brasil'].filter(Boolean).join(', '), precisao: 'aproximada' })
+  }
+  if (cep) {
+    // 5) Só CEP
+    queries.push({ texto: [cep, 'Brasil'].filter(Boolean).join(', '), precisao: 'aproximada' })
+  }
+  if (cidade) {
+    // 6) Último recurso: só cidade + estado (aproximação grosseira, mas melhor que nada no mapa)
+    queries.push({ texto: [cidade, estado, 'Brasil'].filter(Boolean).join(', '), precisao: 'aproximada' })
+  }
+
+  return queries
 }
 
-// Geocodifica um endereço usando a API pública Nominatim (OpenStreetMap) - gratuita, sem API key
-const geocodeEndereco = async (query) => {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`
+// Geocodifica uma única consulta usando a API pública Nominatim (OpenStreetMap) - gratuita, sem
+// API key. `countrycodes=br` reduz bastante os falsos negativos/matches errados fora do Brasil.
+const geocodeUmaQuery = async (texto) => {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(texto)}`
   const res = await fetch(url, { headers: { 'Accept-Language': 'pt-BR' } })
   if (!res.ok) return null
   const data = await res.json()
@@ -66,12 +98,40 @@ const geocodeEndereco = async (query) => {
   return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) }
 }
 
+// Tenta geocodificar o endereço de um imóvel testando várias estratégias, da mais específica à
+// mais genérica, parando na primeira que encontrar coordenadas. Retorna também o nível de
+// precisão atingido (exata = endereço completo, aproximada = caiu para bairro/CEP/cidade).
+const geocodeComFallback = async (endereco) => {
+  const queries = buildEnderecoQueries(endereco)
+  for (let i = 0; i < queries.length; i++) {
+    const { texto, precisao } = queries[i]
+    try {
+      const coords = await geocodeUmaQuery(texto)
+      if (coords) return { ...coords, precisao }
+    } catch (err) {
+      console.error('Erro ao geocodificar', texto, err)
+    }
+    // respeita o limite de uso justo da Nominatim (1 req/s) entre tentativas
+    if (i < queries.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1100))
+    }
+  }
+  return null
+}
+
 // Componente do mapa: recebe a lista de imóveis e plota um marcador para cada um que já
 // possui coordenadas (im.geo.lat / im.geo.lng)
-function MapaImoveis({ imoveis }) {
+function MapaImoveis({ imoveis, onMapClick, pinModeAtivo }) {
   const mapContainerRef = useRef(null)
   const mapRef = useRef(null)
   const markersLayerRef = useRef(null)
+  // guardado em ref para o handler de clique sempre chamar a versão mais recente da callback,
+  // sem precisar recriar o listener do mapa a cada render
+  const onMapClickRef = useRef(onMapClick)
+
+  useEffect(() => {
+    onMapClickRef.current = onMapClick
+  }, [onMapClick])
 
   // Inicializa o mapa uma única vez
   useEffect(() => {
@@ -87,11 +147,21 @@ function MapaImoveis({ imoveis }) {
     }).addTo(mapRef.current)
     markersLayerRef.current = L.layerGroup().addTo(mapRef.current)
 
+    mapRef.current.on('click', (e) => {
+      onMapClickRef.current?.(e.latlng)
+    })
+
     return () => {
       mapRef.current?.remove()
       mapRef.current = null
     }
   }, [])
+
+  // Troca o cursor para indicar que o mapa está em modo de marcação manual
+  useEffect(() => {
+    if (!mapRef.current) return
+    mapRef.current.getContainer().style.cursor = pinModeAtivo ? 'crosshair' : ''
+  }, [pinModeAtivo])
 
   // Atualiza os marcadores sempre que a lista de imóveis (ou suas coordenadas) mudar
   useEffect(() => {
@@ -104,11 +174,15 @@ function MapaImoveis({ imoveis }) {
       const enderecoTexto = [im.endereco?.rua, im.endereco?.numero, im.endereco?.bairro, im.endereco?.cidade]
         .filter(Boolean)
         .join(', ')
+      const precisaoAviso = im.geo?.precisao && im.geo.precisao !== 'exata'
+        ? '<br/><span style="color:#b45309">Localização aproximada</span>'
+        : ''
       const marker = L.marker([im.geo.lat, im.geo.lng])
       marker.bindPopup(`
         <strong>${im.codigo || 'Sem código'}</strong><br/>
         ${enderecoTexto || 'Endereço não informado'}<br/>
         <span style="color:#64748b">${im.ocupado ? 'Ocupado' : 'Desocupado'}</span>
+        ${precisaoAviso}
       `)
       marker.addTo(markersLayerRef.current)
     })
@@ -295,6 +369,8 @@ export default function Dashboard() {
   // Filtros do card "Mapa de Imóveis": quais imóveis aparecem no mapa
   const [mapaFiltroOcupacao, setMapaFiltroOcupacao] = useState('todos') // 'todos' | 'ocupados' | 'desocupados'
   const [mapaFiltroTexto, setMapaFiltroTexto] = useState('') // busca por código/nome do imóvel
+  const [retryingGeoIds, setRetryingGeoIds] = useState(() => new Set()) // ids em nova tentativa de geocodificação
+  const [pinModeImovelId, setPinModeImovelId] = useState(null) // id do imóvel sendo marcado manualmente no mapa
 
   // Filtros do card "Garantias dos Inadimplentes"
   const [garantiaFilterMode, setGarantiaFilterMode] = useState('month') // 'month' | 'range'
@@ -377,31 +453,37 @@ export default function Dashboard() {
     let cancelled = false
 
     const processarFila = async () => {
+      // só entram na fila automática os imóveis que nunca foram tentados (im.geo ainda não existe);
+      // os que já falharam (im.geo.erro) ficam disponíveis para nova tentativa manual, sem retry
+      // automático infinito consumindo a cota da Nominatim
       const pendentes = imoveis.filter(im =>
         !im.geo &&
         !geocodingAttemptedRef.current.has(im.id) &&
-        im.endereco && (im.endereco.rua || im.endereco.cep)
+        im.endereco && (im.endereco.rua || im.endereco.cep || im.endereco.cidade)
       )
 
       for (const im of pendentes) {
         if (cancelled) return
         geocodingAttemptedRef.current.add(im.id)
-        const query = buildEnderecoQuery(im.endereco)
-        if (!query) continue
 
         try {
-          const coords = await geocodeEndereco(query)
+          const resultado = await geocodeComFallback(im.endereco)
           if (cancelled) return
-          if (coords) {
-            await update(ref(db, `imoveis/${im.id}/geo`), { lat: coords.lat, lng: coords.lng, atualizadoEm: Date.now() })
+          if (resultado) {
+            await update(ref(db, `imoveis/${im.id}/geo`), {
+              lat: resultado.lat,
+              lng: resultado.lng,
+              precisao: resultado.precisao,
+              atualizadoEm: Date.now(),
+            })
           } else {
-            await update(ref(db, `imoveis/${im.id}/geo`), { lat: null, lng: null, erro: true })
+            await update(ref(db, `imoveis/${im.id}/geo`), { lat: null, lng: null, erro: true, atualizadoEm: Date.now() })
           }
         } catch (err) {
           console.error('Erro ao geocodificar imóvel', im.id, err)
         }
 
-        // respeita o limite de uso justo da API pública do Nominatim (1 req/s)
+        // respeita o limite de uso justo da API pública do Nominatim (1 req/s) entre imóveis
         await new Promise(resolve => setTimeout(resolve, 1100))
       }
     }
@@ -409,6 +491,48 @@ export default function Dashboard() {
     processarFila()
     return () => { cancelled = true }
   }, [imoveis])
+
+  // Repete a geocodificação de um imóvel específico sob demanda (botão "Tentar de novo")
+  const handleRetryGeocode = async (im) => {
+    setRetryingGeoIds(prev => new Set(prev).add(im.id))
+    try {
+      geocodingAttemptedRef.current.delete(im.id)
+      const resultado = await geocodeComFallback(im.endereco)
+      if (resultado) {
+        await update(ref(db, `imoveis/${im.id}/geo`), {
+          lat: resultado.lat,
+          lng: resultado.lng,
+          precisao: resultado.precisao,
+          atualizadoEm: Date.now(),
+        })
+      } else {
+        await update(ref(db, `imoveis/${im.id}/geo`), { lat: null, lng: null, erro: true, atualizadoEm: Date.now() })
+      }
+    } catch (err) {
+      console.error('Erro ao tentar geocodificar novamente', im.id, err)
+    } finally {
+      setRetryingGeoIds(prev => {
+        const next = new Set(prev)
+        next.delete(im.id)
+        return next
+      })
+    }
+  }
+
+  // Grava a localização manualmente quando o usuário clica no mapa com um imóvel selecionado
+  // (fluxo "Marcar no mapa" para endereços que a Nominatim nunca vai achar sozinha)
+  const handleManualPin = async (latlng) => {
+    if (!pinModeImovelId) return
+    const imovelId = pinModeImovelId
+    setPinModeImovelId(null)
+    await update(ref(db, `imoveis/${imovelId}/geo`), {
+      lat: latlng.lat,
+      lng: latlng.lng,
+      precisao: 'manual',
+      erro: null,
+      atualizadoEm: Date.now(),
+    })
+  }
 
   const totalImoveis = imoveis.length
   const totalInquilinosAtivos = useMemo(
@@ -474,6 +598,12 @@ export default function Dashboard() {
 
   const imoveisMapaComGeoCount = useMemo(
     () => imoveisMapaFiltrados.filter(im => im.geo?.lat && im.geo?.lng).length,
+    [imoveisMapaFiltrados]
+  )
+
+  // Imóveis (dentro do filtro atual) que ainda não têm um pino no mapa — sem coordenadas
+  const imoveisSemLocalizacao = useMemo(
+    () => imoveisMapaFiltrados.filter(im => !(im.geo?.lat && im.geo?.lng)),
     [imoveisMapaFiltrados]
   )
 
@@ -1061,8 +1191,65 @@ export default function Dashboard() {
             </Tabs>
           </div>
         </CardHeader>
-        <CardContent className="p-3">
-          <MapaImoveis imoveis={imoveisMapaFiltrados} />
+        <CardContent className="flex flex-col gap-2 p-3">
+          {pinModeImovelId && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+              <span className="flex items-center gap-1.5">
+                <LocateFixed className="size-3.5 shrink-0" />
+                Clique no mapa para definir a localização de{' '}
+                <strong>{imovelMap[pinModeImovelId]?.codigo || 'imóvel selecionado'}</strong>
+              </span>
+              <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => setPinModeImovelId(null)}>
+                Cancelar
+              </Button>
+            </div>
+          )}
+
+          <MapaImoveis imoveis={imoveisMapaFiltrados} onMapClick={handleManualPin} pinModeAtivo={!!pinModeImovelId} />
+
+          {imoveisSemLocalizacao.length > 0 && (
+            <div className="border bg-muted/20 p-2">
+              <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                <Info className="size-3.5 shrink-0" />
+                {imoveisSemLocalizacao.length} imóve{imoveisSemLocalizacao.length === 1 ? 'l' : 'is'} sem localização exata no mapa
+              </p>
+              <div className="flex max-h-40 flex-col gap-1 overflow-y-auto">
+                {imoveisSemLocalizacao.map(im => (
+                  <div key={im.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-background px-2 py-1 text-xs">
+                    <div className="min-w-0">
+                      <span className="font-medium">{im.codigo || 'Sem código'}</span>
+                      <span className="ml-1.5 truncate text-muted-foreground">
+                        {[im.endereco?.rua, im.endereco?.numero, im.endereco?.bairro, im.endereco?.cidade]
+                          .filter(Boolean)
+                          .join(', ') || 'Endereço não informado'}
+                      </span>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-6 gap-1 text-[11px]"
+                        onClick={() => handleRetryGeocode(im)}
+                        disabled={retryingGeoIds.has(im.id)}
+                      >
+                        <RefreshCw className={`size-3 ${retryingGeoIds.has(im.id) ? 'animate-spin' : ''}`} />
+                        Tentar de novo
+                      </Button>
+                      <Button
+                        variant={pinModeImovelId === im.id ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-6 gap-1 text-[11px]"
+                        onClick={() => setPinModeImovelId(prev => (prev === im.id ? null : im.id))}
+                      >
+                        <LocateFixed className="size-3" />
+                        Marcar no mapa
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
