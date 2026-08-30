@@ -123,7 +123,7 @@ const spreadGroupPositions = (grupo) => {
 
   // Raio do círculo em metros: cresce um pouco conforme o número de imóveis no mesmo local,
   // para que grupos maiores não fiquem apertados demais
-  const raioMetros = 1 + Math.min(grupo.length, 1) * 4
+  const raioMetros = 18 + Math.min(grupo.length, 8) * 4
 
   return grupo.map((imovel, index) => {
     const angulo = (2 * Math.PI * index) / grupo.length
@@ -174,7 +174,7 @@ function MapaImoveis({ imoveis }) {
 
     // Agrupa imóveis muito próximos entre si e calcula uma posição "espalhada" em círculo para
     // cada um, para que seja possível ver e clicar em todos individualmente no mapa
-    const grupos = groupNearbyPoints(pontos, 2)
+    const grupos = groupNearbyPoints(pontos, 25)
 
     grupos.forEach(grupo => {
       const posicoes = spreadGroupPositions(grupo)
@@ -755,8 +755,6 @@ export default function Dashboard() {
     const waitingPercent = total > 0 ? Math.round((totals.aguardarAcionar / total) * 100) : 0
     const juridicoPercent = total > 0 ? Math.round((totals.juridico / total) * 100) : 0
     const acionadoPercent = total > 0 ? Math.round((totals.acionado / total) * 100) : 0
-    const abertoValue = totals.inadimplente + totals.aprovadoSeguradora + totals.aguardarAcionar + totals.juridico + totals.acionado
-    const abertoPercent = total > 0 ? Math.round((abertoValue / total) * 100) : 0
     return {
       key,
       label,
@@ -771,7 +769,6 @@ export default function Dashboard() {
       waitingPercent,
       juridicoPercent,
       acionadoPercent,
-      abertoPercent,
       active: periodMode === 'month' && selectedMonth === key,
     }
   }), [selectedYear, selectedMonth, yearMonthTotals, periodMode])
@@ -1576,35 +1573,104 @@ export default function Dashboard() {
                     type="button"
                     className={`month-card compact ${card.active ? 'active' : ''}`}
                     onClick={() => handleSelectMonth(card.key)}
+                    style={{ position: 'relative', overflow: 'hidden' }}
                   >
-                    <div className="mc-top-row">
-                      <span>{MONTH_LABELS[Number(card.key.slice(-2)) - 1]}</span>
-                      <strong>
-                        {fmtMoney(
-                          card.inadimplente + card.recuperado + card.aprovadoSeguradora +
-                          card.aguardarAcionar + card.juridico + card.acionado
-                        )}
-                      </strong>
-                    </div>
-                    <div className="mc-values-row">
-                      <div className="mc-value-group">
-                        <span className="mc-value-label">Recuperado</span>
-                        <strong>
-                          {fmtMoney(card.recuperado)}{' '}
-                          <span className="text-muted-foreground font-normal">({card.recoveredPercent}%)</span>
-                        </strong>
-                      </div>
-                      <div className="mc-value-group">
-                        <span className="mc-value-label">Em aberto</span>
-                        {/* "Em aberto" aqui é todo débito não pago, incluindo os que já
-                            estão com seguradora acionada ou em processo jurídico */}
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        height: `${card.recoveredPercent}%`,
+                        background: 'rgba(34, 197, 94, 0.25)',
+                        transition: 'height 0.3s ease',
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                      }}
+                    />
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        bottom: `${card.recoveredPercent}%`,
+                        height: `${card.approvedPercent}%`,
+                        background: 'rgba(166, 234, 8, 0.3)',
+                        transition: 'height 0.3s ease, bottom 0.3s ease',
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                      }}
+                    />
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        bottom: `${card.recoveredPercent + card.approvedPercent}%`,
+                        height: `${card.waitingPercent}%`,
+                        background: 'rgba(100, 116, 139, 0.3)',
+                        transition: 'height 0.3s ease, bottom 0.3s ease',
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                      }}
+                    />
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        bottom: `${card.recoveredPercent + card.approvedPercent + card.waitingPercent}%`,
+                        height: `${card.juridicoPercent}%`,
+                        background: 'rgba(239, 68, 68, 0.3)',
+                        transition: 'height 0.3s ease, bottom 0.3s ease',
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                      }}
+                    />
+                    <div
+                      aria-hidden="true"
+                      style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        bottom: `${card.recoveredPercent + card.approvedPercent + card.waitingPercent + card.juridicoPercent}%`,
+                        height: `${card.acionadoPercent}%`,
+                        background: 'rgba(59, 130, 246, 0.3)',
+                        transition: 'height 0.3s ease, bottom 0.3s ease',
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                      }}
+                    />
+                    <div style={{ position: 'relative', zIndex: 1 }}>
+                      <div className="mc-top-row">
+                        <span>{MONTH_LABELS[Number(card.key.slice(-2)) - 1]}</span>
                         <strong>
                           {fmtMoney(
-                            card.inadimplente + card.aprovadoSeguradora +
+                            card.inadimplente + card.recuperado + card.aprovadoSeguradora +
                             card.aguardarAcionar + card.juridico + card.acionado
-                          )}{' '}
-                          <span className="text-muted-foreground font-normal">({card.abertoPercent}%)</span>
+                          )}
                         </strong>
+                      </div>
+                      <div className="mc-values-row">
+                        <div className="mc-value-group">
+                          <span className="mc-value-label">Recuperado</span>
+                          <strong>{fmtMoney(card.recuperado)}</strong>
+                        </div>
+                        <div className="mc-value-group">
+                          <span className="mc-value-label">Em aberto</span>
+                          {/* "Em aberto" aqui é todo débito não pago, incluindo os que já
+                              estão com seguradora acionada ou em processo jurídico */}
+                          <strong>
+                            {fmtMoney(
+                              card.inadimplente + card.aprovadoSeguradora +
+                              card.aguardarAcionar + card.juridico + card.acionado
+                            )}
+                          </strong>
+                        </div>
                       </div>
                     </div>
                   </button>
