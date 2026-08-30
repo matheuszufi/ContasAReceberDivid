@@ -58,6 +58,14 @@ function getCellSummary(items) {
 const fmtBRL = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const padM   = n => String(n).padStart(2, '0')
 
+// Retorna a quantidade de dias do mês referenciado por uma chave "YYYY-MM"
+const getDiasNoMes = (mesKey) => {
+  if (!mesKey) return 30
+  const [y, m] = mesKey.split('-').map(Number)
+  if (!y || !m) return 30
+  return new Date(y, m, 0).getDate()
+}
+
 const isContaPagaImobiliaria = (inquilino, k) => {
   const pagador = inquilino?.contasPagador?.[k] || (inquilino?.contasVariavel?.[k] ? 'imobiliaria' : 'inquilino')
   return pagador === 'imobiliaria'
@@ -117,6 +125,9 @@ export default function ImoveisTodos() {
   const [regForm, setRegForm]         = useState(null)
   const [regSaving, setRegSaving]     = useState(false)
   const [obsModal, setObsModal]       = useState('')
+  const [diaSaidaModal, setDiaSaidaModal] = useState('')
+  const [contasProporcionaisModal, setContasProporcionaisModal] = useState([])
+  const [desocupacaoModal, setDesocupacaoModal] = useState(false)
   const [filterNome, setFilterNome]           = useState('')
   const [filterImovel, setFilterImovel]       = useState('')
   const [filterModelo, setFilterModelo]       = useState('')
@@ -147,7 +158,10 @@ export default function ImoveisTodos() {
 
   const sortArrow = (field) => sortBy === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
  
-  const closeModal = () => { setModal(null); setVarValues({}); setRegistradoVar({}); setExtraContas([]); setSaveError(''); setRegForm(null); setObsModal('') }
+  const closeModal = () => {
+    setModal(null); setVarValues({}); setRegistradoVar({}); setExtraContas([]); setSaveError('')
+    setRegForm(null); setObsModal(''); setDiaSaidaModal(''); setContasProporcionaisModal([]); setDesocupacaoModal(false)
+  }
  
   const goInquilino = (inquilinoId) => navigate(`/inquilinos/editar/${inquilinoId}`)
   const goImovel = (imovelId) => navigate(`/imoveis/editar/${imovelId}`)
@@ -294,13 +308,17 @@ export default function ImoveisTodos() {
   const openModal = (row, mi) => {
     const key = monthKey(mi)
     const saved = valoresVariaveis[row.inquilino.id]?.[key] || {}
+    const { mesFim } = getMesRange(row.inquilino)
     setModal({ ...row, mi, key, items: getItems(row.inquilino.id, mi), travado: !!saved._travado })
-    const { extras, _obs, _registrado, _travado, _travadoEm, ...vals } = saved
+    const { extras, _obs, _registrado, _travado, _travadoEm, _diaSaida, _contasProporcionais, ...vals } = saved
     console.log('[openModal] inquilino', row.inquilino.id, 'mes', key, 'dados carregados:', saved)
     setVarValues(vals || {})
     setRegistradoVar(_registrado || {})
     setExtraContas(extras ? Object.entries(extras).map(([id, v]) => ({ id, ...v })) : [])
     setObsModal(_obs || '')
+    setDiaSaidaModal(_diaSaida ? String(_diaSaida) : '')
+    setContasProporcionaisModal(_contasProporcionais || (_diaSaida ? ['_aluguel'] : []))
+    setDesocupacaoModal(!!row.inquilino.desocupacaoRegistrada && key === mesFim)
   }
  
   const handleVarValue = (contaKey, rawValue) => {
@@ -317,7 +335,158 @@ export default function ImoveisTodos() {
     if (modal?.inquilino?.id && modal?.key) {
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), { [contaKey]: null })
         .catch(err => { console.error('Erro ao reverter valor:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
+      // Se essa conta fazia parte do rateio proporcional, tira ela da seleção também
+      if (contasProporcionaisModal.includes(contaKey)) {
+        const next = contasProporcionaisModal.filter(k => k !== contaKey)
+        setContasProporcionaisModal(next)
+        const patch = { _contasProporcionais: next.length ? next : null }
+        if (next.length === 0) { setDiaSaidaModal(''); patch._diaSaida = null }
+        update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), patch)
+          .catch(err => console.error('Erro ao atualizar contas proporcionais:', err))
+      }
     }
+  }
+
+  // Retorna o valor "base" (sem rateio por dia) de uma conta do inquilino/imóvel atualmente aberto no modal
+  const getBaseValorConta = (key) => {
+    if (!modal) return 0
+    const { imovel, inquilino } = modal
+    const { mesInicio } = getMesRange(inquilino)
+    if (key === '_aluguel') {
+      const aluguelCheio = Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
+      return modal.key === mesInicio ? aluguelCheio * getFracaoEntrada(inquilino) : aluguelCheio
+    }
+    if (key === '_seguro') {
+      return (inquilino.garantia === 'seguro' && isMesDentroRange(modal.key, inquilino.seguroFiancaMesInicio, inquilino.seguroFiancaMesFim)) ? Number(inquilino.valorSeguro) || 0 : 0
+    }
+    if (key === '_garagem') {
+      return (Number(inquilino.vagas) || 0) * (Number(inquilino.valorVaga) || 0)
+    }
+    if (key === '_garantia') {
+      return (inquilino.garantia === 'caucao' || inquilino.garantia === 'adiantamento') && modal.key === mesInicio ? Number(inquilino.valorGarantia) || 0 : 0
+    }
+    return Number(inquilino.contasValores?.[key]) || 0
+  }
+
+  // Lista de contas elegíveis para rateio proporcional por dias, no mês do modal aberto
+  const getContasProrateaveis = () => {
+    if (!modal) return []
+    const { imovel, inquilino } = modal
+    const list = [{ key: '_aluguel', label: 'Aluguel', icone: '🏠' }]
+    const contasInclusas = (imovel.contasInclusas || inquilino.contasInclusas || [])
+      .filter(k => !isContaPagaImobiliaria(inquilino, k))
+      .filter(k => !isSeguroIncendioKey(k) || isMesDentroRange(modal.key, inquilino.seguroIncendioMesInicio, inquilino.seguroIncendioMesFim))
+    contasInclusas.forEach(k => {
+      const { label, icone } = getContaMeta(k)
+      list.push({ key: k, label, icone })
+    })
+    if (inquilino.garantia === 'seguro') list.push({ key: '_seguro', label: 'Seguro Fiança', icone: '🛡️' })
+    if ((Number(inquilino.vagas) || 0) > 0) list.push({ key: '_garagem', label: 'Garagem', icone: '🚗' })
+    return list
+  }
+
+  // Aplica (ou reverte) o rateio proporcional pelos dias para o conjunto de contas selecionado
+  const aplicarProporcional = (rawValue, contasKeys) => {
+    if (!modal?.inquilino?.id || !modal?.key) return
+    const dia = parseInt(rawValue, 10)
+
+    if (!rawValue || Number.isNaN(dia) || dia < 1 || contasKeys.length === 0) {
+      // Sem dia válido ou sem contas selecionadas: reverte tudo que estava marcado antes
+      const anteriores = contasProporcionaisModal
+      setVarValues(prev => {
+        const n = { ...prev }
+        anteriores.forEach(k => delete n[k])
+        return n
+      })
+      const patch = { _diaSaida: null, _contasProporcionais: null }
+      anteriores.forEach(k => { patch[k] = null })
+      update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), patch)
+        .catch(err => { console.error('Erro ao limpar rateio proporcional:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
+      return
+    }
+
+    const diasNoMes = getDiasNoMes(modal.key)
+    const diaFinal  = Math.min(Math.max(dia, 1), diasNoMes)
+    const fracao    = diasNoMes ? diaFinal / diasNoMes : 1
+
+    const patch = { _diaSaida: dia, _contasProporcionais: contasKeys }
+    const novosValores = {}
+    contasKeys.forEach(k => {
+      const base = getBaseValorConta(k)
+      const valorProporcional = Math.round(base * fracao * 100) / 100
+      patch[k] = valorProporcional
+      novosValores[k] = valorProporcional
+    })
+
+    // Contas que estavam marcadas antes e foram desmarcadas agora voltam ao valor padrão
+    const removidas = contasProporcionaisModal.filter(k => !contasKeys.includes(k))
+    removidas.forEach(k => { patch[k] = null })
+
+    setVarValues(prev => {
+      const n = { ...prev, ...novosValores }
+      removidas.forEach(k => delete n[k])
+      return n
+    })
+
+    update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), patch)
+      .catch(err => { console.error('Erro ao salvar rateio proporcional:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
+  }
+
+  // Dia do mês usado como referência para o rateio proporcional (e para a desocupação, quando marcada)
+  const handleDiaSaidaChange = (rawValue) => {
+    setDiaSaidaModal(rawValue)
+    aplicarProporcional(rawValue, contasProporcionaisModal)
+
+    // Se a desocupação já está marcada neste mês, mantém a data de saída do inquilino em sincronia
+    if (desocupacaoModal && modal?.inquilino?.id && modal?.key) {
+      const dia = parseInt(rawValue, 10)
+      if (rawValue && !Number.isNaN(dia) && dia >= 1) {
+        const diasNoMes = getDiasNoMes(modal.key)
+        const diaFinal  = Math.min(Math.max(dia, 1), diasNoMes)
+        const novaDataSaida = `${modal.key}-${padM(diaFinal)}`
+        update(ref(db, `inquilinos/${modal.inquilino.id}`), { dataSaida: novaDataSaida })
+          .then(() => setModal(m => m ? { ...m, inquilino: { ...m.inquilino, dataSaida: novaDataSaida } } : m))
+          .catch(err => console.error('Erro ao atualizar data de saída:', err))
+      }
+    }
+  }
+
+  // Marca/desmarca este mês como o mês de desocupação do inquilino, atualizando dataSaida
+  const handleToggleDesocupacao = (checked) => {
+    setDesocupacaoModal(checked)
+    if (!modal?.inquilino?.id || !modal?.key) return
+
+    if (checked) {
+      const dia = parseInt(diaSaidaModal, 10)
+      const diasNoMes = getDiasNoMes(modal.key)
+      const diaFinal = (!diaSaidaModal || Number.isNaN(dia) || dia < 1)
+        ? diasNoMes
+        : Math.min(Math.max(dia, 1), diasNoMes)
+      const novaDataSaida = `${modal.key}-${padM(diaFinal)}`
+      if (!diaSaidaModal) setDiaSaidaModal(String(diaFinal))
+      update(ref(db, `inquilinos/${modal.inquilino.id}`), {
+        dataSaida: novaDataSaida,
+        desocupacaoRegistrada: true,
+      }).then(() => {
+        setModal(m => m ? { ...m, inquilino: { ...m.inquilino, dataSaida: novaDataSaida, desocupacaoRegistrada: true } } : m)
+      }).catch(err => { console.error('Erro ao registrar desocupação:', err); setSaveError(`Erro ao salvar desocupação: ${err.message}`) })
+    } else {
+      update(ref(db, `inquilinos/${modal.inquilino.id}`), {
+        desocupacaoRegistrada: false,
+      }).then(() => {
+        setModal(m => m ? { ...m, inquilino: { ...m.inquilino, desocupacaoRegistrada: false } } : m)
+      }).catch(err => { console.error('Erro ao desmarcar desocupação:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
+    }
+  }
+
+  // Marca/desmarca uma conta específica para participar do rateio proporcional pelos dias
+  const handleContaProporcionalToggle = (key) => {
+    const isSelected = contasProporcionaisModal.includes(key)
+    const next = isSelected
+      ? contasProporcionaisModal.filter(k => k !== key)
+      : [...contasProporcionaisModal, key]
+    setContasProporcionaisModal(next)
+    aplicarProporcional(diaSaidaModal, next)
   }
  
   const handleAddExtra = () => {
@@ -1118,6 +1287,11 @@ export default function ImoveisTodos() {
                       🔒 Travado
                     </span>
                   )}
+                  {desocupacaoModal && (
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#1e293b', background: '#e2e8f0', border: '1px solid #94a3b8', borderRadius: 6, padding: '2px 8px' }}>
+                      🚪 Desocupação
+                    </span>
+                  )}
                 </h3>
                 <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: 13 }}>
                   👤 {modal.inquilino.nome}{modal.inquilino.numeroQuarto ? <span style={{ marginLeft: 8, background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 5, padding: '1px 7px', fontSize: 12, fontWeight: 600, color: '#475569' }}>Quarto {modal.inquilino.numeroQuarto}</span> : ''}
@@ -1185,6 +1359,7 @@ export default function ImoveisTodos() {
               const totalMes       = aluguel + despesas + valorSeguro + valorGaragem + valorGarantia + extrasTotal + parcelasModalTotal
               const temVariavel    = allContas.some(c => c.isVariavel)
               const varPreenchido  = allContas.filter(c => c.isVariavel).every(c => Number(varValues[c.key]) > 0)
+              const diasNoMesModal = getDiasNoMes(modal.key)
  
               const EditableRow = ({ icon, label, baseVal, vKey, showSeguro, registradoKey }) => {
                 const hasOv      = vKey in varValues
@@ -1192,6 +1367,7 @@ export default function ImoveisTodos() {
                 const isModified = hasOv && parseFloat(varValues[vKey]) !== baseVal
                 const bc         = isModified ? '#fcd34d' : '#e2e8f0'
                 const registrada = registradoKey ? !!registradoVar[registradoKey] : false
+                const isProporcional = contasProporcionaisModal.includes(vKey)
                 return (
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 13, opacity: registrada ? 0.55 : 1 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -1206,6 +1382,7 @@ export default function ImoveisTodos() {
                       )}
                       {icon} {label}{showSeguro && modal.inquilino.seguro ? ` — ${SEGURO_LABELS[modal.inquilino.seguro] || modal.inquilino.seguro}` : ''}
                       {isModified && <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#b45309', borderRadius: 8, padding: '1px 6px' }}>alterado</span>}
+                      {isProporcional && <span style={{ fontSize: 10, fontWeight: 700, background: '#dbeafe', color: '#1d4ed8', borderRadius: 8, padding: '1px 6px' }}>📆 proporcional</span>}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <input
@@ -1237,10 +1414,86 @@ export default function ImoveisTodos() {
                   )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <EditableRow icon="🏠" label="Aluguel"       baseVal={aluguelBase}  vKey="_aluguel" />
+
+                    {/* Desocupação e rateio proporcional por dia do mês */}
+                    <div style={{
+                      display: 'flex', flexDirection: 'column', gap: 8,
+                      background: (diaSaidaModal || desocupacaoModal) ? '#eff6ff' : '#fff',
+                      border: `1.5px dashed ${(diaSaidaModal || desocupacaoModal) ? '#93c5fd' : '#e2e8f0'}`,
+                      borderRadius: 6, padding: '8px 10px', marginTop: -2, marginBottom: 2,
+                    }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#1e293b', fontWeight: 700, cursor: 'pointer' }}>
+                        <input
+                          type="checkbox"
+                          checked={desocupacaoModal}
+                          onChange={e => handleToggleDesocupacao(e.target.checked)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        🚪 Registrar desocupação neste mês
+                      </label>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                        <span style={{ color: '#64748b', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                          📆 Dia de saída
+                        </span>
+                        <input
+                          type="number"
+                          min="1"
+                          max={diasNoMesModal}
+                          placeholder="—"
+                          value={diaSaidaModal}
+                          onChange={e => handleDiaSaidaChange(e.target.value)}
+                          style={{
+                            width: 56, padding: '3px 6px', border: '1.5px solid #cbd5e1', borderRadius: 5,
+                            fontSize: 12, textAlign: 'center', outline: 'none', background: '#fff', color: '#334155', fontWeight: 600,
+                          }}
+                        />
+                        <span style={{ color: '#94a3b8', flexShrink: 0 }}>
+                          de {diasNoMesModal} dias do mês
+                        </span>
+                        {diaSaidaModal && (
+                          <button
+                            onClick={() => handleDiaSaidaChange('')}
+                            title="Limpar dia de saída e voltar aos valores cheios"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0, marginLeft: 'auto' }}
+                          >↺</button>
+                        )}
+                      </div>
+
+                      <div>
+                        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>Ratear proporcionalmente pelos dias:</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                          {getContasProrateaveis().map(({ key, label, icone }) => {
+                            const selecionada = contasProporcionaisModal.includes(key)
+                            return (
+                              <label
+                                key={key}
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11,
+                                  background: selecionada ? '#dbeafe' : '#f1f5f9',
+                                  border: `1px solid ${selecionada ? '#93c5fd' : '#e2e8f0'}`,
+                                  borderRadius: 12, padding: '2px 8px', cursor: 'pointer',
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selecionada}
+                                  onChange={() => handleContaProporcionalToggle(key)}
+                                  style={{ cursor: 'pointer' }}
+                                />
+                                {icone} {label}
+                              </label>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
                     {allContas.map(({ key, label, icone, value, isVariavel, origem }) => {
                       const hasOverride = key in varValues
                       const inputVal    = hasOverride ? varValues[key] : String(value || '')
                       const isModified  = hasOverride && parseFloat(varValues[key]) !== value
+                      const isProporcional = contasProporcionaisModal.includes(key)
                       const borderColor = isVariavel ? '#c4b5fd' : isModified ? '#fcd34d' : '#e2e8f0'
                       const bgColor     = isVariavel ? '#faf5ff' : isModified ? '#fffbeb' : '#fff'
                       const txtColor    = isVariavel ? '#6d28d9' : isModified ? '#92400e' : '#334155'
@@ -1267,6 +1520,11 @@ export default function ImoveisTodos() {
                               {!isVariavel && isModified && (
                                 <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#b45309', borderRadius: 8, padding: '1px 6px' }}>
                                   alterado
+                                </span>
+                              )}
+                              {isProporcional && (
+                                <span style={{ fontSize: 10, fontWeight: 700, background: '#dbeafe', color: '#1d4ed8', borderRadius: 8, padding: '1px 6px' }}>
+                                  📆 proporcional
                                 </span>
                               )}
                             </span>
