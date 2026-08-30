@@ -1093,7 +1093,7 @@ export default function ImoveisTodos() {
                           : isDesocupacao
                             ? '#cbd5e1'
                             : variavelAlerta
-                              ? '#ede9fe'
+                              ? '#eed2a12a'
                               : isCellGreen
                                 ? '#dcfce7'
                                 : isCellYellow
@@ -1118,7 +1118,7 @@ export default function ImoveisTodos() {
                               ...(cellTravado ? { boxShadow: 'inset 0 0 0 1.5px #22c55e' } : {}),
                               ...(isReajuste ? { borderBottom: '2.5px solid #f59e0b' } : {}),
                               ...(isDesocupacao ? { borderLeft: '3px solid #ef4444' } : {}),
-                              ...(variavelAlerta && !isDesocupacao ? { borderLeft: '3px solid #a855f7' } : {}),
+                              ...(variavelAlerta && !isDesocupacao ? { borderLeft: '3px solid #f7b155' } : {}),
                               ...(temExtra ? { borderRight: '3px solid #f97316' } : {}),
                             }}
                             onClick={() => openModal({ imovel, inquilino }, mi)}
@@ -1513,7 +1513,7 @@ export default function ImoveisTodos() {
                               )}
                               {icone} {label}
                               {isVariavel && (
-                                <span style={{ fontSize: 10, fontWeight: 700, background: '#ede9fe', color: '#7c3aed', borderRadius: 8, padding: '1px 6px' }}>
+                                <span style={{ fontSize: 10, fontWeight: 700, background: '#ffdfc9', color: '#7c3aed', borderRadius: 8, padding: '1px 6px' }}>
                                   variável
                                 </span>
                               )}
