@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ref, onValue, remove, update } from 'firebase/database'
+import { ref, onValue, remove, update, push } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -250,12 +250,45 @@ export default function Inadimplentes() {
     await remove(ref(db, `inadimplencias/${id}`))
   }
 
-  const handleSeguroAcionadoChange = async (id, value) => {
-    await update(ref(db, `inadimplencias/${id}`), { seguroAcionado: value })
+  // Grava uma entrada no histórico de alterações (usado pelo card "Histórico de Alterações"
+  // no Dashboard). Guarda o rótulo (não só a chave) para exibição direta, sem precisar
+  // duplicar os mapas de labels em outras telas.
+  const registrarHistorico = async (d, campo, campoLabel, valorAnteriorKey, valorAnteriorLabel, valorNovoKey, valorNovoLabel) => {
+    try {
+      await push(ref(db, 'historicoAlteracoes'), {
+        debitoId: d.id,
+        inquilinoId: d.inquilinoId || null,
+        inquilinoNome: getInquilinoNome(d),
+        codigoImovel: getCodigoImovel(d) || null,
+        campo,
+        campoLabel,
+        valorAnteriorKey: valorAnteriorKey || null,
+        valorAnteriorLabel: valorAnteriorLabel || '—',
+        valorNovoKey: valorNovoKey || null,
+        valorNovoLabel: valorNovoLabel || '—',
+        data: Date.now(),
+      })
+    } catch (err) {
+      console.error('Erro ao registrar histórico de alteração', err)
+    }
   }
 
-  const handleStatusChange = async (id, value) => {
-    await update(ref(db, `inadimplencias/${id}`), { status: value })
+  const handleSeguroAcionadoChange = async (d, value) => {
+    const anterior = SEGURO_ACIONADO_OPCOES.find(o => o.value === (d.seguroAcionado || 'nao_acionado')) || SEGURO_ACIONADO_OPCOES[0]
+    const novo = SEGURO_ACIONADO_OPCOES.find(o => o.value === value) || SEGURO_ACIONADO_OPCOES[0]
+    await update(ref(db, `inadimplencias/${d.id}`), { seguroAcionado: value })
+    if (anterior.value !== novo.value) {
+      await registrarHistorico(d, 'seguroAcionado', 'Seguro Acionado', anterior.value, anterior.label, novo.value, novo.label)
+    }
+  }
+
+  const handleStatusChange = async (d, value) => {
+    const anterior = STATUS_OPCOES.find(o => o.value === d.status) || STATUS_OPCOES[0]
+    const novo = STATUS_OPCOES.find(o => o.value === value) || STATUS_OPCOES[0]
+    await update(ref(db, `inadimplencias/${d.id}`), { status: value })
+    if (anterior.value !== novo.value) {
+      await registrarHistorico(d, 'status', 'Status', anterior.value, anterior.label, novo.value, novo.label)
+    }
   }
 
   const handleUltimaCobrancaChange = async (id, value) => {
@@ -759,7 +792,7 @@ export default function Inadimplentes() {
                         return (
                           <select
                             value={current.value}
-                            onChange={e => handleSeguroAcionadoChange(d.id, e.target.value)}
+                            onChange={e => handleSeguroAcionadoChange(d, e.target.value)}
                             style={{
                               fontSize: 11, fontWeight: 600, borderRadius: 0, padding: '2px 8px',
                               background: current.bg,
@@ -789,7 +822,7 @@ export default function Inadimplentes() {
                         return (
                           <select
                             value={current.value}
-                            onChange={e => handleStatusChange(d.id, e.target.value)}
+                            onChange={e => handleStatusChange(d, e.target.value)}
                             style={{
                               fontSize: 11, fontWeight: 600, borderRadius: 0, padding: '2px 8px',
                               background: current.bg,

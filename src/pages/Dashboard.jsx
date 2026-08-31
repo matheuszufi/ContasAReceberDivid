@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ref, onValue, update } from 'firebase/database'
+import { ref, onValue, update, remove } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { normalizeText } from '@/lib/utils'
@@ -24,6 +24,8 @@ import {
   MapPin,
   Search,
   X,
+  Clock,
+  ArrowRight,
 } from 'lucide-react'
 
 // --- Mapa de imóveis (Leaflet + OpenStreetMap) ---
@@ -82,6 +84,12 @@ const RECOVERY_COLORS = {
   acionado: '#3b83f68f',
 }
 
+// Ícones de indicação por campo alterado, usados no card "Histórico de Alterações"
+const HISTORICO_CAMPO_STYLE = {
+  status:         { bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd' },
+  seguroAcionado: { bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe' },
+}
+
 const fmtMoney = (value) =>
   'R$ ' + Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
@@ -101,6 +109,18 @@ const fmtMoneyCompact = (value) => {
 // Formata valor + porcentagem lado a lado, ex: "R$ 1.200,00 (35%)"
 const fmtMoneyWithPercent = (value, percent) =>
   `${fmtMoney(value)} (${percent}%)`
+
+// Formata data + hora de uma alteração do histórico, ex: "31/08/2026 14:32"
+const fmtDataHora = (timestamp) => {
+  if (!timestamp) return '—'
+  return new Date(timestamp).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
 const getMonthKey = (item) =>
   item.mesReferencia || (item.dataVencimento ? item.dataVencimento.substring(0, 7) : null)
@@ -188,6 +208,7 @@ export default function Dashboard() {
   const [contasCatalogo, setContasCatalogo] = useState([])
   const [valoresVariaveis, setValoresVariaveis] = useState({})
   const [inadimplencias, setInadimplencias] = useState([])
+  const [historicoAlteracoes, setHistoricoAlteracoes] = useState([])
   const [lucroAno, setLucroAno] = useState(currentYear)
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
@@ -229,6 +250,7 @@ export default function Dashboard() {
     const valoresVariaveisRef = ref(db, 'valoresVariaveis')
     const inadimplenciasRef = ref(db, 'inadimplencias')
     const segurosRef = ref(db, 'seguros')
+    const historicoRef = ref(db, 'historicoAlteracoes')
 
     const unsubImoveis = onValue(imoveisRef, snap => {
       const data = snap.val()
@@ -264,6 +286,11 @@ export default function Dashboard() {
       setSegurosCatalogo(data ? Object.entries(data).map(([id, value]) => ({ id, ...value })) : [])
     })
 
+    const unsubHistorico = onValue(historicoRef, snap => {
+      const data = snap.val()
+      setHistoricoAlteracoes(data ? Object.entries(data).map(([id, value]) => ({ id, ...value })) : [])
+    })
+
     return () => {
       unsubImoveis()
       unsubInquilinos()
@@ -272,6 +299,7 @@ export default function Dashboard() {
       unsubValoresVariaveis()
       unsubInadimplencias()
       unsubSeguros()
+      unsubHistorico()
     }
   }, [])
 
@@ -871,6 +899,19 @@ export default function Dashboard() {
     setGarantiaInquilinosPeriodEnd('')
   }
 
+  // ---- Card "Histórico de Alterações" ----
+
+  // Ordena as alterações de status/seguro acionado da mais recente para a mais antiga
+  const historicoOrdenado = useMemo(
+    () => [...historicoAlteracoes].sort((a, b) => (b.data || 0) - (a.data || 0)),
+    [historicoAlteracoes]
+  )
+
+  const handleExcluirHistorico = async (id) => {
+    if (!window.confirm('Deseja excluir este registro do histórico?')) return
+    await remove(ref(db, `historicoAlteracoes/${id}`))
+  }
+
   return (
     <Layout title="Dashboard" subtitle="Visão geral do sistema de gestão">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-4">
@@ -1440,6 +1481,73 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Histórico de Alterações (Status / Seguro Acionado) ── */}
+      <Card className="mb-4">
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-3">
+          <div className="flex items-center gap-2">
+            <Clock className="size-4 text-muted-foreground" />
+            <div>
+              <CardTitle className="text-base">Histórico de Alterações</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Atualizações de Status e Seguro Acionado na planilha de inadimplentes, mais recentes primeiro.
+              </CardDescription>
+            </div>
+          </div>
+          <Badge variant="secondary" className="shrink-0 text-xs">
+            {historicoOrdenado.length} registro{historicoOrdenado.length === 1 ? '' : 's'}
+          </Badge>
+        </CardHeader>
+        <CardContent className="p-3">
+          {historicoOrdenado.length === 0 ? (
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              Nenhuma alteração de status ou seguro acionado registrada ainda.
+            </p>
+          ) : (
+            <div className="flex max-h-96 flex-col divide-y overflow-y-auto">
+              {historicoOrdenado.map(item => {
+                const campoStyle = HISTORICO_CAMPO_STYLE[item.campo] || HISTORICO_CAMPO_STYLE.status
+                return (
+                  <div key={item.id} className="group flex items-center justify-between gap-3 py-2 text-xs first:pt-0 last:pb-0">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span
+                        className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
+                        style={{ background: campoStyle.bg, color: campoStyle.color, border: `1px solid ${campoStyle.border}` }}
+                      >
+                        {item.campoLabel || (item.campo === 'seguroAcionado' ? 'Seguro Acionado' : 'Status')}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {item.inquilinoNome || 'Sem nome'}
+                          {item.codigoImovel ? ` (${item.codigoImovel})` : ''}
+                        </p>
+                        <p className="flex min-w-0 items-center gap-1 truncate text-muted-foreground">
+                          <span className="truncate">{item.valorAnteriorLabel || '—'}</span>
+                          <ArrowRight className="size-3 shrink-0" />
+                          <span className="truncate font-medium text-foreground">{item.valorNovoLabel || '—'}</span>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-muted-foreground">{fmtDataHora(item.data)}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                        onClick={() => handleExcluirHistorico(item.id)}
+                        aria-label="Excluir registro do histórico"
+                        title="Excluir registro do histórico"
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
