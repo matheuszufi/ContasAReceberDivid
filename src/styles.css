@@ -252,6 +252,15 @@
     -webkit-overflow-scrolling: touch;
     max-width: 100%; /* essencial: sem isso o container cresce junto com a tabela e o scroll vaza para a página */
   }
+  .spreadsheet-full-width {
+    width: calc(100% + 56px);
+    margin-left: -28px;
+    margin-right: -28px;
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+  }
+  .inadimplentes-table { width: 100%; border-collapse: collapse; }
   .imoveis-table { width: 100%; min-width: 1600px; border-collapse: collapse; overflow: visible; }
   thead th {
     font-size: 11px;

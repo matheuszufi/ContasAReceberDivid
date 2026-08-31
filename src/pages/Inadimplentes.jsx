@@ -507,7 +507,7 @@ export default function Inadimplentes() {
       </div>
 
       {/* ── Tabela ── */}
-      <Card>
+      <Card className="spreadsheet-full-width">
         <CardHeader className="flex flex-col gap-3 border-b pb-4 md:flex-row md:items-end md:justify-between">
           <CardTitle className="text-lg md:flex-1">
             {mesSelecionado
@@ -550,7 +550,7 @@ export default function Inadimplentes() {
           {loading ? (
             <div className="empty-state"><div className="es-icon">⏳</div><p>Carregando...</p></div>
           ) : (
-            <table>
+            <table className="inadimplentes-table">
               <thead>
                 <tr>
                   <th>Inquilino</th>
