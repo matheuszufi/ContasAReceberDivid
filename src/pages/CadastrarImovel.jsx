@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import { MapaImovelUnico, buildEnderecoQuery, geocodeEndereco } from '../components/MapaImoveis'
 
 const STATUS_IMOVEL = ['Disponível', 'Ocupado', 'Em Manutenção', 'Indisponível']
 
@@ -18,6 +19,7 @@ const initialForm = {
   contasVariavel: {},
   contasCobradoBoleto: {},
   observacao: '',
+  geo: null,
 }
 
 export default function CadastrarImovel() {
@@ -31,7 +33,9 @@ export default function CadastrarImovel() {
   const [contaParaAdicionar, setContaParaAdicionar] = useState('')
   const [loading, setLoading] = useState(false)
   const [cepLoading, setCepLoading] = useState(false)
+  const [geoLoading, setGeoLoading] = useState(false)
   const [error, setError] = useState(null)
+  const autoLocateAttemptedRef = useRef(false)
 
   useEffect(() => {
     return onValue(ref(db, 'proprietarios'), snap => {
@@ -147,6 +151,40 @@ export default function CadastrarImovel() {
     finally { setCepLoading(false) }
   }
 
+  // Grava a posição do imóvel no mapa (arrasto do marcador, clique manual ou geocodificação
+  // automática). Salva direto no banco quando em edição, para refletir de imediato no mapa
+  // do Dashboard sem precisar clicar em "Salvar Imóvel".
+  const handleGeoChange = async (coords) => {
+    const geo = { lat: coords.lat, lng: coords.lng, atualizadoEm: Date.now() }
+    setForm(prev => ({ ...prev, geo }))
+    if (isEdit) await update(ref(db, `imoveis/${id}/geo`), geo)
+  }
+
+  const handleAutoLocate = async () => {
+    const query = buildEnderecoQuery(form.endereco)
+    if (!query) return
+    setGeoLoading(true)
+    try {
+      const coords = await geocodeEndereco(query)
+      if (coords) await handleGeoChange(coords)
+      else alert('Não foi possível localizar automaticamente pelo endereço. Clique no mapa para definir a posição manualmente.')
+    } catch (err) {
+      console.error('Erro ao geocodificar endereço:', err)
+    } finally {
+      setGeoLoading(false)
+    }
+  }
+
+  // Ao abrir a edição de um imóvel sem posição salva, tenta localizar automaticamente pelo
+  // endereço uma única vez (mesma geocodificação usada em segundo plano no Dashboard).
+  useEffect(() => {
+    if (!isEdit || autoLocateAttemptedRef.current) return
+    if (form.geo?.lat && form.geo?.lng) return
+    if (!form.endereco?.rua && !form.endereco?.cep) return
+    autoLocateAttemptedRef.current = true
+    handleAutoLocate()
+  }, [isEdit, form.endereco?.rua, form.endereco?.cep, form.geo])
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError(null)
@@ -241,7 +279,7 @@ export default function CadastrarImovel() {
           </div>
           <div className="form-section-body">
             <div className="form-grid-2">
-              <div className="form-group">
+              <div className="form-group fg-full">
                 <label>Proprietário do Imóvel</label>
                 <select name="proprietarioId" value={form.proprietarioId} onChange={handleChange}>
                   <option value="">Selecione o proprietário...</option>
@@ -321,6 +359,29 @@ export default function CadastrarImovel() {
             </div>
           </div>
         </div>
+
+        {/* ── Localização no Mapa ── */}
+        {isEdit && (
+          <div className="form-section">
+            <div className="form-section-header">
+              <span className="form-section-icon">🗺️</span>
+              <h3>Localização no Mapa</h3>
+            </div>
+            <div className="form-section-body">
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <p style={{ margin: 0, flex: '1 1 260px', fontSize: 12, color: '#64748b' }}>
+                  {form.geo?.lat && form.geo?.lng
+                    ? 'Clique no mapa ou arraste o marcador para ajustar a posição. A alteração é salva automaticamente.'
+                    : 'Endereço ainda não localizado automaticamente. Clique no mapa para definir a posição manualmente.'}
+                </p>
+                <button type="button" className="btn btn-secondary" style={{ width: 'auto', whiteSpace: 'nowrap' }} disabled={geoLoading} onClick={handleAutoLocate}>
+                  {geoLoading ? 'Localizando...' : '🔍 Localizar pelo endereço'}
+                </button>
+              </div>
+              <MapaImovelUnico geo={form.geo} onChange={handleGeoChange} />
+            </div>
+          </div>
+        )}
 
         {/* ── Unidades Consumidoras ── */}
         <div className="form-section">
@@ -436,14 +497,14 @@ export default function CadastrarImovel() {
               {inquilinosAtivos.length === 0 ? (
                 <p style={{ margin: 0, color: '#64748b' }}>Nenhum inquilino vinculado a este imóvel.</p>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   {inquilinosAtivos.map(inq => (
                     <div
                       key={inq.id}
                       onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}
                       style={{
                         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        gap: 10, padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 8,
+                        gap: 10, padding: '7px 12px', border: '1px solid #e2e8f0', borderRadius: 6,
                         cursor: 'pointer', background: '#f8fafc',
                       }}
                     >
@@ -472,14 +533,14 @@ export default function CadastrarImovel() {
               <h3>Antigos Inquilinos do Imóvel</h3>
             </div>
             <div className="form-section-body">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {inquilinosInativos.map(inq => (
                   <div
                     key={inq.id}
                     onClick={() => navigate(`/inquilinos/editar/${inq.id}`)}
                     style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      gap: 10, padding: '10px 14px', border: '1px solid #e2e8f0', borderRadius: 8,
+                      gap: 10, padding: '7px 12px', border: '1px solid #e2e8f0', borderRadius: 6,
                       cursor: 'pointer', background: '#f8fafc',
                     }}
                   >
