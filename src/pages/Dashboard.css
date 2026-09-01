@@ -228,3 +228,24 @@ body {
     font-size: 14px;
     color: var(--text-primary);
   }
+
+.mc-wrapper {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+.mc-wrapper .month-card {
+    flex: 1;
+    min-width: 0;
+  }
+
+.mc-progress {
+    width: 4px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 2px;
+    background: var(--border);
+  }

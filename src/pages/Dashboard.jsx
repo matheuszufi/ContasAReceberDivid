@@ -1525,45 +1525,62 @@ export default function Dashboard() {
                 </Tabs>
               </div>
               <div className="month-grid month-grid-compact">
-                {monthCards.map(card => (
-                  <button
-                    key={card.key}
-                    type="button"
-                    className={`month-card compact ${card.active ? 'active' : ''}`}
-                    onClick={() => handleSelectMonth(card.key)}
-                  >
-                    <div className="mc-top-row">
-                      <span>{MONTH_LABELS[Number(card.key.slice(-2)) - 1]}</span>
-                      <strong>
-                        {fmtMoney(
-                          card.inadimplente + card.recuperado + card.aprovadoSeguradora +
-                          card.aguardarAcionar + card.juridico + card.acionado
-                        )}
-                      </strong>
-                    </div>
-                    <div className="mc-values-row">
-                      <div className="mc-value-group">
-                        <span className="mc-value-label">Recuperado</span>
-                        <strong>
-                          {fmtMoney(card.recuperado)}{' '}
-                          <span className="text-muted-foreground font-normal">({card.recoveredPercent}%)</span>
-                        </strong>
+                {monthCards.map(card => {
+                  const totalCard = card.inadimplente + card.recuperado + card.aprovadoSeguradora +
+                    card.aguardarAcionar + card.juridico + card.acionado
+                  const segmentos = [
+                    { key: 'recuperado', label: 'Recuperado', valor: card.recuperado, color: RECOVERY_COLORS.recuperado },
+                    { key: 'aprovadoSeguradora', label: 'Aprovado seguradora', valor: card.aprovadoSeguradora, color: RECOVERY_COLORS.aprovadoSeguradora },
+                    { key: 'aguardarAcionar', label: 'Aguardar para acionar', valor: card.aguardarAcionar, color: RECOVERY_COLORS.aguardarAcionar },
+                    { key: 'acionado', label: 'Acionado', valor: card.acionado, color: RECOVERY_COLORS.acionado },
+                    { key: 'juridico', label: 'Jurídico', valor: card.juridico, color: RECOVERY_COLORS.juridico },
+                    { key: 'inadimplente', label: 'Aberto', valor: card.inadimplente, color: '#f97316' },
+                  ].filter(s => s.valor > 0)
+                  return (
+                    <div key={card.key} className="mc-wrapper">
+                      <button
+                        type="button"
+                        className={`month-card compact ${card.active ? 'active' : ''}`}
+                        onClick={() => handleSelectMonth(card.key)}
+                      >
+                        <div className="mc-top-row">
+                          <span>{MONTH_LABELS[Number(card.key.slice(-2)) - 1]}</span>
+                          <strong>{fmtMoney(totalCard)}</strong>
+                        </div>
+                        <div className="mc-values-row">
+                          <div className="mc-value-group">
+                            <span className="mc-value-label">Recuperado</span>
+                            <strong>
+                              {fmtMoney(card.recuperado)}{' '}
+                              <span className="text-muted-foreground font-normal">({card.recoveredPercent}%)</span>
+                            </strong>
+                          </div>
+                          <div className="mc-value-group">
+                            <span className="mc-value-label">Em aberto</span>
+                            {/* "Em aberto" aqui é todo débito não pago, incluindo os que já
+                                estão com seguradora acionada ou em processo jurídico */}
+                            <strong>
+                              {fmtMoney(
+                                card.inadimplente + card.aprovadoSeguradora +
+                                card.aguardarAcionar + card.juridico + card.acionado
+                              )}{' '}
+                              <span className="text-muted-foreground font-normal">({card.abertoPercent}%)</span>
+                            </strong>
+                          </div>
+                        </div>
+                      </button>
+                      <div className="mc-progress" title="Proporção por status">
+                        {segmentos.map(s => (
+                          <div
+                            key={s.key}
+                            style={{ height: `${(s.valor / totalCard) * 100}%`, background: s.color }}
+                            title={`${s.label}: ${fmtMoney(s.valor)}`}
+                          />
+                        ))}
                       </div>
-                      <div className="mc-value-group">
-                        <span className="mc-value-label">Em aberto</span>
-                        {/* "Em aberto" aqui é todo débito não pago, incluindo os que já
-                            estão com seguradora acionada ou em processo jurídico */}
-                        <strong>
-                          {fmtMoney(
-                            card.inadimplente + card.aprovadoSeguradora +
-                            card.aguardarAcionar + card.juridico + card.acionado
-                          )}{' '}
-                          <span className="text-muted-foreground font-normal">({card.abertoPercent}%)</span>
-                        </strong>
-                      </div>
                     </div>
-                  </button>
-                ))}
+                  )
+                })}
               </div>
             </div>
 
