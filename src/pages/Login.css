@@ -94,7 +94,7 @@ body {
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary { background: blue; color: #fff; }
 
 .btn-primary:hover { background: var(--accent-hover); box-shadow: 0 4px 14px rgba(29, 78, 216, 0.28); }
 

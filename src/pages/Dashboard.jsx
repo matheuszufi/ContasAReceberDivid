@@ -224,6 +224,7 @@ export default function Dashboard() {
   const [valoresVariaveis, setValoresVariaveis] = useState({})
   const [inadimplencias, setInadimplencias] = useState([])
   const [historicoAlteracoes, setHistoricoAlteracoes] = useState([])
+  const [historicoMesFiltro, setHistoricoMesFiltro] = useState(currentMonth)
   const [lucroAno, setLucroAno] = useState(currentYear)
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
@@ -922,6 +923,19 @@ export default function Dashboard() {
     [historicoAlteracoes]
   )
 
+  // Meses com pelo menos um registro, do mais recente para o mais antigo, para popular o filtro
+  const historicoMesesDisponiveis = useMemo(
+    () => [...new Set(historicoAlteracoes.map(item => item.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
+    [historicoAlteracoes]
+  )
+
+  const historicoFiltrado = useMemo(
+    () => historicoMesFiltro === 'todos'
+      ? historicoOrdenado
+      : historicoOrdenado.filter(item => item.mesReferencia === historicoMesFiltro),
+    [historicoOrdenado, historicoMesFiltro]
+  )
+
   const handleExcluirHistorico = async (id) => {
     if (!window.confirm('Deseja excluir este registro do histórico?')) return
     await remove(ref(db, `historicoAlteracoes/${id}`))
@@ -1501,7 +1515,7 @@ export default function Dashboard() {
 
       {/* ── Histórico de Alterações (Status / Seguro Acionado) ── */}
       <Card className="mb-4">
-        <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-3">
+        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-3">
           <div className="flex items-center gap-2">
             <Clock className="size-4 text-muted-foreground" />
             <div>
@@ -1511,18 +1525,33 @@ export default function Dashboard() {
               </CardDescription>
             </div>
           </div>
-          <Badge variant="secondary" className="shrink-0 text-xs">
-            {historicoOrdenado.length} registro{historicoOrdenado.length === 1 ? '' : 's'}
-          </Badge>
+          <div className="flex shrink-0 items-center gap-2">
+            <select
+              value={historicoMesFiltro}
+              onChange={e => setHistoricoMesFiltro(e.target.value)}
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+            >
+              <option value={currentMonth}>{getMonthLabel(currentMonth)}</option>
+              {historicoMesesDisponiveis.filter(m => m !== currentMonth).map(m => (
+                <option key={m} value={m}>{getMonthLabel(m)}</option>
+              ))}
+              <option value="todos">Todos os meses</option>
+            </select>
+            <Badge variant="secondary" className="shrink-0 text-xs">
+              {historicoFiltrado.length} registro{historicoFiltrado.length === 1 ? '' : 's'}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="p-3">
-          {historicoOrdenado.length === 0 ? (
+          {historicoFiltrado.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">
-              Nenhuma alteração de status ou seguro acionado registrada ainda.
+              {historicoMesFiltro === 'todos'
+                ? 'Nenhuma alteração de status ou seguro acionado registrada ainda.'
+                : `Nenhuma alteração registrada em ${getMonthLabel(historicoMesFiltro)}.`}
             </p>
           ) : (
             <div className="flex max-h-96 flex-col divide-y overflow-y-auto">
-              {historicoOrdenado.map(item => {
+              {historicoFiltrado.map(item => {
                 const campoStyle = HISTORICO_CAMPO_STYLE[item.campo] || HISTORICO_CAMPO_STYLE.status
                 return (
                   <div key={item.id} className="group flex items-center justify-between gap-3 py-2 text-xs first:pt-0 last:pb-0">
