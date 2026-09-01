@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Package, House, Search, Plus, Pencil, Trash2, X, Undo2 } from 'lucide-react'
+import './Desocupacoes.css'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 

@@ -1,6 +1,7 @@
 import React from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth'
+import './Layout.css'
 
 const navSections = [
   {

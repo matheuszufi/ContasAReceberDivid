@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ref, push, onValue, remove, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import './CadastrarSeguro.css'
 
 const TIPOS_SEGURO = ['Seguro Fiança', 'Seguro Incêndio']
 

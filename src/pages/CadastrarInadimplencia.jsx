@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { ref, push, onValue, get, update, remove } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import './CadastrarInadimplencia.css'
 
 const TIPOS_DEBITO = [
   'Aluguel', 'Condomínio', 'Água', 'Energia', 'Gás',

@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Users, UserCheck, UserX, Plus, Upload, Download, RotateCcw, Search, Pencil, Trash2, DoorOpen } from 'lucide-react'
 import { normalizeText } from '@/lib/utils'
+import './Inquilinos.css'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 

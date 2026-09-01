@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Users, UserCheck, UserX, Plus, Upload, RotateCcw, Search, Pencil, Trash2, HandCoins, FileText, Percent, Eye, X, Trophy } from 'lucide-react'
 import { normalizeText } from '@/lib/utils'
+import './Proprietarios.css'
 
 const DEFAULT_COLUMNS = [
   { key: 'nome', label: 'Nome' },

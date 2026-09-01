@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx'
 import { ref, get, push, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import './ImportarPlanilha.css'
 
 // Campos que o usuário pode mapear para colunas da planilha
 const CAMPOS = [

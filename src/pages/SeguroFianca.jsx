@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { normalizeText } from '@/lib/utils'
 import { Shield, CircleCheck, Wallet, Search, Pencil, Link as LinkIcon } from 'lucide-react'
+import './SeguroFianca.css'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 

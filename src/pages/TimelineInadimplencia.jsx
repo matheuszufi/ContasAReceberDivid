@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ref, onValue, push, get } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import './TimelineInadimplencia.css'
 
 const TIPOS_EVENTO = [
   { value: 'Observação',          icon: '📝', color: '#64748b' },

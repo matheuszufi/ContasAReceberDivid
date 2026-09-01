@@ -4,6 +4,7 @@ import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { normalizeText } from '@/lib/utils'
+import './CadastrarProprietario.css'
 
 const BANCOS = [
   'Banco do Brasil', 'Bradesco', 'Caixa Econômica Federal', 'Itaú', 'Santander',

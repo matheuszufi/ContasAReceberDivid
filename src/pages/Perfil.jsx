@@ -8,6 +8,7 @@ import {
 import { db } from '../firebase'
 import { useAuth } from '../auth'
 import Layout from '../components/Layout'
+import './Perfil.css'
 
 const novoUsuarioInicial = { email: '', password: '', role: 'user' }
 const senhaFormInicial = { senhaAtual: '', novaSenha: '', confirmarSenha: '' }

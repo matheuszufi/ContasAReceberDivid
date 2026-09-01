@@ -1,0 +1,230 @@
+:root {
+    --sidebar-bg: #0f172a;
+    --sidebar-hover: #1c2b45;
+    --sidebar-active: #2563eb;
+    --sidebar-text: #94a3b8;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --accent: #0f2f8883;
+    --accent-hover: #1e40af;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --danger: #fc7e7e;
+    --danger-hover: #b91c1c;
+    --success: #32c066dc;
+    --success-hover: #15803d;
+    --warning: #d97706;
+    --sidebar-width: 252px;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.16);
+  }
+
+* { box-sizing: border-box; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+
+html {
+    overflow-x: hidden; /* impede que a página inteira ganhe scroll horizontal */
+  }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden; /* o scroll horizontal passa a existir só dentro da planilha */
+    max-width: 100%;
+  }
+
+.nav-item.active { background: var(--sidebar-active); color: #fff; font-weight: 600; }
+
+.card {
+    background: var(--card);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow-sm);
+    min-width: 0;
+  }
+
+.conta-card.active {
+    border-color: var(--accent);
+    box-shadow: 0 16px 40px rgba(59, 130, 246, 0.16);
+  }
+
+.conta-card.active .conta-card-header {
+    background: #eff6ff;
+    color: var(--accent);
+  }
+
+.month-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    /* border-radius: 12px; */
+    padding: 8px 10px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.18s ease;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+.month-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    transform: translateY(-2px);
+  }
+
+.month-card.active {
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.08);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  }
+
+.month-card strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+
+.month-card span {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+.month-card.compact {
+    /* border-radius: 12px; */
+    padding: 14px 16px;
+    min-height: auto;
+  }
+
+.month-card.compact strong {
+    font-size: 15px;
+  }
+
+.month-card.compact span {
+    font-size: 13px;
+  }
+
+.month-card.active strong {
+    color: var(--accent);
+  }
+
+.month-card.active .mc-month { color: var(--accent); }
+
+.month-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));
+    gap: 12px;
+  }
+
+.top-filter-btn.active,
+  .top-filter-btn:hover {
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.08);
+    color: var(--accent);
+  }
+
+.donut-chart {
+    position: relative;
+    display: grid;
+    place-items: center;
+    padding: 24px 0 16px;
+    width: 100%;
+  }
+
+.donut-svg {
+    width: 100%;
+    height: auto;
+    max-width: 280px;
+  }
+
+.donut-center {
+    position: absolute;
+    text-align: center;
+  }
+
+.donut-center strong {
+    display: block;
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+.donut-center span {
+    display: block;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+.dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    margin-right: 8px;
+  }
+
+.dot-paid { background: #22c55e; }
+
+.dot-approved { background: #88ea08; }
+
+.dot-waiting { background: #64748b; }
+
+.dot-pending { background: #f97316; }
+
+.month-grid.month-grid-compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+.month-grid.month-grid-compact .month-card {
+    /* border-radius: 12px; */
+    padding: 12px 14px;
+    justify-content: flex-start;
+    min-height: 120px;
+  }
+
+.month-grid.month-grid-compact .month-card .mc-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 8px;
+  }
+
+.month-grid.month-grid-compact .month-card .mc-top-row span {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+  }
+
+.month-grid.month-grid-compact .month-card .mc-top-row strong {
+    font-size: 15px;
+  }
+
+.month-grid.month-grid-compact .month-card .mc-values-row {
+    display: grid;
+    gap: 6px;
+  }
+
+.month-grid.month-grid-compact .month-card .mc-value-group {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+.month-grid.month-grid-compact .month-card .mc-value-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+.month-grid.month-grid-compact .month-card .mc-value-group strong {
+    font-size: 14px;
+    color: var(--text-primary);
+  }

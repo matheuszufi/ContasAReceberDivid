@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import './CadastrarInquilino.css'
 
 const GARANTIA_OPCOES = [
   { value: 'seguro',       label: 'Seguro' },

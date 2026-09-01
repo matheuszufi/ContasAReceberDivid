@@ -4,7 +4,6 @@ import { HashRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './auth'
 import './tailwind.css'
-import './styles.css'
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>

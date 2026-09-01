@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Building2, KeyRound, CircleCheck, Wrench, Plus, Upload, RotateCcw, Search, Pencil, Trash2 } from 'lucide-react'
+import './Imoveis.css'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
 const MODELOS = ['MA', 'ME', 'ML']

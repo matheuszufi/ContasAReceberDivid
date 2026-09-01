@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ref, push, onValue, remove } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import './CadastrarConta.css'
 
 const initialForm = {
   nome: '',

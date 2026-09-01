@@ -1,0 +1,237 @@
+:root {
+    --sidebar-bg: #0f172a;
+    --sidebar-hover: #1c2b45;
+    --sidebar-active: #2563eb;
+    --sidebar-text: #94a3b8;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --accent: #0f2f8883;
+    --accent-hover: #1e40af;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --danger: #fc7e7e;
+    --danger-hover: #b91c1c;
+    --success: #32c066dc;
+    --success-hover: #15803d;
+    --warning: #d97706;
+    --sidebar-width: 252px;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.16);
+  }
+
+* { box-sizing: border-box; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+
+html {
+    overflow-x: hidden; /* impede que a página inteira ganhe scroll horizontal */
+  }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden; /* o scroll horizontal passa a existir só dentro da planilha */
+    max-width: 100%;
+  }
+
+.table-container {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%; /* essencial: sem isso o container cresce junto com a tabela e o scroll vaza para a página */
+  }
+
+.table-cell-wrap { white-space: normal; max-width: 260px; word-break: break-word; }
+
+.badge-gray { background: #f1f5f9; color: #64748b; }
+
+.badge-select {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 24px 2px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path fill='%23334155' d='M2.5 4.5l3.5 3.5 3.5-3.5z'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 10px;
+  }
+
+.empty-state { text-align: center; padding: 30px 16px; color: var(--text-secondary); }
+
+.empty-state .es-icon { font-size: 40px; margin-bottom: 14px; }
+
+.empty-state h3 { margin: 0 0 6px; color: var(--text-primary); font-size: 15px; }
+
+.empty-state p { margin: 0; font-size: 13px; }
+
+.empty-state {
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 20px;
+    text-align: center;
+  }
+
+.table-scroll-x {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%; /* mesma razão do .table-container acima */
+  }
+
+.imoveis-table,
+  .inquilinos-table {
+    min-width: max-content; /* impede que colunas espremam e força o scroll lateral */
+  }
+
+.imoveis-table th,
+  .imoveis-table td,
+  .inquilinos-table th,
+  .inquilinos-table td {
+    white-space: nowrap;
+  }
+
+.imoveis-table td.table-cell-wrap,
+  .inquilinos-table td.table-cell-wrap {
+    white-space: normal;
+    max-width: 240px;
+  }
+
+.editable-cell {
+    cursor: text;
+    transition: background 0.12s;
+  }
+
+.editable-cell:hover {
+    background: #f1f5f9;
+  }
+
+.editable-cell.editing {
+    padding: 4px !important;
+  }
+
+.cell-input {
+    width: 100%;
+    min-width: 90px;
+    border: 1px solid #3b82f6;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: inherit;
+    font-family: inherit;
+    outline: none;
+  }
+
+.cell-empty {
+    color: #94a3b8;
+  }
+
+.th-draggable {
+    user-select: none;
+    transition: background 0.12s, box-shadow 0.12s;
+    position: relative;
+  }
+
+.th-draggable.th-dragging {
+    opacity: 0.45;
+    background: #eff6ff;
+  }
+
+.th-draggable.th-drag-over {
+    box-shadow: inset 3px 0 0 var(--accent, #1d4ed8);
+    background: #eff6ff;
+  }
+
+.th-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    margin-right: 4px;
+    color: #94a3b8;
+    font-size: 13px;
+    cursor: grab;
+    touch-action: none; /* impede o navegador de rolar a tela ao arrastar no toque */
+    border-radius: 4px;
+  }
+
+.th-drag-handle:hover { color: #1d4ed8; background: #e2e8f0; }
+
+.th-drag-handle:active { cursor: grabbing; }
+
+.inquilinos-scroll-area {
+    max-height: 70vh;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%; /* garante que o scroll horizontal fique preso a esta div */
+  }
+
+.inquilinos-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+  }
+
+.inquilinos-table thead tr.filter-row th {
+    padding: 4px 6px;
+    background: #fff;
+    border-bottom: 2px solid var(--border);
+  }
+
+.inquilinos-table .col-sticky-th,
+  .inquilinos-table .col-sticky-td {
+    position: sticky;
+    left: 0;
+    background: #fff;
+    box-shadow: 4px 0 6px -4px rgba(15, 23, 42, 0.18);
+  }
+
+.inquilinos-table .col-sticky-th {
+    z-index: 5;
+    background: #f8fafc;
+  }
+
+.inquilinos-table .col-sticky-td {
+    z-index: 2; 
+  }
+
+.inquilinos-table thead tr.filter-row th.col-sticky-th {
+    background: #fff;
+  }
+
+.inquilinos-table tbody tr:hover .col-sticky-td {
+    background: #f8fafc;
+  }
+
+.inquilinos-table .col-actions-sticky {
+    position: sticky;
+    right: 0;
+    background: #fff;
+    box-shadow: -4px 0 6px -4px rgba(15, 23, 42, 0.18);
+    z-index: 2;
+  }
+
+.proprietarios-table .col-actions-sticky { min-width: 130px; }
+
+.inquilinos-list-table .col-actions-sticky { min-width: 150px; }
+
+.imoveis-list-table .col-actions-sticky { min-width: 100px; }
+
+.inquilinos-table thead .col-actions-sticky {
+    background: #f8fafc;
+    z-index: 5;
+  }
+
+.inquilinos-table thead tr.filter-row .col-actions-sticky {
+    background: #fff;
+  }
+
+.inquilinos-table tbody tr:hover .col-actions-sticky {
+    background: #f8fafc;
+  }

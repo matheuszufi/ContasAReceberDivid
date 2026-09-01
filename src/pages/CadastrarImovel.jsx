@@ -4,6 +4,7 @@ import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { MapaImovelUnico, buildEnderecoQuery, geocodeEndereco } from '../components/MapaImoveis'
+import './CadastrarImovel.css'
 
 const STATUS_IMOVEL = ['Disponível', 'Ocupado', 'Em Manutenção', 'Indisponível']
 

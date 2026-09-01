@@ -1,0 +1,194 @@
+:root {
+    --sidebar-bg: #0f172a;
+    --sidebar-hover: #1c2b45;
+    --sidebar-active: #2563eb;
+    --sidebar-text: #94a3b8;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --accent: #0f2f8883;
+    --accent-hover: #1e40af;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --border: #e2e8f0;
+    --danger: #fc7e7e;
+    --danger-hover: #b91c1c;
+    --success: #32c066dc;
+    --success-hover: #15803d;
+    --warning: #d97706;
+    --sidebar-width: 252px;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 4px 16px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.16);
+  }
+
+* { box-sizing: border-box; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
+
+html {
+    overflow-x: hidden; /* impede que a página inteira ganhe scroll horizontal */
+  }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden; /* o scroll horizontal passa a existir só dentro da planilha */
+    max-width: 100%;
+  }
+
+.app-layout { display: flex; min-height: 100vh; }
+
+.sidebar {
+    width: var(--sidebar-width);
+    background: var(--sidebar-bg);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    z-index: 100;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+  }
+
+.sidebar-brand {
+    padding: 16px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+  }
+
+.sidebar-brand h2 { margin: 0 0 3px; color: #f1f5f9; font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+
+.sidebar-brand p { margin: 0; color: var(--sidebar-text); font-size: 11px; }
+
+.sidebar-nav {
+    flex: 1;
+    padding: 10px 10px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+.sidebar-nav::-webkit-scrollbar { width: 4px; }
+
+.sidebar-nav::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+.sidebar-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 14px 12px 6px;
+  }
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--sidebar-text);
+    background: transparent;
+    width: 100%;
+    text-align: left;
+    transition: all 0.15s;
+  }
+
+.nav-item:hover { background: var(--sidebar-hover); color: #f1f5f9; }
+
+.nav-item.active { background: var(--sidebar-active); color: #fff; font-weight: 600; }
+
+.nav-icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
+
+.sidebar-footer {
+    padding: 12px 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+  }
+
+.sidebar-user { padding: 8px 12px 6px; }
+
+.sidebar-user p { margin: 0; font-size: 11px; color: #64748b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.logout-item { color: #f87171 !important; }
+
+.logout-item:hover { background: rgba(239, 68, 68, 0.12) !important; color: #fca5a5 !important; }
+
+.main-content {
+    margin-left: var(--sidebar-width);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    min-width: 0; /* permite que o conteúdo encolha em vez de empurrar a página para os lados */
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+.page-header {
+    background: var(--card);
+    padding: 12px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+
+.page-header h1 { margin: 0 0 2px; font-size: 17px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.2px; }
+
+.page-header p { margin: 0; font-size: 12px; color: var(--text-secondary); }
+
+.page-body {
+    padding: 16px 20px;
+    flex: 1;
+    min-width: 0; /* idem: evita que a tabela larga estique o body da página */
+    max-width: 100%;
+  }
+
+.page-body:has(.tenant-compact-form) {
+    padding: 16px 20px;
+  }
+
+.page-body:has(.property-compact-form) {
+    padding: 16px 20px;
+  }
+
+.conta-card.active {
+    border-color: var(--accent);
+    box-shadow: 0 16px 40px rgba(59, 130, 246, 0.16);
+  }
+
+.conta-card.active .conta-card-header {
+    background: #eff6ff;
+    color: var(--accent);
+  }
+
+.month-card.active {
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.08);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  }
+
+.month-card.active strong {
+    color: var(--accent);
+  }
+
+.month-card.active .mc-month { color: var(--accent); }
+
+.top-filter-btn.active,
+  .top-filter-btn:hover {
+    border-color: var(--accent);
+    background: rgba(59, 130, 246, 0.08);
+    color: var(--accent);
+  }
