@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
@@ -76,6 +77,26 @@ export default function CadastrarInquilino() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [buscaImovel, setBuscaImovel] = useState('')
+  const imovelInputRef = useRef(null)
+  const [imovelDropdownRect, setImovelDropdownRect] = useState(null)
+
+  // Recalcula a posição do dropdown de imóveis (renderizado via portal, fora de qualquer
+  // ancestral com overflow:hidden) sempre que ele estiver aberto, ao rolar ou redimensionar
+  useEffect(() => {
+    if (!buscaImovel) return
+    const updateRect = () => {
+      if (!imovelInputRef.current) return
+      const r = imovelInputRef.current.getBoundingClientRect()
+      setImovelDropdownRect({ top: r.bottom + 4, left: r.left, width: r.width })
+    }
+    updateRect()
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+    return () => {
+      window.removeEventListener('scroll', updateRect, true)
+      window.removeEventListener('resize', updateRect)
+    }
+  }, [buscaImovel])
 
   useEffect(() => {
     return onValue(ref(db, 'imoveis'), snap => {
@@ -455,16 +476,20 @@ export default function CadastrarInquilino() {
                 ) : (
                   <div style={{position:'relative'}}>
 <input
+ref={imovelInputRef}
 value={buscaImovel}
 placeholder="Pesquisar imóvel..."
 onChange={e=>setBuscaImovel(e.target.value)}
 required
 />
-{buscaImovel && <div style={{position:'absolute',background:'#fff',border:'1px solid #ddd',left:0,right:0,maxHeight:250,overflow:'auto',zIndex:99}}>
+{buscaImovel && imovelDropdownRect && createPortal(
+  <div style={{position:'fixed',top:imovelDropdownRect.top,left:imovelDropdownRect.left,width:imovelDropdownRect.width,background:'#fff',border:'1px solid #ddd',maxHeight:250,overflow:'auto',zIndex:9999,borderRadius:6,boxShadow:'0 10px 30px rgba(15,23,42,0.15)'}}>
 {imoveisFiltrados.map(im=><div key={im.id} onClick={()=>handleImovelSelect(im.id)} style={{padding:10,cursor:'pointer'}}>
 <strong>{im.codigo}</strong><br/>{im.endereco?.rua} {im.endereco?.numero}
 </div>)}
-</div>}
+</div>,
+  document.body
+)}
 </div>
                 )}
               </div>
