@@ -215,7 +215,7 @@ export function MapaImoveis({ imoveis }) {
 // Mapa de um único imóvel, usado na tela de edição: mostra apenas o marcador do imóvel em
 // questão e permite ao usuário arrastar o marcador ou clicar no mapa para definir/ajustar a
 // posição manualmente (útil quando o endereço não é encontrado automaticamente).
-export function MapaImovelUnico({ geo, onChange }) {
+export function MapaImovelUnico({ geo, onChange, readOnly = false }) {
   const mapContainerRef = useRef(null)
   const mapRef = useRef(null)
   const markerRef = useRef(null)
@@ -230,16 +230,18 @@ export function MapaImovelUnico({ geo, onChange }) {
     mapRef.current = L.map(mapContainerRef.current, {
       center,
       zoom: geo?.lat && geo?.lng ? 16 : 4,
-      scrollWheelZoom: true,
+      scrollWheelZoom: !readOnly,
     })
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contribuidores',
       maxZoom: 19,
     }).addTo(mapRef.current)
 
-    mapRef.current.on('click', (e) => {
-      onChangeRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng })
-    })
+    if (!readOnly) {
+      mapRef.current.on('click', (e) => {
+        onChangeRef.current?.({ lat: e.latlng.lat, lng: e.latlng.lng })
+      })
+    }
 
     return () => {
       mapRef.current?.remove()
@@ -256,11 +258,13 @@ export function MapaImovelUnico({ geo, onChange }) {
       return
     }
     if (!markerRef.current) {
-      markerRef.current = L.marker([geo.lat, geo.lng], { draggable: true }).addTo(mapRef.current)
-      markerRef.current.on('dragend', () => {
-        const pos = markerRef.current.getLatLng()
-        onChangeRef.current?.({ lat: pos.lat, lng: pos.lng })
-      })
+      markerRef.current = L.marker([geo.lat, geo.lng], { draggable: !readOnly }).addTo(mapRef.current)
+      if (!readOnly) {
+        markerRef.current.on('dragend', () => {
+          const pos = markerRef.current.getLatLng()
+          onChangeRef.current?.({ lat: pos.lat, lng: pos.lng })
+        })
+      }
     } else {
       markerRef.current.setLatLng([geo.lat, geo.lng])
     }

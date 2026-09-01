@@ -159,20 +159,35 @@ body {
 
 .tenant-compact-form .form-section {
     margin-bottom: 8px;
-    border-radius: 8px;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    transition: box-shadow 0.18s ease;
+  }
+
+.tenant-compact-form .form-section:hover {
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07);
   }
 
 .tenant-compact-form .form-section-header {
-    gap: 6px;
-    padding: 6px 12px;
+    gap: 8px;
+    padding: 8px 12px;
+    background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+  }
+
+.tenant-compact-form .form-section-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    background: #eef2ff;
+    font-size: 12px;
   }
 
 .tenant-compact-form .form-section-header h3 {
     font-size: 12.5px;
-  }
-
-.tenant-compact-form .form-section-icon {
-    font-size: 13px;
+    letter-spacing: 0.2px;
   }
 
 .tenant-compact-form .form-section-body {

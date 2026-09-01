@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
+import { MapaImovelUnico } from '../components/MapaImoveis'
 import './CadastrarInquilino.css'
 
 const GARANTIA_OPCOES = [
@@ -745,6 +746,27 @@ required
                 rows={3}
               />
             </div>
+          </div>
+        </div>
+
+        {/* ── Localização do Imóvel ── */}
+        <div className="form-section">
+          <div className="form-section-header">
+            <span className="form-section-icon">📍</span>
+            <h3>Localização do Imóvel</h3>
+          </div>
+          <div className="form-section-body">
+            {!form.imovelId ? (
+              <div className="info-banner">
+                <p style={{ margin: 0 }}>Selecione um imóvel para ver a localização no mapa.</p>
+              </div>
+            ) : imovelSelecionado?.geo?.lat && imovelSelecionado?.geo?.lng ? (
+              <MapaImovelUnico geo={imovelSelecionado.geo} readOnly />
+            ) : (
+              <div className="info-banner">
+                <p style={{ margin: 0 }}>Este imóvel ainda não possui uma localização definida no mapa.</p>
+              </div>
+            )}
           </div>
         </div>
 
