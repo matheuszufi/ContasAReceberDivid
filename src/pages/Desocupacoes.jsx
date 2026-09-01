@@ -384,7 +384,7 @@ export default function Desocupacoes() {
           ) : filtered.length === 0 ? (
             <div className="empty-state">Nenhum inquilino em processo de desocupação.</div>
           ) : (
-            <table>
+            <table className="data-table">
               <thead>
                 <tr>
                   <th>Inquilino</th>
@@ -449,7 +449,7 @@ export default function Desocupacoes() {
           ) : filteredDesocupados.length === 0 ? (
             <div className="empty-state">Nenhum inquilino desocupou ainda.</div>
           ) : (
-            <table>
+            <table className="data-table">
               <thead>
                 <tr>
                   <th>Inquilino</th>

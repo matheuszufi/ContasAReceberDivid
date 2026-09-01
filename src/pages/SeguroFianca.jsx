@@ -288,7 +288,7 @@ export default function SeguroFianca() {
           {loading ? (
             <div className="empty-state">Carregando...</div>
           ) : (
-            <table>
+            <table className="data-table">
               <thead>
                 <tr>
                   <th>Nome</th>

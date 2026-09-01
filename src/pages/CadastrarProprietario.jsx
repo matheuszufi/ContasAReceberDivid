@@ -799,8 +799,8 @@ export default function CadastrarProprietario() {
                     <p>Nenhum imóvel vinculado ainda. Busque pelo nome/código acima para adicionar.</p>
                   </div>
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table>
+                  <div className="table-container">
+                    <table className="data-table">
                       <thead>
                         <tr>
                           <th>Imóvel</th>
@@ -1072,8 +1072,8 @@ export default function CadastrarProprietario() {
                   </div>
                 </div>
 
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ fontSize: 12 }}>
+                <div className="table-container">
+                  <table className="data-table" style={{ fontSize: 12 }}>
                     <thead>
                       <tr>
                         <th>Imóvel</th>

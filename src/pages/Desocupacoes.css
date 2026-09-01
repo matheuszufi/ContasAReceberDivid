@@ -42,7 +42,42 @@ body {
     overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     max-width: 100%; /* essencial: sem isso o container cresce junto com a tabela e o scroll vaza para a página */
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 4px;
   }
+
+.data-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+
+.data-table thead tr:first-child th {
+    background: linear-gradient(#fbfcfe, #f4f6fa);
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: left;
+    padding: 11px 14px;
+    border-bottom: 1.5px solid var(--border);
+    white-space: nowrap;
+  }
+
+.data-table tbody td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #eef1f6;
+    color: var(--text-primary);
+    vertical-align: middle;
+  }
+
+.data-table tbody td:first-child { font-weight: 600; }
+
+.data-table tbody tr:nth-child(even) { background: #fafbfd; }
+
+.data-table tbody tr:hover { background: #eef4ff; }
+
+.data-table tbody tr:hover td { border-color: #dbe4f3; }
+
+.data-table tbody tr:last-child td { border-bottom: none; }
 
 .badge { display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
 
