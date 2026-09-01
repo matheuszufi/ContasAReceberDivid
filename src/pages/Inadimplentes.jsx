@@ -267,11 +267,11 @@ export default function Inadimplentes() {
         valorAnteriorLabel: valorAnteriorLabel || '—',
         valorNovoKey: valorNovoKey || null,
         valorNovoLabel: valorNovoLabel || '—',
-        // Snapshot do valor e data do seguro do débito no momento da alteração
+        // Snapshot do valor, mês de referência do débito e data do seguro no momento da alteração
+        // (o Dashboard usa o timestamp "data" abaixo, não este campo, para decidir em que mês exibir o registro)
         valorTotal: d.valorTotal || d.valorOriginal || 0,
         valorRecebido: d.valorRecebido || null,
-        // Mês em que a alteração foi feita (não o mês de referência do débito), para o filtro do Dashboard
-        mesReferencia: new Date().toISOString().slice(0, 7),
+        mesReferencia: d.mesReferencia || null,
         dataSeguro: d.dataSeguro || null,
         data: Date.now(),
       })

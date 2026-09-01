@@ -140,6 +140,14 @@ const fmtDataHora = (timestamp) => {
   })
 }
 
+// Converte um timestamp/data (número ou ISO) para "YYYY-MM" em horário local, usado para agrupar
+// registros de histórico pelo mês em que realmente ocorreram (não pelo mês de referência da conta)
+const formatDateToMonthKey = (value) => {
+  if (!value) return null
+  const d = new Date(value)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
 // Formata uma data "YYYY-MM-DD" para "DD/MM/YYYY"
 const fmtDataCurta = (ymd) => {
   if (!ymd) return null
@@ -940,16 +948,20 @@ export default function Dashboard() {
     [historicoAlteracoes]
   )
 
+  // Mês em que a alteração foi de fato feita, derivado do timestamp "data" (não do mesReferencia do
+  // débito), para que o registro sempre apareça no mês em que ocorreu, independente do mês da conta
+  const getHistoricoMes = (item) => formatDateToMonthKey(item.data)
+
   // Meses com pelo menos um registro, do mais recente para o mais antigo, para popular o filtro
   const historicoMesesDisponiveis = useMemo(
-    () => [...new Set(historicoAlteracoes.map(item => item.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
+    () => [...new Set(historicoAlteracoes.map(getHistoricoMes).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
     [historicoAlteracoes]
   )
 
   const historicoFiltrado = useMemo(
     () => historicoMesFiltro === 'todos'
       ? historicoOrdenado
-      : historicoOrdenado.filter(item => item.mesReferencia === historicoMesFiltro),
+      : historicoOrdenado.filter(item => getHistoricoMes(item) === historicoMesFiltro),
     [historicoOrdenado, historicoMesFiltro]
   )
 
@@ -975,7 +987,7 @@ export default function Dashboard() {
           tipo: evento.tipo || 'Outros',
           descricao: evento.descricao || '',
           criadoEm: evento.criadoEm || null,
-          mesReferencia: evento.criadoEm ? evento.criadoEm.slice(0, 7) : null,
+          mesReferencia: evento.criadoEm ? formatDateToMonthKey(evento.criadoEm) : null,
         })
       })
     })
