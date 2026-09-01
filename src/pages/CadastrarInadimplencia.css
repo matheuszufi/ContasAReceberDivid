@@ -349,11 +349,11 @@ body {
 .link-btn {
     background: none;
     border: none;
-    color: var(--accent);
+    color: black;
     cursor: pointer;
     font-size: inherit;
     padding: 0;
-    text-decoration: underline;
+    text-decoration: none;
     font-weight: 600;
   }
 

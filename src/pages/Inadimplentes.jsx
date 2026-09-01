@@ -666,7 +666,7 @@ export default function Inadimplentes() {
                     </select>
                   </th>
                   <th></th>
-                  <th ref={statusFilterRef} style={{ position: 'relative' }}>
+                  <th ref={statusFilterRef}>
                     <button
                       type="button"
                       onClick={() => setStatusFilterOpen(o => !o)}
