@@ -1605,8 +1605,9 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      {/* ── Histórico de Alterações (Status / Seguro Acionado) ── */}
-      <Card className="mb-4">
+      {/* ── Histórico de Alterações e Histórico Seguradoras, lado a lado ── */}
+      <div className="mb-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
+      <Card>
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-3">
           <div className="flex items-center gap-2">
             <Clock className="size-4 text-muted-foreground" />
@@ -1694,7 +1695,7 @@ export default function Dashboard() {
       </Card>
 
       {/* ── Histórico de Eventos da Timeline ── */}
-      <Card className="mb-4">
+      <Card>
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-3">
           <div className="flex items-center gap-2">
             <History className="size-4 text-muted-foreground" />
@@ -1782,6 +1783,7 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+      </div>
 
       <div className="mb-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
         <Card>
