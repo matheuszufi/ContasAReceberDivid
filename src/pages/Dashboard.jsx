@@ -26,6 +26,7 @@ import {
   Search,
   X,
   Clock,
+  History,
   ArrowRight,
 } from 'lucide-react'
 
@@ -89,6 +90,22 @@ const RECOVERY_COLORS = {
 const HISTORICO_CAMPO_STYLE = {
   status:         { bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd' },
   seguroAcionado: { bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe' },
+}
+
+// Cores por tipo de evento, usadas no card "Histórico de Eventos da Timeline" (mesmos tipos de CadastrarInadimplencia.jsx)
+const EVENTO_TIPO_STYLE = {
+  'Observação':              { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' },
+  'Contato realizado':       { bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+  'Documentação solicitada': { bg: '#fefce8', color: '#a16207', border: '#fde68a' },
+  'Notificação enviada':     { bg: '#fff7ed', color: '#c2410c', border: '#fed7aa' },
+  'Acordo realizado':        { bg: '#f5f3ff', color: '#6d28d9', border: '#ddd6fe' },
+  'Pagamento parcial':       { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+  'Encaminhado jurídico':    { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+  'Seguro acionado':         { bg: '#ecfeff', color: '#0e7490', border: '#a5f3fc' },
+  'Seguro aprovado':         { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+  'Quitado':                 { bg: '#f0fdf4', color: '#15803d', border: '#bbf7d0' },
+  'Registro':                { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' },
+  'Outros':                  { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' },
 }
 
 const fmtMoney = (value) =>
@@ -941,6 +958,50 @@ export default function Dashboard() {
     await remove(ref(db, `historicoAlteracoes/${id}`))
   }
 
+  // ---- Card "Histórico de Eventos da Timeline" ----
+
+  // Achata a timeline de todos os débitos (aninhada dentro de cada inadimplência) em uma única lista
+  const eventosTimelineOrdenados = useMemo(() => {
+    const lista = []
+    inadimplencias.forEach(d => {
+      if (!d.timeline) return
+      Object.entries(d.timeline).forEach(([eventoKey, evento]) => {
+        lista.push({
+          id: `${d.id}_${eventoKey}`,
+          debitoId: d.id,
+          eventoKey,
+          inquilinoNome: d.inquilinoNome || 'Sem nome',
+          codigoImovel: d.codigoImovel || null,
+          tipo: evento.tipo || 'Outros',
+          descricao: evento.descricao || '',
+          criadoEm: evento.criadoEm || null,
+          mesReferencia: evento.criadoEm ? evento.criadoEm.slice(0, 7) : null,
+        })
+      })
+    })
+    return lista.sort((a, b) => new Date(b.criadoEm || 0) - new Date(a.criadoEm || 0))
+  }, [inadimplencias])
+
+  const [eventosMesFiltro, setEventosMesFiltro] = useState(currentMonth)
+
+  // Meses com pelo menos um evento, do mais recente para o mais antigo, para popular o filtro
+  const eventosMesesDisponiveis = useMemo(
+    () => [...new Set(eventosTimelineOrdenados.map(item => item.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
+    [eventosTimelineOrdenados]
+  )
+
+  const eventosFiltrados = useMemo(
+    () => eventosMesFiltro === 'todos'
+      ? eventosTimelineOrdenados
+      : eventosTimelineOrdenados.filter(item => item.mesReferencia === eventosMesFiltro),
+    [eventosTimelineOrdenados, eventosMesFiltro]
+  )
+
+  const handleExcluirEventoTimeline = async (debitoId, eventoKey) => {
+    if (!window.confirm('Deseja excluir este evento do histórico?')) return
+    await remove(ref(db, `inadimplencias/${debitoId}/timeline/${eventoKey}`))
+  }
+
   return (
     <Layout title="Dashboard" subtitle="Visão geral do sistema de gestão">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-4">
@@ -1589,6 +1650,86 @@ export default function Dashboard() {
                         onClick={() => handleExcluirHistorico(item.id)}
                         aria-label="Excluir registro do histórico"
                         title="Excluir registro do histórico"
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Histórico de Eventos da Timeline ── */}
+      <Card className="mb-4">
+        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-3">
+          <div className="flex items-center gap-2">
+            <History className="size-4 text-muted-foreground" />
+            <div>
+              <CardTitle className="text-base">Histórico de Eventos da Timeline</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Eventos registrados na timeline das inadimplências, mais recentes primeiro.
+              </CardDescription>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <select
+              value={eventosMesFiltro}
+              onChange={e => setEventosMesFiltro(e.target.value)}
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+            >
+              <option value={currentMonth}>{getMonthLabel(currentMonth)}</option>
+              {eventosMesesDisponiveis.filter(m => m !== currentMonth).map(m => (
+                <option key={m} value={m}>{getMonthLabel(m)}</option>
+              ))}
+              <option value="todos">Todos os meses</option>
+            </select>
+            <Badge variant="secondary" className="shrink-0 text-xs">
+              {eventosFiltrados.length} evento{eventosFiltrados.length === 1 ? '' : 's'}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-3">
+          {eventosFiltrados.length === 0 ? (
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              {eventosMesFiltro === 'todos'
+                ? 'Nenhum evento registrado na timeline ainda.'
+                : `Nenhum evento registrado em ${getMonthLabel(eventosMesFiltro)}.`}
+            </p>
+          ) : (
+            <div className="flex max-h-96 flex-col divide-y overflow-y-auto">
+              {eventosFiltrados.map(item => {
+                const tipoStyle = EVENTO_TIPO_STYLE[item.tipo] || EVENTO_TIPO_STYLE.Outros
+                return (
+                  <div key={item.id} className="group flex items-center justify-between gap-3 py-2 text-xs first:pt-0 last:pb-0">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <span
+                        className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
+                        style={{ background: tipoStyle.bg, color: tipoStyle.color, border: `1px solid ${tipoStyle.border}` }}
+                      >
+                        {item.tipo}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">
+                          {item.inquilinoNome}
+                          {item.codigoImovel ? ` (${item.codigoImovel})` : ''}
+                        </p>
+                        {item.descricao && (
+                          <p className="truncate text-muted-foreground">{item.descricao}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-muted-foreground">{fmtDataHora(item.criadoEm)}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                        onClick={() => handleExcluirEventoTimeline(item.debitoId, item.eventoKey)}
+                        aria-label="Excluir evento do histórico"
+                        title="Excluir evento do histórico"
                       >
                         <X className="size-3.5" />
                       </Button>

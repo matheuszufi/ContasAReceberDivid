@@ -42,16 +42,17 @@ function calcTotal(original, multa, juros) {
 }
 
 const TIPOS_EVENTO = [
-  { value: 'Observação',           icon: '📝', color: '#64748b' },
-  { value: 'Contato realizado',    icon: '📞', color: '#3b82f6' },
-  { value: 'Notificação enviada',  icon: '📨', color: '#f59e0b' },
-  { value: 'Acordo realizado',     icon: '🤝', color: '#b191fd' },
-  { value: 'Pagamento parcial',    icon: '💰', color: '#8fdcab' },
-  { value: 'Encaminhado jurídico', icon: '⚖️', color: '#ef4444' },
-  { value: 'Seguro acionado',      icon: '🛡️', color: '#0ea5e9' },
-  { value: 'Seguro aprovado',      icon: '✅', color: '#16a34a' },
-  { value: 'Quitado',              icon: '✅', color: '#22c55e' },
-  { value: 'Outros',               icon: '📌', color: '#94a3b8' },
+  { value: 'Observação',              icon: '📝', color: '#64748b' },
+  { value: 'Contato realizado',       icon: '📞', color: '#3b82f6' },
+  { value: 'Documentação solicitada', icon: '📄', color: '#eab308' },
+  { value: 'Notificação enviada',     icon: '📨', color: '#f59e0b' },
+  { value: 'Acordo realizado',        icon: '🤝', color: '#b191fd' },
+  { value: 'Pagamento parcial',       icon: '💰', color: '#8fdcab' },
+  { value: 'Encaminhado jurídico',    icon: '⚖️', color: '#ef4444' },
+  { value: 'Seguro acionado',         icon: '🛡️', color: '#0ea5e9' },
+  { value: 'Seguro aprovado',         icon: '✅', color: '#16a34a' },
+  { value: 'Quitado',                 icon: '✅', color: '#22c55e' },
+  { value: 'Outros',                  icon: '📌', color: '#94a3b8' },
 ]
 
 const EVENTO_STATUS_MAP = {
