@@ -122,6 +122,13 @@ const fmtDataHora = (timestamp) => {
   })
 }
 
+// Formata uma data "YYYY-MM-DD" para "DD/MM/YYYY"
+const fmtDataCurta = (ymd) => {
+  if (!ymd) return null
+  const [y, m, d] = ymd.split('-')
+  return `${d}/${m}/${y}`
+}
+
 const getMonthKey = (item) =>
   item.mesReferencia || (item.dataVencimento ? item.dataVencimento.substring(0, 7) : null)
 
@@ -163,12 +170,19 @@ const emptyMonthTotals = () => ({
   acionado: 0,
 })
 
+// Se houver valor recebido registrado no débito, contabiliza-o no lugar do "Total c/ Encargos"
+const getDebtValue = (item) => {
+  const recebido = parseFloat(item.valorRecebido)
+  if (recebido > 0) return recebido
+  return parseFloat(item.valorTotal) || parseFloat(item.valorOriginal) || 0
+}
+
 const buildMonthlyTotals = (items, year) => {
   const map = {}
   items.forEach(item => {
     const monthKey = getMonthKey(item)
     if (!monthKey?.startsWith(year)) return
-    const value = parseFloat(item.valorTotal) || parseFloat(item.valorOriginal) || 0
+    const value = getDebtValue(item)
     if (!map[monthKey]) {
       map[monthKey] = emptyMonthTotals()
     }
@@ -624,12 +638,12 @@ export default function Dashboard() {
   )
 
   const totalPeriodValue = useMemo(
-    () => periodDebts.reduce((sum, d) => sum + (parseFloat(d.valorTotal) || parseFloat(d.valorOriginal) || 0), 0),
+    () => periodDebts.reduce((sum, d) => sum + getDebtValue(d), 0),
     [periodDebts]
   )
 
   const recoveredValue = useMemo(
-    () => periodPagas.reduce((sum, d) => sum + (parseFloat(d.valorTotal) || parseFloat(d.valorOriginal) || 0), 0),
+    () => periodPagas.reduce((sum, d) => sum + getDebtValue(d), 0),
     [periodPagas]
   )
 
@@ -652,7 +666,7 @@ export default function Dashboard() {
     periodDebts.forEach(debt => {
       const key = debt.inquilinoId || debt.inquilinoNome || 'desconhecido'
       const name = inquilinoMap[debt.inquilinoId]?.nome || debt.inquilinoNome || 'Desconhecido'
-      const value = parseFloat(debt.valorTotal) || parseFloat(debt.valorOriginal) || 0
+      const value = getDebtValue(debt)
       if (!map[key]) {
         map[key] = { id: key, name, total: 0, count: 0 }
       }
@@ -691,7 +705,7 @@ export default function Dashboard() {
   const categoryBreakdown = useMemo(() => {
     const acc = { recuperado: [], aprovadoSeguradora: [], aguardarAcionar: [], juridico: [], acionado: [], inadimplente: [] }
     periodDebts.forEach(d => {
-      const value = parseFloat(d.valorTotal) || parseFloat(d.valorOriginal) || 0
+      const value = getDebtValue(d)
       const name = inquilinoMap[d.inquilinoId]?.nome || d.inquilinoNome || 'Sem nome'
       const imovel = getCodigoImovel(d)
       const entry = { name, imovel, value }
@@ -1527,6 +1541,12 @@ export default function Dashboard() {
                           <span className="truncate">{item.valorAnteriorLabel || '—'}</span>
                           <ArrowRight className="size-3 shrink-0" />
                           <span className="truncate font-medium text-foreground">{item.valorNovoLabel || '—'}</span>
+                        </p>
+                        <p className="flex min-w-0 items-center gap-1 truncate text-muted-foreground">
+                          <span className="truncate">Total c/ Encargos: {fmtMoney(item.valorTotal)}</span>
+                          {item.valorRecebido > 0 && <span className="truncate">· Recebido: {fmtMoney(item.valorRecebido)}</span>}
+                          {item.mesReferencia && <span className="truncate">· {getMonthLabel(item.mesReferencia)}</span>}
+                          {item.dataSeguro && <span className="truncate">· Data Seguro: {fmtDataCurta(item.dataSeguro)}</span>}
                         </p>
                       </div>
                     </div>

@@ -266,6 +266,11 @@ export default function Inadimplentes() {
         valorAnteriorLabel: valorAnteriorLabel || '—',
         valorNovoKey: valorNovoKey || null,
         valorNovoLabel: valorNovoLabel || '—',
+        // Snapshot do valor, mês de referência e data do seguro do débito no momento da alteração
+        valorTotal: d.valorTotal || d.valorOriginal || 0,
+        valorRecebido: d.valorRecebido || null,
+        mesReferencia: d.mesReferencia || null,
+        dataSeguro: d.dataSeguro || null,
         data: Date.now(),
       })
     } catch (err) {
@@ -293,6 +298,10 @@ export default function Inadimplentes() {
 
   const handleUltimaCobrancaChange = async (id, value) => {
     await update(ref(db, `inadimplencias/${id}`), { ultimaCobranca: value })
+  }
+
+  const handleValorRecebidoChange = async (id, value) => {
+    await update(ref(db, `inadimplencias/${id}`), { valorRecebido: value === '' ? null : Number(value) })
   }
 
   const handleDataSeguroChange = async (id, value) => {
@@ -589,6 +598,7 @@ export default function Inadimplentes() {
                   <th>Inquilino</th>
                   <th>Imóvel</th>
                   <th>Total c/ Encargos</th>
+                  <th>Valor Recebido</th>
                   <th>Mês Ref.</th>
                   <th>Garantia</th>
                   <th>Seguro Acionado</th>
@@ -616,6 +626,7 @@ export default function Inadimplentes() {
                       style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                     />
                   </th>
+                  <th></th>
                   <th></th>
                   <th>
                     <select
@@ -692,7 +703,7 @@ export default function Inadimplentes() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={10}>
+                    <td colSpan={11}>
                       <div className="empty-state">
                         <div className="es-icon">✅</div>
                         <h3>Nenhum débito encontrado</h3>
@@ -725,6 +736,16 @@ export default function Inadimplentes() {
                       ) : '—'}
                     </td>
                     <td><strong>{fmtMoney(d.valorTotal)}</strong></td>
+                    <td>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0,00"
+                        value={d.valorRecebido ?? ''}
+                        onChange={e => handleValorRecebidoChange(d.id, e.target.value)}
+                        style={{ width: 100, fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                      />
+                    </td>
                     <td>{d.mesReferencia ? formatMonthShort(d.mesReferencia) : '—'}</td>
                     <td>
                       {(() => {
