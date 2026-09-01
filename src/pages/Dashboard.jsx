@@ -108,6 +108,14 @@ const EVENTO_TIPO_STYLE = {
   'Outros':                  { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' },
 }
 
+// Status de acompanhamento de cada evento da timeline, editável direto no card do Dashboard
+const EVENTO_STATUS_OPCOES = [
+  { value: 'sem_movimento',      label: 'Sem movimento' },
+  { value: 'aguardando_retorno', label: 'Aguardando retorno do proprietário' },
+  { value: 'enviado_plataforma', label: 'Já enviado na plataforma' },
+]
+const EVENTO_STATUS_DEFAULT = EVENTO_STATUS_OPCOES[0].value
+
 const fmtMoney = (value) =>
   'R$ ' + Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
@@ -492,6 +500,12 @@ export default function Dashboard() {
     const inquilino = inquilinoMap[d.inquilinoId]
     const imovel = imovelMap[inquilino?.imovelId]
     return imovel?.codigo || inquilino?.codigoImovel || d.codigoImovel || ''
+  }
+
+  const getNomeImovel = (d) => {
+    const inquilino = inquilinoMap[d.inquilinoId]
+    const imovel = imovelMap[inquilino?.imovelId]
+    return imovel?.nome || d.codigoImovel || ''
   }
 
   // Soma o lucro da imobiliária (Taxa Adm + Taxa Contrato) mês a mês para o ano selecionado.
@@ -983,10 +997,11 @@ export default function Dashboard() {
           debitoId: d.id,
           eventoKey,
           inquilinoNome: d.inquilinoNome || 'Sem nome',
-          codigoImovel: d.codigoImovel || null,
+          nomeImovel: getNomeImovel(d) || null,
           tipo: evento.tipo || 'Outros',
           descricao: evento.descricao || '',
           criadoEm: evento.criadoEm || null,
+          statusEvento: evento.statusEvento || EVENTO_STATUS_DEFAULT,
           mesReferencia: evento.criadoEm ? formatDateToMonthKey(evento.criadoEm) : null,
         })
       })
@@ -1012,6 +1027,10 @@ export default function Dashboard() {
   const handleExcluirEventoTimeline = async (debitoId, eventoKey) => {
     if (!window.confirm('Deseja excluir este evento do histórico?')) return
     await remove(ref(db, `inadimplencias/${debitoId}/timeline/${eventoKey}`))
+  }
+
+  const handleStatusEventoChange = async (debitoId, eventoKey, value) => {
+    await update(ref(db, `inadimplencias/${debitoId}/timeline/${eventoKey}`), { statusEvento: value })
   }
 
   return (
@@ -1680,7 +1699,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <History className="size-4 text-muted-foreground" />
             <div>
-              <CardTitle className="text-base">Histórico de Eventos da Timeline</CardTitle>
+              <CardTitle className="text-base">Histórico Seguradoras</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Eventos registrados na timeline das inadimplências, mais recentes primeiro.
               </CardDescription>
@@ -1726,7 +1745,7 @@ export default function Dashboard() {
                       <div className="min-w-0">
                         <p className="truncate font-medium">
                           {item.inquilinoNome}
-                          {item.codigoImovel ? ` (${item.codigoImovel})` : ''}
+                          {item.nomeImovel ? ` (${item.nomeImovel})` : ''}
                         </p>
                         {item.descricao && (
                           <p className="truncate text-muted-foreground">{item.descricao}</p>
@@ -1734,6 +1753,16 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
+                      <select
+                        value={item.statusEvento}
+                        onChange={e => handleStatusEventoChange(item.debitoId, item.eventoKey, e.target.value)}
+                        className="h-7 rounded-md border border-input bg-background px-1.5 text-[11px]"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        {EVENTO_STATUS_OPCOES.map(o => (
+                          <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                      </select>
                       <span className="text-muted-foreground">{fmtDataHora(item.criadoEm)}</span>
                       <Button
                         variant="ghost"
