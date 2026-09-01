@@ -320,4 +320,4 @@ body {
 
 .radio-item input[type="radio"] { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
 
-.radio-item:has(input:checked) { border-color: var(--accent); background: #eff6ff; color: var(--accent); font-weight: 600; }
+.radio-item:has(input:checked) { border-color: var(--accent); background: #eff6ff; color: black; font-weight: 600; }
