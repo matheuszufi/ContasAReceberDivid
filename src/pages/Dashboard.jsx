@@ -5,6 +5,7 @@ import { jsPDF } from 'jspdf'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { normalizeText } from '@/lib/utils'
+import dividLogo from '../assets/images/divid-logo.png'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +14,26 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import './Dashboard.css'
+
+// Carrega uma imagem para uso com doc.addImage do jsPDF
+const loadImage = src => new Promise((resolve, reject) => {
+  const image = new Image()
+  image.onload = () => resolve(image)
+  image.onerror = reject
+  image.src = src
+})
+
+// Desenha a logo da Divid no canto superior direito do relatório, sem interromper a geração se falhar
+const desenharLogoRelatorio = async (doc, pageWidth, margin) => {
+  try {
+    const logo = await loadImage(dividLogo)
+    const largura = 32
+    const altura = (logo.height / logo.width) * largura
+    doc.addImage(logo, 'PNG', pageWidth - margin - largura, 8, largura, altura)
+  } catch {
+    // Sem logo disponível, segue a geração normalmente
+  }
+}
 import {
   Building2,
   Users,
@@ -181,7 +202,7 @@ const getMonthLabel = (monthKey) => {
 // "Histórico de Alterações" e "Histórico Seguradoras". `formatarItem` retorna um array de linhas de
 // texto por item, onde a primeira linha é destacada em negrito. `resumoStatus`, se informado, é uma
 // lista de { label, valor, color } exibida ao final como totais + gráfico de barras.
-const gerarRelatorioHistoricoPDF = (titulo, periodoLabel, itens, formatarItem, resumoStatus, opcoesGrafico = {}) => {
+const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarItem, resumoStatus, opcoesGrafico = {}) => {
   const { tipo: tipoGrafico = 'barra', posicao: posicaoGrafico = 'fim' } = opcoesGrafico
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -189,6 +210,8 @@ const gerarRelatorioHistoricoPDF = (titulo, periodoLabel, itens, formatarItem, r
   const margin = 14
   const contentWidth = pageWidth - margin * 2
   let y = margin
+
+  await desenharLogoRelatorio(doc, pageWidth, margin)
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
@@ -283,7 +306,7 @@ const gerarRelatorioHistoricoPDF = (titulo, periodoLabel, itens, formatarItem, r
       doc.setDrawColor(210)
       doc.rect(margin + labelWidth, y, barWidth, barHeight)
       doc.setFont('helvetica', 'bold')
-      doc.text(`${r.valor.toFixed(2)} (${Math.round((r.valor / totalGeral) * 100)}%)`, margin + labelWidth + barWidth + 4, y + 4.2)
+      doc.text(`${fmtNumeroPdf(r.valor)} (${Math.round((r.valor / totalGeral) * 100)}%)`, margin + labelWidth + barWidth + 4, y + 4.2)
       y += barHeight + 6
     })
   }
@@ -334,7 +357,7 @@ const desenharResumoPizza = (doc, margin, y, contentWidth, resumoStatus) => {
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(0)
     const percentual = Math.round((r.valor / total) * 100)
-    doc.text(`${r.label}: ${r.valor.toFixed(2)} (${percentual}%)`, legendaX + 6, legendaY)
+    doc.text(`${r.label}: ${fmtNumeroPdf(r.valor)} (${percentual}%)`, legendaX + 6, legendaY)
     legendaY += 6
   })
 
@@ -396,13 +419,15 @@ const desenharTabelaMensal = (doc, margin, y, contentWidth, pageHeight, dadosMen
 }
 
 // Monta o PDF do relatório anual: pizza com os percentuais do ano + gráfico cronológico por mês
-const gerarRelatorioAnualPDF = (titulo, periodoLabel, resumoStatus, dadosMensais) => {
+const gerarRelatorioAnualPDF = async (titulo, periodoLabel, resumoStatus, dadosMensais) => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 14
   const contentWidth = pageWidth - margin * 2
   let y = margin
+
+  await desenharLogoRelatorio(doc, pageWidth, margin)
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
@@ -454,6 +479,10 @@ const hexToRgb = (hex) => {
   const v = parseInt(hex.replace('#', ''), 16)
   return [(v >> 16) & 255, (v >> 8) & 255, v & 255]
 }
+
+// Formata um número com separador de milhar e 2 casas decimais (ex: 1.000.000,00), usado nos gráficos do PDF
+const fmtNumeroPdf = (v) =>
+  Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // Formata uma chave de mês (YYYY-MM) de forma curta, ex: "Jan/2026"
 const formatMonthKeyShort = (monthKey) => {
@@ -1421,7 +1450,7 @@ export default function Dashboard() {
     setRelatorioAno(selectedYear)
   }
 
-  const handleGerarRelatorio = () => {
+  const handleGerarRelatorio = async () => {
     const inicio = relatorioInicio ? new Date(`${relatorioInicio}T00:00:00`) : null
     const fim = relatorioFim ? new Date(`${relatorioFim}T23:59:59`) : null
     const dentroDoPeriodo = (timestamp) => {
@@ -1467,7 +1496,7 @@ export default function Dashboard() {
         { label: 'Jurídico', valor: contagemStatus['Jurídico'] || 0, color: '#ef4444' },
         { label: 'Aberto', valor: contagemStatus['Aberto'] || 0, color: '#eab308' },
       ]
-      const doc = gerarRelatorioHistoricoPDF('Histórico de Alterações', periodoLabel, itens, item => [
+      const doc = await gerarRelatorioHistoricoPDF('Histórico de Alterações', periodoLabel, itens, item => [
         `${item.inquilinoNome || 'Sem nome'}${item.codigoImovel ? ` (${item.codigoImovel})` : ''} — ${fmtDataHora(item.data)}`,
         `${item.campoLabel || (item.campo === 'seguroAcionado' ? 'Seguro Acionado' : 'Status')}: ${item.valorAnteriorLabel || '—'} -> ${item.valorNovoLabel || '—'}`,
         `Total c/ Encargos: ${fmtMoney(item.valorTotal)}` +
@@ -1478,7 +1507,7 @@ export default function Dashboard() {
       doc.save(`historico-alteracoes_${relatorioInicio || 'inicio'}_${relatorioFim || 'fim'}.pdf`)
     } else if (relatorioTipo === 'seguradoras') {
       const itens = eventosTimelineOrdenados.filter(item => dentroDoPeriodo(item.criadoEm))
-      const doc = gerarRelatorioHistoricoPDF('Histórico Seguradoras', periodoLabel, itens, item => [
+      const doc = await gerarRelatorioHistoricoPDF('Histórico Seguradoras', periodoLabel, itens, item => [
         `${item.inquilinoNome}${item.nomeImovel ? ` (${item.nomeImovel})` : ''} — ${fmtDataHora(item.criadoEm)}`,
         `Tipo: ${item.tipo}${(EVENTO_STATUS_OPCOES.find(o => o.value === item.statusEvento)?.label) ? ` · Status: ${EVENTO_STATUS_OPCOES.find(o => o.value === item.statusEvento).label}` : ''}`,
         ...(item.descricao ? [item.descricao] : []),
@@ -1522,12 +1551,12 @@ export default function Dashboard() {
           const total = t.inadimplente + t.recuperado + t.aprovadoSeguradora + t.aguardarAcionar + t.juridico + t.acionado + t.reprovado
           return { label: MONTH_LABELS[i], valor: total, recuperado: t.recuperado, aberto: total - t.recuperado }
         })
-        const doc = gerarRelatorioAnualPDF('Inadimplência por Período', `Ano ${relatorioAno}`, resumoStatus, dadosMensais)
+        const doc = await gerarRelatorioAnualPDF('Inadimplência por Período', `Ano ${relatorioAno}`, resumoStatus, dadosMensais)
         doc.save(`inadimplencia-anual_${relatorioAno || 'ano'}.pdf`)
       } else {
         const itens = inadimplencias.filter(d => getMonthKey(d) === relatorioMes)
         const resumoStatus = montarResumoStatus(itens)
-        const doc = gerarRelatorioHistoricoPDF('Inadimplência por Período', getMonthLabel(relatorioMes), itens, item => [
+        const doc = await gerarRelatorioHistoricoPDF('Inadimplência por Período', getMonthLabel(relatorioMes), itens, item => [
           `${inquilinoMap[item.inquilinoId]?.nome || item.inquilinoNome || 'Sem nome'}${getCodigoImovel(item) ? ` (${getCodigoImovel(item)})` : ''} — ${categoriaLabel[classifyDebt(item)]}`,
           `Total c/ Encargos: ${fmtMoney(getDebtValue(item))}` +
             (item.valorRecebido > 0 ? ` · Recebido: ${fmtMoney(item.valorRecebido)}` : ''),
