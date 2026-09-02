@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth'
 import './Layout.css'
@@ -42,6 +42,12 @@ export default function Layout({ children, title, subtitle }) {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, signOut } = useAuth()
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  const handleNavigate = (path) => {
+    navigate(path)
+    setSidebarOpen(false)
+  }
 
   const handleLogout = async () => {
     try {
@@ -54,7 +60,8 @@ export default function Layout({ children, title, subtitle }) {
 
   return (
     <div className="app-layout">
-      <aside className="sidebar">
+      {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
+      <aside className={`sidebar${sidebarOpen ? ' open' : ''}`}>
         <div className="sidebar-brand">
           <h2>ContasReceber</h2>
           <p>Sistema de Gestão</p>
@@ -72,7 +79,7 @@ export default function Layout({ children, title, subtitle }) {
                     (item.path !== '/dashboard' && location.pathname.startsWith(item.path + '/'))
                       ? ' active' : ''
                   }`}
-                  onClick={() => navigate(item.path)}
+                  onClick={() => handleNavigate(item.path)}
                 >
                   <span className="nav-icon">{item.icon}</span>
                   {item.label}
@@ -96,6 +103,14 @@ export default function Layout({ children, title, subtitle }) {
       <div className="main-content">
         {(title || subtitle) && (
           <header className="page-header">
+            <button
+              type="button"
+              className="sidebar-toggle-btn"
+              aria-label="Abrir menu"
+              onClick={() => setSidebarOpen(v => !v)}
+            >
+              ☰
+            </button>
             <div>
               <h1>{title}</h1>
               {subtitle && <p>{subtitle}</p>}
