@@ -1664,8 +1664,8 @@ export default function Dashboard() {
               {historicoFiltrado.map(item => {
                 const campoStyle = HISTORICO_CAMPO_STYLE[item.campo] || HISTORICO_CAMPO_STYLE.status
                 return (
-                  <div key={item.id} className="group flex items-center justify-between gap-3 py-2 text-xs first:pt-0 last:pb-0">
-                    <div className="flex min-w-0 items-center gap-2.5">
+                  <div key={item.id} className="group flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
+                    <div className="flex min-w-0 flex-1 basis-56 items-center gap-2.5">
                       <span
                         className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
                         style={{ background: campoStyle.bg, color: campoStyle.color, border: `1px solid ${campoStyle.border}` }}
@@ -1695,7 +1695,7 @@ export default function Dashboard() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-6 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                        className="size-6 shrink-0 text-muted-foreground opacity-100 transition-opacity hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
                         onClick={() => handleExcluirHistorico(item.id)}
                         aria-label="Excluir registro do histórico"
                         title="Excluir registro do histórico"
@@ -1752,8 +1752,8 @@ export default function Dashboard() {
               {eventosFiltrados.map(item => {
                 const tipoStyle = EVENTO_TIPO_STYLE[item.tipo] || EVENTO_TIPO_STYLE.Outros
                 return (
-                  <div key={item.id} className="group flex items-center justify-between gap-3 py-2 text-xs first:pt-0 last:pb-0">
-                    <div className="flex min-w-0 items-center gap-2.5">
+                  <div key={item.id} className="group flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
+                    <div className="flex min-w-0 flex-1 basis-56 items-center gap-2.5">
                       <span
                         className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
                         style={{ background: tipoStyle.bg, color: tipoStyle.color, border: `1px solid ${tipoStyle.border}` }}
@@ -1770,7 +1770,7 @@ export default function Dashboard() {
                         )}
                       </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
                       <select
                         value={item.statusEvento}
                         onChange={e => handleStatusEventoChange(item.debitoId, item.eventoKey, e.target.value)}
@@ -1785,7 +1785,7 @@ export default function Dashboard() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-6 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                        className="size-6 shrink-0 text-muted-foreground opacity-100 transition-opacity hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
                         onClick={() => handleExcluirEventoTimeline(item.debitoId, item.eventoKey)}
                         aria-label="Excluir evento do histórico"
                         title="Excluir evento do histórico"
