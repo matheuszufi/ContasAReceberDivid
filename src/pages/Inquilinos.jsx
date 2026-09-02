@@ -1171,7 +1171,7 @@ export default function Inquilinos() {
 
   return (
     <Layout title="Inquilinos" subtitle="Gestão de inquilinos cadastrados">
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         <Button onClick={() => navigate('/inquilinos/cadastrar')}>
           <Plus /> Cadastrar Inquilino
         </Button>
@@ -1196,9 +1196,9 @@ export default function Inquilinos() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
               <Users className="size-5" />
             </div>
@@ -1209,7 +1209,7 @@ export default function Inquilinos() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
               <UserCheck className="size-5" />
             </div>
@@ -1220,7 +1220,7 @@ export default function Inquilinos() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600">
               <UserX className="size-5" />
             </div>
@@ -1234,14 +1234,14 @@ export default function Inquilinos() {
 
       <InlineEditingContext.Provider value={inlineEditingEnabled}>
       <Card>
-        <CardHeader className="flex w-full flex-row items-center justify-between gap-4 border-b pb-4">
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b pb-3">
           <div className="min-w-0">
             <CardTitle className="text-lg">Todos os Inquilinos ({filtered.length})</CardTitle>
             <CardDescription>
               {inlineEditingEnabled ? 'Clique em qualquer célula para editar · ' : ''}Arraste o cabeçalho para reordenar colunas · "Nome" fica sempre travada
             </CardDescription>
           </div>
-          <div className="ml-auto flex shrink-0 items-center justify-end gap-3">
+          <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
             {!isColFiltersEmpty(colFilters) && (
               <Button variant="outline" size="sm" onClick={limparColFilters}>
                 Limpar filtros

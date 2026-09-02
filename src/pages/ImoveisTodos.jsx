@@ -861,7 +861,7 @@ export default function ImoveisTodos() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => setYear(y => y - 1)}><ChevronLeft /></Button>
-          <span className="min-w-14 text-center text-xl font-bold">{year}</span>
+          <span className="min-w-14 text-center text-lg font-bold">{year}</span>
           <Button variant="outline" size="icon" onClick={() => setYear(y => y + 1)}><ChevronRight /></Button>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -871,9 +871,9 @@ export default function ImoveisTodos() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
               <House className="size-5" />
             </div>
@@ -884,34 +884,34 @@ export default function ImoveisTodos() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
               <CircleCheck className="size-5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xl font-semibold tracking-tight">{fmtBRL(totalPago)}</p>
+              <p className="truncate text-lg font-semibold tracking-tight">{fmtBRL(totalPago)}</p>
               <p className="truncate text-sm text-muted-foreground">Recebido em {year}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
               <TriangleAlert className="size-5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xl font-semibold tracking-tight">{fmtBRL(totalPendente)}</p>
+              <p className="truncate text-lg font-semibold tracking-tight">{fmtBRL(totalPendente)}</p>
               <p className="truncate text-sm text-muted-foreground">Pendente em {year}</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-teal-500/10 text-teal-600">
               <Wallet className="size-5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xl font-semibold tracking-tight">{fmtBRL(totalRecuperado)}</p>
+              <p className="truncate text-lg font-semibold tracking-tight">{fmtBRL(totalRecuperado)}</p>
               <p className="truncate text-sm text-muted-foreground">Recuperado em {year}</p>
             </div>
           </CardContent>
@@ -991,7 +991,7 @@ export default function ImoveisTodos() {
       )}
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-4">
+        <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-3">
           <CardTitle className="text-lg">Planilha de Pagamentos — {year}</CardTitle>
           <Badge variant="secondary">Todos</Badge>
         </CardHeader>

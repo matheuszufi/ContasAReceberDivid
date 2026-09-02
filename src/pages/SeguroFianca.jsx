@@ -238,9 +238,9 @@ export default function SeguroFianca() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
               <Shield className="size-5" />
             </div>
@@ -251,7 +251,7 @@ export default function SeguroFianca() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
               <CircleCheck className="size-5" />
             </div>
@@ -262,12 +262,12 @@ export default function SeguroFianca() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
               <Wallet className="size-5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(totalMensal)}</p>
+              <p className="truncate text-lg font-semibold tracking-tight">{fmtMoney(totalMensal)}</p>
               <p className="truncate text-sm text-muted-foreground">Total Mensal em Seguros</p>
             </div>
           </CardContent>
@@ -275,7 +275,7 @@ export default function SeguroFianca() {
       </div>
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-4">
+        <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-3">
           <CardTitle className="text-lg">Inquilinos ({filtered.length})</CardTitle>
           {temFiltroAtivo && (
             <Button variant="outline" size="sm" onClick={limparFiltros}>

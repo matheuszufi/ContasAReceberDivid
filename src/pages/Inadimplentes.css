@@ -132,7 +132,7 @@ body {
 
 .badge-red { background: #fee2e2; color: #b91c1c; }
 
-.empty-state { text-align: center; padding: 30px 16px; color: var(--text-secondary); }
+.empty-state { text-align: center; padding: 20px 14px; color: var(--text-secondary); }
 
 .empty-state .es-icon { font-size: 40px; margin-bottom: 14px; }
 

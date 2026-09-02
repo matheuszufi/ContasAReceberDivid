@@ -796,7 +796,7 @@ export default function Proprietarios() {
 
   return (
     <Layout title="Proprietários" subtitle="Gestão de proprietários de imóveis">
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         <Button onClick={() => navigate('/proprietarios/cadastrar')}>
           <Plus /> Cadastrar Proprietário
         </Button>
@@ -818,7 +818,7 @@ export default function Proprietarios() {
         </div>
       </div>
 
-      <div className="mb-6 grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
+      <div className="mb-6 grid gap-2 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
             <Card>
@@ -860,7 +860,7 @@ export default function Proprietarios() {
                   <HandCoins className="size-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-base font-semibold leading-tight tracking-tight">{formatMoney(totaisFinanceiros.repasse)}</p>
+                  <p className="truncate text-sm font-semibold leading-tight tracking-tight">{formatMoney(totaisFinanceiros.repasse)}</p>
                   <p className="truncate text-[11px] leading-tight text-muted-foreground">Repasse (mês atual)</p>
                 </div>
               </CardContent>
@@ -871,7 +871,7 @@ export default function Proprietarios() {
                   <FileText className="size-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-base font-semibold leading-tight tracking-tight">{formatMoney(totaisFinanceiros.taxaContrato)}</p>
+                  <p className="truncate text-sm font-semibold leading-tight tracking-tight">{formatMoney(totaisFinanceiros.taxaContrato)}</p>
                   <p className="truncate text-[11px] leading-tight text-muted-foreground">Taxa de Contrato</p>
                 </div>
               </CardContent>
@@ -882,7 +882,7 @@ export default function Proprietarios() {
                   <Percent className="size-3.5" />
                 </div>
                 <div className="min-w-0">
-                  <p className="truncate text-base font-semibold leading-tight tracking-tight">{formatMoney(totaisFinanceiros.taxaAdministrativa)}</p>
+                  <p className="truncate text-sm font-semibold leading-tight tracking-tight">{formatMoney(totaisFinanceiros.taxaAdministrativa)}</p>
                   <p className="truncate text-[11px] leading-tight text-muted-foreground">Taxa Administrativa</p>
                 </div>
               </CardContent>
@@ -895,7 +895,7 @@ export default function Proprietarios() {
         <Card className="xl:sticky xl:top-4">
           <CardHeader className="gap-2 border-b pb-3">
             <div>
-              <CardTitle className="text-base">Top Proprietários</CardTitle>
+              <CardTitle className="text-sm">Top Proprietários</CardTitle>
               <CardDescription className="text-xs">Taxa Adm + Taxa Contrato no mês</CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -953,7 +953,7 @@ export default function Proprietarios() {
       </div>
 
       <Card>
-        <CardHeader className="border-b pb-4">
+        <CardHeader className="border-b pb-3">
           <CardTitle className="text-lg">Todos os Proprietários ({filtered.length})</CardTitle>
           <CardDescription>Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas</CardDescription>
         </CardHeader>
@@ -1059,12 +1059,12 @@ export default function Proprietarios() {
             </div>
 
             <div style={{ padding: 18 }}>
-              <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
-                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Aluguéis</p><strong>{formatMoney(extratoSelecionado.totais.aluguel)}</strong></div>
-                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Taxa Administrativa</p><strong className="text-red-700">{formatMoney(extratoSelecionado.totais.taxaAdministrativa)}</strong></div>
-                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Taxa de Contrato</p><strong className="text-red-700">{formatMoney(extratoSelecionado.totais.taxaContrato)}</strong></div>
-                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Contas do Mês</p><strong>{formatMoney(extratoSelecionado.totais.contas)}</strong></div>
-                <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Repasse</p><strong className="text-emerald-700">{formatMoney(extratoSelecionado.totais.repasse)}</strong></div>
+              <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-5">
+                <div className="rounded-md border p-2"><p className="text-xs text-muted-foreground">Aluguéis</p><strong>{formatMoney(extratoSelecionado.totais.aluguel)}</strong></div>
+                <div className="rounded-md border p-2"><p className="text-xs text-muted-foreground">Taxa Administrativa</p><strong className="text-red-700">{formatMoney(extratoSelecionado.totais.taxaAdministrativa)}</strong></div>
+                <div className="rounded-md border p-2"><p className="text-xs text-muted-foreground">Taxa de Contrato</p><strong className="text-red-700">{formatMoney(extratoSelecionado.totais.taxaContrato)}</strong></div>
+                <div className="rounded-md border p-2"><p className="text-xs text-muted-foreground">Contas do Mês</p><strong>{formatMoney(extratoSelecionado.totais.contas)}</strong></div>
+                <div className="rounded-md border p-2"><p className="text-xs text-muted-foreground">Repasse</p><strong className="text-emerald-700">{formatMoney(extratoSelecionado.totais.repasse)}</strong></div>
               </div>
 
               <div className="table-container">
@@ -1140,7 +1140,7 @@ export default function Proprietarios() {
                   {rankingProprietarios.map((p, index) => (
                     <div
                       key={p.id}
-                      className="flex items-center justify-between gap-3 rounded-md px-2 py-2"
+                      className="flex items-center justify-between gap-2 rounded-md px-2 py-2"
                       style={{ background: index < 3 ? '#f0fdf4' : 'transparent' }}
                     >
                       <div className="flex min-w-0 items-center gap-2.5">

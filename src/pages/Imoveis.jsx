@@ -523,7 +523,7 @@ export default function Imoveis() {
 
   return (
     <Layout title="Imóveis" subtitle="Lista e gerenciamento de todos os imóveis">
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         <Button onClick={() => navigate('/imoveis/cadastrar')}>
           <Plus /> Cadastrar Imóvel
         </Button>
@@ -545,9 +545,9 @@ export default function Imoveis() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
               <Building2 className="size-5" />
             </div>
@@ -558,7 +558,7 @@ export default function Imoveis() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
               <KeyRound className="size-5" />
             </div>
@@ -569,7 +569,7 @@ export default function Imoveis() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
               <CircleCheck className="size-5" />
             </div>
@@ -580,7 +580,7 @@ export default function Imoveis() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
               <Wrench className="size-5" />
             </div>
@@ -593,7 +593,7 @@ export default function Imoveis() {
       </div>
 
       <Card>
-        <CardHeader className="border-b pb-4">
+        <CardHeader className="border-b pb-3">
           <CardTitle className="text-lg">Todos os Imóveis ({filtered.length})</CardTitle>
           <CardDescription>Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas</CardDescription>
         </CardHeader>

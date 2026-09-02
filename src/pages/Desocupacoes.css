@@ -85,7 +85,7 @@ body {
 
 .badge-gray { background: #f1f5f9; color: #64748b; }
 
-.empty-state { text-align: center; padding: 30px 16px; color: var(--text-secondary); }
+.empty-state { text-align: center; padding: 20px 14px; color: var(--text-secondary); }
 
 .empty-state .es-icon { font-size: 40px; margin-bottom: 14px; }
 

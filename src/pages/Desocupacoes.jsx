@@ -309,7 +309,7 @@ export default function Desocupacoes() {
 
   return (
     <Layout title="Desocupações" subtitle="Controle de inquilinos em processo de desocupação">
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         <div className="relative w-full max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -324,7 +324,7 @@ export default function Desocupacoes() {
           <select
             value={novoInquilinoId}
             onChange={e => setNovoInquilinoId(e.target.value)}
-            className="h-9 min-w-[240px] rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="h-9 min-w-[240px] rounded-md border border-input bg-transparent px-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             <option value="">Selecione um inquilino...</option>
             {disponiveisParaAdicionar.map(i => (
@@ -337,9 +337,9 @@ export default function Desocupacoes() {
         </form>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-3">
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
               <Package className="size-5" />
             </div>
@@ -350,7 +350,7 @@ export default function Desocupacoes() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
               <House className="size-5" />
             </div>
@@ -361,7 +361,7 @@ export default function Desocupacoes() {
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-4">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-slate-500/10 text-slate-600">
               <Trash2 className="size-5" />
             </div>
@@ -374,7 +374,7 @@ export default function Desocupacoes() {
       </div>
 
       <Card className="mb-6">
-        <CardHeader className="border-b pb-4">
+        <CardHeader className="border-b pb-3">
           <CardTitle className="text-lg">Inquilinos Desocupando ({filtered.length})</CardTitle>
         </CardHeader>
         <CardContent className="px-0">
@@ -439,7 +439,7 @@ export default function Desocupacoes() {
       </Card>
 
       <Card>
-        <CardHeader className="border-b pb-4">
+        <CardHeader className="border-b pb-3">
           <CardTitle className="text-lg">Inquilinos que já Desocuparam ({filteredDesocupados.length})</CardTitle>
         </CardHeader>
         <CardContent className="px-0">

@@ -430,7 +430,7 @@ export default function Inadimplentes() {
 
   return (
     <Layout title="Inadimplentes" subtitle="Controle de clientes com débitos pendentes">
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <div className="mb-6 flex flex-wrap items-center gap-2">
         <Button onClick={() => navigate('/inadimplentes/cadastrar')}>
           <Plus /> Registrar Débito
         </Button>
@@ -452,7 +452,7 @@ export default function Inadimplentes() {
       {/* ── Resumo por Mês ── */}
       {monthGroups.length > 0 && (
         <Card className="mb-6">
-          <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-4">
+          <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-3">
             <CardTitle className="text-lg">Inadimplência por Mês</CardTitle>
             {mesSelecionado && (
               <Button variant="outline" size="sm" onClick={() => setMesSelecionado(null)}>
@@ -497,10 +497,10 @@ export default function Inadimplentes() {
       )}
 
       {/* ── Resumo Geral ── */}
-      <div className="mb-6 flex flex-wrap items-stretch gap-4">
-        <div className="grid flex-[1_1_480px] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mb-6 flex flex-wrap items-stretch gap-2">
+        <div className="grid flex-[1_1_480px] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <Card>
-            <CardContent className="flex items-center gap-4">
+            <CardContent className="flex items-center gap-2">
               <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600">
                 <TriangleAlert className="size-5" />
               </div>
@@ -511,23 +511,23 @@ export default function Inadimplentes() {
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="flex items-center gap-4">
+            <CardContent className="flex items-center gap-2">
               <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600">
                 <Wallet className="size-5" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(totalAberto)}</p>
+                <p className="truncate text-lg font-semibold tracking-tight">{fmtMoney(totalAberto)}</p>
                 <p className="truncate text-sm text-muted-foreground">Total em Aberto</p>
               </div>
             </CardContent>
           </Card>
           <Card>
-            <CardContent className="flex items-center gap-4">
+            <CardContent className="flex items-center gap-2">
               <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600">
                 <CircleCheck className="size-5" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(totalRecup)}</p>
+                <p className="truncate text-lg font-semibold tracking-tight">{fmtMoney(totalRecup)}</p>
                 <p className="truncate text-sm text-muted-foreground">Total Recuperado</p>
               </div>
             </CardContent>
@@ -535,8 +535,8 @@ export default function Inadimplentes() {
         </div>
 
         <Card className="flex-[1_1_260px] max-w-[360px]">
-          <CardHeader className="flex-row items-center justify-between gap-3">
-            <CardTitle className="flex items-center gap-1.5 text-base">
+          <CardHeader className="flex-row items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-1.5 text-sm">
               <Trophy className="size-4" /> Ranking de Inadimplentes
             </CardTitle>
             {rankingInadimplentes.length > 0 ? (
@@ -552,7 +552,7 @@ export default function Inadimplentes() {
 
       {/* ── Tabela ── */}
       <Card className="spreadsheet-full-width">
-        <CardHeader className="flex flex-col gap-3 border-b pb-4 md:flex-row md:items-end md:justify-between">
+        <CardHeader className="flex flex-col gap-2 border-b pb-3 md:flex-row md:items-end md:justify-between">
           <CardTitle className="text-lg md:flex-1">
             {mesSelecionado
               ? `Débitos — ${formatMonthLabel(mesSelecionado)} (${filtered.length})`
