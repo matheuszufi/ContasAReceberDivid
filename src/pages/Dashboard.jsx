@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ref, onValue, update, remove } from 'firebase/database'
 import { jsPDF } from 'jspdf'
+import { gsap } from 'gsap'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { normalizeText } from '@/lib/utils'
@@ -608,6 +609,7 @@ export default function Dashboard() {
   const [contasCatalogo, setContasCatalogo] = useState([])
   const [valoresVariaveis, setValoresVariaveis] = useState({})
   const [inadimplencias, setInadimplencias] = useState([])
+  const [inquilinosCarregado, setInquilinosCarregado] = useState(false)
   const [historicoAlteracoes, setHistoricoAlteracoes] = useState([])
   const [historicoMesFiltro, setHistoricoMesFiltro] = useState(currentMonth)
   const [lucroAno, setLucroAno] = useState(currentYear)
@@ -667,6 +669,7 @@ export default function Dashboard() {
     const unsubInquilinos = onValue(inquilinosRef, snap => {
       const data = snap.val()
       setInquilinos(data ? Object.entries(data).map(([id, value]) => ({ id, ...value })) : [])
+      setInquilinosCarregado(true)
     })
 
     const unsubProprietarios = onValue(proprietariosRef, snap => {
@@ -751,6 +754,49 @@ export default function Dashboard() {
     processarFila()
     return () => { cancelled = true }
   }, [imoveis])
+
+  // Animação de entrada com GSAP: as seções sobem/desaparecem em cascata e os cartões
+  // de indicadores da primeira linha entram com um leve "bounce" logo em seguida.
+  const dashboardPageRef = useRef(null)
+
+  useEffect(() => {
+    const container = dashboardPageRef.current
+    if (!container) return undefined
+
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const sections = Array.from(container.children)
+    const statCards = Array.from(sections[0]?.children || [])
+
+    if (prefersReducedMotion) {
+      gsap.set([sections, statCards], { clearProps: 'all' })
+      return undefined
+    }
+
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } })
+      tl.set(sections, { opacity: 0, y: 56, scale: 0.96 })
+        .set(statCards, { opacity: 0, y: 22, scale: 0.82 })
+        .to(sections, {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.85,
+          stagger: 0.13,
+          clearProps: 'transform',
+        })
+        .to(statCards, {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+          duration: 0.55,
+          stagger: 0.09,
+          ease: 'back.out(1.8)',
+          clearProps: 'transform',
+        }, '-=0.85')
+    }, container)
+
+    return () => ctx.revert()
+  }, [])
 
   const totalImoveis = imoveis.length
   const totalInquilinosAtivos = useMemo(
@@ -1569,7 +1615,7 @@ export default function Dashboard() {
 
   return (
     <Layout title="Dashboard" subtitle="Visão geral do sistema de gestão">
-      <div className="dashboard-page">
+      <div className="dashboard-page" ref={dashboardPageRef}>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-3">
         <Card>
           <CardContent className="flex items-center gap-2">
@@ -1628,7 +1674,48 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {(segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0) && (
+      {!inquilinosCarregado && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          <Card className="flex-1 border-amber-300" style={{ background: '#fffbeb' }}>
+            <CardHeader className="">
+              <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b45309' }}>
+                <div className="h-4 w-4 animate-pulse rounded bg-amber-300/60" />
+                <div className="h-4 w-56 animate-pulse rounded bg-amber-300/60" />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="">
+              <div className="flex flex-col gap-2">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="h-3 w-28 animate-pulse rounded bg-amber-200/70" />
+                    <div className="h-3 w-16 animate-pulse rounded bg-amber-200/70" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="flex-1 border-orange-300" style={{ background: '#fff7ed' }}>
+            <CardHeader className="">
+              <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#c2410c' }}>
+                <div className="h-4 w-4 animate-pulse rounded bg-orange-300/60" />
+                <div className="h-4 w-56 animate-pulse rounded bg-orange-300/60" />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="">
+              <div className="flex flex-col gap-2">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="h-3 w-28 animate-pulse rounded bg-orange-200/70" />
+                    <div className="h-3 w-16 animate-pulse rounded bg-orange-200/70" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {inquilinosCarregado && (segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0) && (
         <div className="mb-3 flex flex-wrap gap-2">
           {segurosExpirandoFianca.length > 0 && (
             <Card className="flex-1 border-amber-300" style={{ background: '#fffbeb' }}>
