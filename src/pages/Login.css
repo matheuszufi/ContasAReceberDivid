@@ -45,9 +45,9 @@ body {
     padding: 20px;
     position: relative;
     overflow: hidden;
-    background: radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.35), transparent 45%),
+    background: radial-gradient(circle at 15% 20%, rgba(5, 23, 62, 0.808), rgba(0, 0, 0, 0.216) 45%),
       radial-gradient(circle at 85% 80%, rgba(59, 130, 246, 0.25), transparent 50%),
-      linear-gradient(160deg, #0f172a 0%, #1e293b 55%, #27364c 100%);
+      linear-gradient(160deg, #0f172a 0%, #1e293b 55%, #082654 100%);
   }
 
 .auth-container::before,
@@ -64,7 +64,7 @@ body {
     height: 320px;
     top: -80px;
     left: -80px;
-    background: rgba(37, 99, 235, 0.35);
+    background: rgba(4, 14, 35, 0.35);
   }
 
 .auth-container::after {
@@ -72,7 +72,7 @@ body {
     height: 260px;
     bottom: -60px;
     right: -60px;
-    background: rgba(96, 165, 250, 0.25);
+    background: rgba(17, 49, 88, 0.25);
   }
 
 .auth-card {
