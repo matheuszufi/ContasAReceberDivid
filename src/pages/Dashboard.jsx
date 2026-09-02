@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ref, onValue, update, remove } from 'firebase/database'
+import { jsPDF } from 'jspdf'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { normalizeText } from '@/lib/utils'
@@ -28,6 +29,7 @@ import {
   Clock,
   History,
   ArrowRight,
+  FileText,
 } from 'lucide-react'
 
 // --- Mapa de imóveis (Leaflet + OpenStreetMap) ---
@@ -81,6 +83,7 @@ const GARANTIA_CHART_COLORS = {
 const RECOVERY_COLORS = {
   recuperado: '#22c55e9f',
   aprovadoSeguradora: '#54ec2686',
+  reprovado: '#dc262690',
   aguardarAcionar: '#64748b',
   juridico: '#ef4444a6',
   acionado: '#3b83f68f',
@@ -174,6 +177,113 @@ const getMonthLabel = (monthKey) => {
     .replace(/^./, c => c.toUpperCase())
 }
 
+// Gera um PDF simples e paginado a partir de uma lista de itens, usado pelos relatórios de
+// "Histórico de Alterações" e "Histórico Seguradoras". `formatarItem` retorna um array de linhas de
+// texto por item, onde a primeira linha é destacada em negrito. `resumoStatus`, se informado, é uma
+// lista de { label, valor, color } exibida ao final como totais + gráfico de barras.
+const gerarRelatorioHistoricoPDF = (titulo, periodoLabel, itens, formatarItem, resumoStatus) => {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 14
+  const contentWidth = pageWidth - margin * 2
+  let y = margin
+
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  doc.text(titulo, margin, y)
+  y += 7
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9)
+  doc.setTextColor(100)
+  doc.text(periodoLabel, margin, y)
+  doc.setTextColor(0)
+  y += 5
+  doc.setDrawColor(200)
+  doc.line(margin, y, pageWidth - margin, y)
+  y += 7
+
+  if (itens.length === 0) {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.text('Nenhum registro encontrado no período selecionado.', margin, y)
+  }
+
+  itens.forEach((item, idx) => {
+    const linhas = formatarItem(item)
+    if (y > pageHeight - margin - 10) {
+      doc.addPage()
+      y = margin
+    }
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9.5)
+    doc.splitTextToSize(linhas[0], contentWidth).forEach(w => {
+      if (y > pageHeight - margin) { doc.addPage(); y = margin }
+      doc.text(w, margin, y)
+      y += 5
+    })
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    linhas.slice(1).forEach(linha => {
+      doc.splitTextToSize(linha, contentWidth).forEach(w => {
+        if (y > pageHeight - margin) { doc.addPage(); y = margin }
+        doc.text(w, margin, y)
+        y += 5
+      })
+    })
+    y += 3
+    if (idx < itens.length - 1) {
+      doc.setDrawColor(230)
+      doc.line(margin, y - 1.5, pageWidth - margin, y - 1.5)
+    }
+  })
+
+  if (resumoStatus && resumoStatus.length > 0) {
+    const alturaResumo = 20 + resumoStatus.length * 10
+    if (y > pageHeight - margin - alturaResumo) {
+      doc.addPage()
+      y = margin
+    }
+    y += 4
+    doc.setDrawColor(180)
+    doc.line(margin, y, pageWidth - margin, y)
+    y += 9
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.text('Resumo por Status', margin, y)
+    y += 9
+
+    const totalGeral = resumoStatus.reduce((s, r) => s + r.valor, 0) || 1
+    const labelWidth = 44
+    const valueWidth = 30
+    const barWidth = contentWidth - labelWidth - valueWidth
+    const barHeight = 6
+
+    resumoStatus.forEach(r => {
+      if (y > pageHeight - margin - 12) { doc.addPage(); y = margin }
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9)
+      doc.text(r.label, margin, y + 4.2)
+      const largura = Math.max(1.5, (r.valor / totalGeral) * barWidth)
+      doc.setFillColor(...hexToRgb(r.color))
+      doc.rect(margin + labelWidth, y, largura, barHeight, 'F')
+      doc.setDrawColor(210)
+      doc.rect(margin + labelWidth, y, barWidth, barHeight)
+      doc.setFont('helvetica', 'bold')
+      doc.text(`${r.valor} (${Math.round((r.valor / totalGeral) * 100)}%)`, margin + labelWidth + barWidth + 4, y + 4.2)
+      y += barHeight + 6
+    })
+  }
+
+  return doc
+}
+
+// Converte uma cor hex (#rrggbb) para [r, g, b] numérico, usado ao desenhar as barras do resumo
+const hexToRgb = (hex) => {
+  const v = parseInt(hex.replace('#', ''), 16)
+  return [(v >> 16) & 255, (v >> 8) & 255, v & 255]
+}
+
 // Formata uma chave de mês (YYYY-MM) de forma curta, ex: "Jan/2026"
 const formatMonthKeyShort = (monthKey) => {
   if (!monthKey) return ''
@@ -229,6 +339,7 @@ const classifyDebt = (item) => {
   if (item.status === 'juridico' || item.seguroAcionado === 'juridico') return 'juridico'
   if (item.seguroAcionado === 'acionado') return 'acionado'
   if (item.seguroAcionado === 'pagamento_aprovado') return 'aprovadoSeguradora'
+  if (item.seguroAcionado === 'pagamento_reprovado') return 'reprovado'
   if (item.seguroAcionado === 'aguardar_para_acionar') return 'aguardarAcionar'
   return 'inadimplente'
 }
@@ -237,6 +348,7 @@ const emptyMonthTotals = () => ({
   inadimplente: 0,
   recuperado: 0,
   aprovadoSeguradora: 0,
+  reprovado: 0,
   aguardarAcionar: 0,
   juridico: 0,
   acionado: 0,
@@ -263,10 +375,11 @@ const buildMonthlyTotals = (items, year) => {
   return map
 }
 
-const getPieSegments = (inadimplente, recuperado, aprovadoSeguradora, aguardarAcionar, juridico, acionado) => {
-  const total = inadimplente + recuperado + aprovadoSeguradora + aguardarAcionar + juridico + acionado
+const getPieSegments = (inadimplente, recuperado, aprovadoSeguradora, aguardarAcionar, juridico, acionado, reprovado = 0) => {
+  const total = inadimplente + recuperado + aprovadoSeguradora + aguardarAcionar + juridico + acionado + reprovado
   const recoveredPercent = total > 0 ? Math.round((recuperado / total) * 100) : 0
   const approvedPercent = total > 0 ? Math.round((aprovadoSeguradora / total) * 100) : 0
+  const reprovadoPercent = total > 0 ? Math.round((reprovado / total) * 100) : 0
   const waitingPercent = total > 0 ? Math.round((aguardarAcionar / total) * 100) : 0
   const juridicoPercent = total > 0 ? Math.round((juridico / total) * 100) : 0
   const acionadoPercent = total > 0 ? Math.round((acionado / total) * 100) : 0
@@ -274,6 +387,7 @@ const getPieSegments = (inadimplente, recuperado, aprovadoSeguradora, aguardarAc
   return {
     recoveredPercent,
     approvedPercent,
+    reprovadoPercent,
     waitingPercent,
     juridicoPercent,
     acionadoPercent,
@@ -705,13 +819,14 @@ export default function Dashboard() {
   const monthCards = useMemo(() => MONTH_FULL_LABELS.map((label, index) => {
     const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
     const totals = yearMonthTotals[key] || emptyMonthTotals()
-    const total = totals.inadimplente + totals.recuperado + totals.aprovadoSeguradora + totals.aguardarAcionar + totals.juridico + totals.acionado
+    const total = totals.inadimplente + totals.recuperado + totals.aprovadoSeguradora + totals.aguardarAcionar + totals.juridico + totals.acionado + totals.reprovado
     const recoveredPercent = total > 0 ? Math.round((totals.recuperado / total) * 100) : 0
     const approvedPercent = total > 0 ? Math.round((totals.aprovadoSeguradora / total) * 100) : 0
+    const reprovadoPercent = total > 0 ? Math.round((totals.reprovado / total) * 100) : 0
     const waitingPercent = total > 0 ? Math.round((totals.aguardarAcionar / total) * 100) : 0
     const juridicoPercent = total > 0 ? Math.round((totals.juridico / total) * 100) : 0
     const acionadoPercent = total > 0 ? Math.round((totals.acionado / total) * 100) : 0
-    const abertoValue = totals.inadimplente + totals.aprovadoSeguradora + totals.aguardarAcionar + totals.juridico + totals.acionado
+    const abertoValue = totals.inadimplente + totals.aprovadoSeguradora + totals.aguardarAcionar + totals.juridico + totals.acionado + totals.reprovado
     const abertoPercent = total > 0 ? Math.round((abertoValue / total) * 100) : 0
     return {
       key,
@@ -719,11 +834,13 @@ export default function Dashboard() {
       inadimplente: totals.inadimplente,
       recuperado: totals.recuperado,
       aprovadoSeguradora: totals.aprovadoSeguradora,
+      reprovado: totals.reprovado,
       aguardarAcionar: totals.aguardarAcionar,
       juridico: totals.juridico,
       acionado: totals.acionado,
       recoveredPercent,
       approvedPercent,
+      reprovadoPercent,
       waitingPercent,
       juridicoPercent,
       acionadoPercent,
@@ -775,6 +892,7 @@ export default function Dashboard() {
         inadimplente: acc.inadimplente + totals.inadimplente,
         recuperado: acc.recuperado + totals.recuperado,
         aprovadoSeguradora: acc.aprovadoSeguradora + (totals.aprovadoSeguradora || 0),
+        reprovado: acc.reprovado + (totals.reprovado || 0),
         aguardarAcionar: acc.aguardarAcionar + (totals.aguardarAcionar || 0),
         juridico: acc.juridico + (totals.juridico || 0),
         acionado: acc.acionado + (totals.acionado || 0),
@@ -809,7 +927,8 @@ export default function Dashboard() {
     selectedMonthTotals.aprovadoSeguradora,
     selectedMonthTotals.aguardarAcionar,
     selectedMonthTotals.juridico,
-    selectedMonthTotals.acionado
+    selectedMonthTotals.acionado,
+    selectedMonthTotals.reprovado
   )
 
   const segurosExpirandoFianca = useMemo(
@@ -824,7 +943,7 @@ export default function Dashboard() {
 
   // Detalha, por débito, quem compõe cada uma das categorias do card de recuperação (para os tooltips)
   const categoryBreakdown = useMemo(() => {
-    const acc = { recuperado: [], aprovadoSeguradora: [], aguardarAcionar: [], juridico: [], acionado: [], inadimplente: [] }
+    const acc = { recuperado: [], aprovadoSeguradora: [], reprovado: [], aguardarAcionar: [], juridico: [], acionado: [], inadimplente: [] }
     periodDebts.forEach(d => {
       const value = getDebtValue(d)
       const name = inquilinoMap[d.inquilinoId]?.nome || d.inquilinoNome || 'Sem nome'
@@ -1112,6 +1231,85 @@ export default function Dashboard() {
 
   const handleStatusEventoChange = async (debitoId, eventoKey, value) => {
     await update(ref(db, `inadimplencias/${debitoId}/timeline/${eventoKey}`), { statusEvento: value })
+  }
+
+  // ---- Relatório em PDF (Histórico de Alterações / Histórico Seguradoras) ----
+  const [relatorioTipo, setRelatorioTipo] = useState(null) // 'alteracoes' | 'seguradoras' | null
+  const [relatorioInicio, setRelatorioInicio] = useState('')
+  const [relatorioFim, setRelatorioFim] = useState('')
+
+  const abrirRelatorioModal = (tipo) => {
+    setRelatorioTipo(tipo)
+    setRelatorioInicio('')
+    setRelatorioFim('')
+  }
+
+  const handleGerarRelatorio = () => {
+    const inicio = relatorioInicio ? new Date(`${relatorioInicio}T00:00:00`) : null
+    const fim = relatorioFim ? new Date(`${relatorioFim}T23:59:59`) : null
+    const dentroDoPeriodo = (timestamp) => {
+      if (!timestamp) return false
+      const d = new Date(timestamp)
+      if (inicio && d < inicio) return false
+      if (fim && d > fim) return false
+      return true
+    }
+    const periodoLabel = (relatorioInicio || relatorioFim)
+      ? `Período: ${relatorioInicio ? fmtDataCurta(relatorioInicio) : 'início'} até ${relatorioFim ? fmtDataCurta(relatorioFim) : 'hoje'}`
+      : 'Período: todos os registros'
+
+    if (relatorioTipo === 'alteracoes') {
+      const itens = historicoOrdenado.filter(item => dentroDoPeriodo(item.data))
+      const classificarStatus = (item) => {
+        const key = item.valorNovoKey
+        if (item.campo === 'status') {
+          if (key === 'pago') return 'Pago'
+          if (key === 'juridico') return 'Jurídico'
+          if (key === 'seguro_aprovado') return 'Aprovado'
+          return 'Aberto'
+        }
+        if (item.campo === 'seguroAcionado') {
+          if (key === 'pagamento_aprovado') return 'Aprovado'
+          if (key === 'aguardar_para_acionar') return 'Aguardar para acionar'
+          if (key === 'acionado') return 'Acionado'
+          if (key === 'juridico') return 'Jurídico'
+          return 'Aberto'
+        }
+        return 'Aberto'
+      }
+      const contagemStatus = itens.reduce((acc, item) => {
+        const rotulo = classificarStatus(item)
+        acc[rotulo] = (acc[rotulo] || 0) + 1
+        return acc
+      }, {})
+      const resumoStatus = [
+        { label: 'Pago', valor: contagemStatus['Pago'] || 0, color: '#16a34a' },
+        { label: 'Aprovado', valor: contagemStatus['Aprovado'] || 0, color: '#22c55e' },
+        { label: 'Aguardar para acionar', valor: contagemStatus['Aguardar para acionar'] || 0, color: '#64748b' },
+        { label: 'Acionado', valor: contagemStatus['Acionado'] || 0, color: '#3b82f6' },
+        { label: 'Jurídico', valor: contagemStatus['Jurídico'] || 0, color: '#ef4444' },
+        { label: 'Aberto', valor: contagemStatus['Aberto'] || 0, color: '#eab308' },
+      ]
+      const doc = gerarRelatorioHistoricoPDF('Histórico de Alterações', periodoLabel, itens, item => [
+        `${item.inquilinoNome || 'Sem nome'}${item.codigoImovel ? ` (${item.codigoImovel})` : ''} — ${fmtDataHora(item.data)}`,
+        `${item.campoLabel || (item.campo === 'seguroAcionado' ? 'Seguro Acionado' : 'Status')}: ${item.valorAnteriorLabel || '—'} -> ${item.valorNovoLabel || '—'}`,
+        `Total c/ Encargos: ${fmtMoney(item.valorTotal)}` +
+          (item.valorRecebido > 0 ? ` · Recebido: ${fmtMoney(item.valorRecebido)}` : '') +
+          (item.mesReferencia ? ` · ${getMonthLabel(item.mesReferencia)}` : '') +
+          (item.dataSeguro ? ` · Data Seguro: ${fmtDataCurta(item.dataSeguro)}` : ''),
+      ], resumoStatus)
+      doc.save(`historico-alteracoes_${relatorioInicio || 'inicio'}_${relatorioFim || 'fim'}.pdf`)
+    } else if (relatorioTipo === 'seguradoras') {
+      const itens = eventosTimelineOrdenados.filter(item => dentroDoPeriodo(item.criadoEm))
+      const doc = gerarRelatorioHistoricoPDF('Histórico Seguradoras', periodoLabel, itens, item => [
+        `${item.inquilinoNome}${item.nomeImovel ? ` (${item.nomeImovel})` : ''} — ${fmtDataHora(item.criadoEm)}`,
+        `Tipo: ${item.tipo}${(EVENTO_STATUS_OPCOES.find(o => o.value === item.statusEvento)?.label) ? ` · Status: ${EVENTO_STATUS_OPCOES.find(o => o.value === item.statusEvento).label}` : ''}`,
+        ...(item.descricao ? [item.descricao] : []),
+        ...(item.documentos?.length ? [`Documentos: ${item.documentos.join(', ')}`] : []),
+      ])
+      doc.save(`historico-seguradoras_${relatorioInicio || 'inicio'}_${relatorioFim || 'fim'}.pdf`)
+    }
+    setRelatorioTipo(null)
   }
 
   return (
@@ -1511,11 +1709,23 @@ export default function Dashboard() {
                     cy="60"
                     r="40"
                     fill="none"
+                    stroke={RECOVERY_COLORS.reprovado}
+                    strokeWidth="24"
+                    strokeDasharray={`${(pie.reprovadoPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.reprovadoPercent / 100) * DONUT_CIRCUMFERENCE}`}
+                    strokeDashoffset="0"
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.approvedPercent) / 100) * 360} 60 60)`}
+                    strokeLinecap="butt"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="40"
+                    fill="none"
                     stroke={RECOVERY_COLORS.aguardarAcionar}
                     strokeWidth="24"
                     strokeDasharray={`${(pie.waitingPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.waitingPercent / 100) * DONUT_CIRCUMFERENCE}`}
                     strokeDashoffset="0"
-                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.approvedPercent) / 100) * 360} 60 60)`}
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.approvedPercent + pie.reprovadoPercent) / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
                   />
                   <circle
@@ -1527,7 +1737,7 @@ export default function Dashboard() {
                     strokeWidth="24"
                     strokeDasharray={`${(pie.juridicoPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.juridicoPercent / 100) * DONUT_CIRCUMFERENCE}`}
                     strokeDashoffset="0"
-                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.approvedPercent + pie.waitingPercent) / 100) * 360} 60 60)`}
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.approvedPercent + pie.reprovadoPercent + pie.waitingPercent) / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
                   />
                   <circle
@@ -1539,7 +1749,7 @@ export default function Dashboard() {
                     strokeWidth="24"
                     strokeDasharray={`${(pie.acionadoPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.acionadoPercent / 100) * DONUT_CIRCUMFERENCE}`}
                     strokeDashoffset="0"
-                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.approvedPercent + pie.waitingPercent + pie.juridicoPercent) / 100) * 360} 60 60)`}
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.approvedPercent + pie.reprovadoPercent + pie.waitingPercent + pie.juridicoPercent) / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
                   />
                 </svg>
@@ -1577,6 +1787,23 @@ export default function Dashboard() {
                       </div>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.aprovadoSeguradora)}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-default items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                          <span
+                            className="shrink-0"
+                            style={{ width: 8, height: 8, borderRadius: '9999px', display: 'inline-block', background: RECOVERY_COLORS.reprovado }}
+                          ></span>
+                          <span className="truncate">Pagamento reprovado</span>
+                        </span>
+                        <span className="shrink-0 font-medium">
+                          {fmtMoneyWithPercent(selectedMonthTotals.reprovado, pie.reprovadoPercent)}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.reprovado)}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -1650,6 +1877,7 @@ export default function Dashboard() {
                   {fmtMoney(
                     selectedMonthTotals.recuperado +
                     selectedMonthTotals.aprovadoSeguradora +
+                    selectedMonthTotals.reprovado +
                     selectedMonthTotals.aguardarAcionar +
                     selectedMonthTotals.juridico +
                     selectedMonthTotals.acionado +
@@ -1676,10 +1904,11 @@ export default function Dashboard() {
               <div className="month-grid month-grid-compact">
                 {monthCards.map(card => {
                   const totalCard = card.inadimplente + card.recuperado + card.aprovadoSeguradora +
-                    card.aguardarAcionar + card.juridico + card.acionado
+                    card.aguardarAcionar + card.juridico + card.acionado + card.reprovado
                   const segmentos = [
                     { key: 'recuperado', label: 'Recuperado', valor: card.recuperado, color: RECOVERY_COLORS.recuperado },
                     { key: 'aprovadoSeguradora', label: 'Aprovado seguradora', valor: card.aprovadoSeguradora, color: RECOVERY_COLORS.aprovadoSeguradora },
+                    { key: 'reprovado', label: 'Pagamento reprovado', valor: card.reprovado, color: RECOVERY_COLORS.reprovado },
                     { key: 'aguardarAcionar', label: 'Aguardar para acionar', valor: card.aguardarAcionar, color: RECOVERY_COLORS.aguardarAcionar },
                     { key: 'acionado', label: 'Acionado', valor: card.acionado, color: RECOVERY_COLORS.acionado },
                     { key: 'juridico', label: 'Jurídico', valor: card.juridico, color: RECOVERY_COLORS.juridico },
@@ -1710,7 +1939,7 @@ export default function Dashboard() {
                                 estão com seguradora acionada ou em processo jurídico */}
                             <strong>
                               {fmtMoney(
-                                card.inadimplente + card.aprovadoSeguradora +
+                                card.inadimplente + card.aprovadoSeguradora + card.reprovado +
                                 card.aguardarAcionar + card.juridico + card.acionado
                               )}{' '}
                               <span className="text-muted-foreground font-normal">({card.abertoPercent}%)</span>
@@ -1796,6 +2025,9 @@ export default function Dashboard() {
               ))}
               <option value="todos">Todos os meses</option>
             </select>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => abrirRelatorioModal('alteracoes')}>
+              <FileText className="size-3.5" /> Gerar Relatório
+            </Button>
             <Badge variant="secondary" className="shrink-0 text-xs">
               {historicoFiltrado.length} registro{historicoFiltrado.length === 1 ? '' : 's'}
             </Badge>
@@ -1884,6 +2116,9 @@ export default function Dashboard() {
               ))}
               <option value="todos">Todos os meses</option>
             </select>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => abrirRelatorioModal('seguradoras')}>
+              <FileText className="size-3.5" /> Gerar Relatório
+            </Button>
             <Badge variant="secondary" className="shrink-0 text-xs">
               {eventosFiltrados.length} evento{eventosFiltrados.length === 1 ? '' : 's'}
             </Badge>
@@ -2139,6 +2374,43 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {relatorioTipo && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 20, width: '100%', maxWidth: 380 }}>
+            <h3 style={{ margin: '0 0 4px' }}>Gerar Relatório</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: '#64748b' }}>
+              {relatorioTipo === 'alteracoes' ? 'Histórico de Alterações' : 'Histórico Seguradoras'} — selecione o período (deixe em branco para incluir todos os registros).
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                Data inicial
+                <input
+                  type="date"
+                  value={relatorioInicio}
+                  onChange={e => setRelatorioInicio(e.target.value)}
+                  style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                />
+              </label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                Data final
+                <input
+                  type="date"
+                  value={relatorioFim}
+                  onChange={e => setRelatorioFim(e.target.value)}
+                  style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                />
+              </label>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <Button variant="outline" size="sm" onClick={() => setRelatorioTipo(null)}>Cancelar</Button>
+              <Button size="sm" onClick={handleGerarRelatorio}>
+                <FileText className="size-3.5" /> Gerar PDF
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
     </Layout>
   )
