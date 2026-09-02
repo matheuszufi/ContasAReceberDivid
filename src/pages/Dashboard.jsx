@@ -181,7 +181,8 @@ const getMonthLabel = (monthKey) => {
 // "Histórico de Alterações" e "Histórico Seguradoras". `formatarItem` retorna um array de linhas de
 // texto por item, onde a primeira linha é destacada em negrito. `resumoStatus`, se informado, é uma
 // lista de { label, valor, color } exibida ao final como totais + gráfico de barras.
-const gerarRelatorioHistoricoPDF = (titulo, periodoLabel, itens, formatarItem, resumoStatus) => {
+const gerarRelatorioHistoricoPDF = (titulo, periodoLabel, itens, formatarItem, resumoStatus, opcoesGrafico = {}) => {
+  const { tipo: tipoGrafico = 'barra', posicao: posicaoGrafico = 'fim' } = opcoesGrafico
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
@@ -202,6 +203,18 @@ const gerarRelatorioHistoricoPDF = (titulo, periodoLabel, itens, formatarItem, r
   doc.setDrawColor(200)
   doc.line(margin, y, pageWidth - margin, y)
   y += 7
+
+  const graficoNoInicio = tipoGrafico === 'pizza' && posicaoGrafico === 'inicio'
+  if (graficoNoInicio && resumoStatus && resumoStatus.length > 0) {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(12)
+    doc.text('Resumo por Status', margin, y)
+    y += 8
+    y = desenharResumoPizza(doc, margin, y, contentWidth, resumoStatus)
+    doc.setDrawColor(200)
+    doc.line(margin, y, pageWidth - margin, y)
+    y += 7
+  }
 
   if (itens.length === 0) {
     doc.setFont('helvetica', 'normal')
@@ -238,7 +251,7 @@ const gerarRelatorioHistoricoPDF = (titulo, periodoLabel, itens, formatarItem, r
     }
   })
 
-  if (resumoStatus && resumoStatus.length > 0) {
+  if (!graficoNoInicio && resumoStatus && resumoStatus.length > 0) {
     const alturaResumo = 20 + resumoStatus.length * 10
     if (y > pageHeight - margin - alturaResumo) {
       doc.addPage()
@@ -276,6 +289,56 @@ const gerarRelatorioHistoricoPDF = (titulo, periodoLabel, itens, formatarItem, r
   }
 
   return doc
+}
+
+// Desenha uma fatia de pizza preenchida (ângulos em radianos, sentido horário a partir do topo)
+const desenharFatiaPizza = (doc, cx, cy, r, anguloInicial, anguloFinal, color) => {
+  const passos = Math.max(2, Math.ceil(48 * ((anguloFinal - anguloInicial) / (Math.PI * 2))))
+  const pontos = []
+  for (let i = 0; i <= passos; i++) {
+    const a = anguloInicial + ((anguloFinal - anguloInicial) * i) / passos
+    pontos.push([cx + r * Math.sin(a), cy - r * Math.cos(a)])
+  }
+  const linhas = []
+  let anterior = [cx, cy]
+  ;[...pontos, [cx, cy]].forEach(p => {
+    linhas.push([p[0] - anterior[0], p[1] - anterior[1]])
+    anterior = p
+  })
+  doc.setFillColor(...hexToRgb(color))
+  doc.lines(linhas, cx, cy, [1, 1], 'F', true)
+}
+
+// Desenha o gráfico de pizza + legenda do resumo por status, retornando o novo "y" após o desenho
+const desenharResumoPizza = (doc, margin, y, contentWidth, resumoStatus) => {
+  const raio = 24
+  const cx = margin + raio + 4
+  const cy = y + raio
+  const total = resumoStatus.reduce((s, r) => s + r.valor, 0) || 1
+
+  let anguloAtual = 0
+  resumoStatus.filter(r => r.valor > 0).forEach(r => {
+    const fatia = (r.valor / total) * Math.PI * 2
+    desenharFatiaPizza(doc, cx, cy, raio, anguloAtual, anguloAtual + fatia, r.color)
+    anguloAtual += fatia
+  })
+  doc.setDrawColor(255)
+  doc.circle(cx, cy, raio, 'S')
+
+  const legendaX = margin + raio * 2 + 16
+  let legendaY = y + 3
+  doc.setFontSize(9)
+  resumoStatus.forEach(r => {
+    doc.setFillColor(...hexToRgb(r.color))
+    doc.rect(legendaX, legendaY - 3, 4, 4, 'F')
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(0)
+    const percentual = Math.round((r.valor / total) * 100)
+    doc.text(`${r.label}: ${r.valor} (${percentual}%)`, legendaX + 6, legendaY)
+    legendaY += 6
+  })
+
+  return y + Math.max(raio * 2 + 6, legendaY - y + 4)
 }
 
 // Converte uma cor hex (#rrggbb) para [r, g, b] numérico, usado ao desenhar as barras do resumo
@@ -1233,15 +1296,17 @@ export default function Dashboard() {
     await update(ref(db, `inadimplencias/${debitoId}/timeline/${eventoKey}`), { statusEvento: value })
   }
 
-  // ---- Relatório em PDF (Histórico de Alterações / Histórico Seguradoras) ----
-  const [relatorioTipo, setRelatorioTipo] = useState(null) // 'alteracoes' | 'seguradoras' | null
+  // ---- Relatório em PDF (Histórico de Alterações / Histórico Seguradoras / Inadimplência por Período) ----
+  const [relatorioTipo, setRelatorioTipo] = useState(null) // 'alteracoes' | 'seguradoras' | 'periodo' | null
   const [relatorioInicio, setRelatorioInicio] = useState('')
   const [relatorioFim, setRelatorioFim] = useState('')
+  const [relatorioMes, setRelatorioMes] = useState('')
 
   const abrirRelatorioModal = (tipo) => {
     setRelatorioTipo(tipo)
     setRelatorioInicio('')
     setRelatorioFim('')
+    setRelatorioMes(selectedMonth || currentMonth)
   }
 
   const handleGerarRelatorio = () => {
@@ -1308,6 +1373,37 @@ export default function Dashboard() {
         ...(item.documentos?.length ? [`Documentos: ${item.documentos.join(', ')}`] : []),
       ])
       doc.save(`historico-seguradoras_${relatorioInicio || 'inicio'}_${relatorioFim || 'fim'}.pdf`)
+    } else if (relatorioTipo === 'periodo') {
+      const itens = inadimplencias.filter(d => getMonthKey(d) === relatorioMes)
+      const categoriaLabel = {
+        recuperado: 'Pago',
+        aprovadoSeguradora: 'Aprovado seguradora',
+        reprovado: 'Pagamento reprovado',
+        aguardarAcionar: 'Aguardar para acionar',
+        juridico: 'Jurídico',
+        acionado: 'Acionado',
+        inadimplente: 'Aberto',
+      }
+      const contagemStatus = itens.reduce((acc, item) => {
+        const categoria = classifyDebt(item)
+        acc[categoria] = (acc[categoria] || 0) + getDebtValue(item)
+        return acc
+      }, {})
+      const resumoStatus = [
+        { label: 'Pago', valor: contagemStatus.recuperado || 0, color: RECOVERY_COLORS.recuperado },
+        { label: 'Aprovado seguradora', valor: contagemStatus.aprovadoSeguradora || 0, color: RECOVERY_COLORS.aprovadoSeguradora },
+        { label: 'Pagamento reprovado', valor: contagemStatus.reprovado || 0, color: RECOVERY_COLORS.reprovado },
+        { label: 'Aguardar para acionar', valor: contagemStatus.aguardarAcionar || 0, color: RECOVERY_COLORS.aguardarAcionar },
+        { label: 'Jurídico', valor: contagemStatus.juridico || 0, color: RECOVERY_COLORS.juridico },
+        { label: 'Acionado', valor: contagemStatus.acionado || 0, color: RECOVERY_COLORS.acionado },
+        { label: 'Aberto', valor: contagemStatus.inadimplente || 0, color: '#f97316' },
+      ]
+      const doc = gerarRelatorioHistoricoPDF('Inadimplência por Período', getMonthLabel(relatorioMes), itens, item => [
+        `${inquilinoMap[item.inquilinoId]?.nome || item.inquilinoNome || 'Sem nome'}${getCodigoImovel(item) ? ` (${getCodigoImovel(item)})` : ''} — ${categoriaLabel[classifyDebt(item)]}`,
+        `Total c/ Encargos: ${fmtMoney(getDebtValue(item))}` +
+          (item.valorRecebido > 0 ? ` · Recebido: ${fmtMoney(item.valorRecebido)}` : ''),
+      ], resumoStatus, { tipo: 'pizza', posicao: 'inicio' })
+      doc.save(`inadimplencia-periodo_${relatorioMes || 'mes'}.pdf`)
     }
     setRelatorioTipo(null)
   }
@@ -1634,6 +1730,9 @@ export default function Dashboard() {
             </CardDescription>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => abrirRelatorioModal('periodo')}>
+              <FileText className="size-3.5" /> Gerar Relatório
+            </Button>
             <Button variant="outline" size="icon" className="size-7" onClick={() => handleYearChange(-1)} aria-label="Ano anterior">
               <ChevronLeft className="size-4" />
             </Button>
@@ -2380,28 +2479,44 @@ export default function Dashboard() {
           <div style={{ background: '#fff', borderRadius: 12, padding: 20, width: '100%', maxWidth: 380 }}>
             <h3 style={{ margin: '0 0 4px' }}>Gerar Relatório</h3>
             <p style={{ margin: '0 0 16px', fontSize: 12, color: '#64748b' }}>
-              {relatorioTipo === 'alteracoes' ? 'Histórico de Alterações' : 'Histórico Seguradoras'} — selecione o período (deixe em branco para incluir todos os registros).
+              {relatorioTipo === 'alteracoes' && 'Histórico de Alterações — selecione o período (deixe em branco para incluir todos os registros).'}
+              {relatorioTipo === 'seguradoras' && 'Histórico Seguradoras — selecione o período (deixe em branco para incluir todos os registros).'}
+              {relatorioTipo === 'periodo' && 'Inadimplência por Período — selecione o mês desejado.'}
             </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
-                Data inicial
-                <input
-                  type="date"
-                  value={relatorioInicio}
-                  onChange={e => setRelatorioInicio(e.target.value)}
-                  style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
-                />
-              </label>
-              <label style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
-                Data final
-                <input
-                  type="date"
-                  value={relatorioFim}
-                  onChange={e => setRelatorioFim(e.target.value)}
-                  style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
-                />
-              </label>
-            </div>
+            {relatorioTipo === 'periodo' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                  Mês
+                  <input
+                    type="month"
+                    value={relatorioMes}
+                    onChange={e => setRelatorioMes(e.target.value)}
+                    style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                  />
+                </label>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                  Data inicial
+                  <input
+                    type="date"
+                    value={relatorioInicio}
+                    onChange={e => setRelatorioInicio(e.target.value)}
+                    style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                  />
+                </label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                  Data final
+                  <input
+                    type="date"
+                    value={relatorioFim}
+                    onChange={e => setRelatorioFim(e.target.value)}
+                    style={{ width: '100%', marginTop: 4, padding: '6px 8px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                  />
+                </label>
+              </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <Button variant="outline" size="sm" onClick={() => setRelatorioTipo(null)}>Cancelar</Button>
               <Button size="sm" onClick={handleGerarRelatorio}>
