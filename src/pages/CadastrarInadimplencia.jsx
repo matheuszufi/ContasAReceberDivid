@@ -83,6 +83,8 @@ export default function CadastrarInadimplencia() {
   const [timeline, setTimeline] = useState([])
   const [tipoEvento, setTipoEvento] = useState('Observação')
   const [descricaoEvento, setDescricaoEvento] = useState('')
+  const [documentosSolicitados, setDocumentosSolicitados] = useState([])
+  const [documentoInput, setDocumentoInput] = useState('')
   const [savingEvento, setSavingEvento] = useState(false)
 
   useEffect(() => {
@@ -137,14 +139,35 @@ export default function CadastrarInadimplencia() {
 
   const tipoMeta = (t) => TIPOS_EVENTO.find(e => e.value === t) || TIPOS_EVENTO[TIPOS_EVENTO.length - 1]
 
+  const handleAddDocumento = () => {
+    const nome = documentoInput.trim()
+    if (!nome || documentosSolicitados.includes(nome)) return
+    setDocumentosSolicitados(prev => [...prev, nome])
+    setDocumentoInput('')
+  }
+
+  const handleRemoveDocumento = (nome) =>
+    setDocumentosSolicitados(prev => prev.filter(d => d !== nome))
+
+  const handleDocumentoInputKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      handleAddDocumento()
+    }
+  }
+
   const handleAddEvento = async (e) => {
     e.preventDefault()
     if (!descricaoEvento.trim() || savingEvento) return
     setSavingEvento(true)
     try {
+      const documentos = tipoEvento === 'Documentação solicitada'
+        ? [...documentosSolicitados, ...(documentoInput.trim() ? [documentoInput.trim()] : [])]
+        : []
       await push(ref(db, `inadimplencias/${id}/timeline`), {
         tipo:       tipoEvento,
         descricao:  descricaoEvento.trim(),
+        ...(documentos.length ? { documentos } : {}),
         criadoEm:   new Date().toISOString(),
       })
       const newStatus = EVENTO_STATUS_MAP[tipoEvento]
@@ -153,6 +176,8 @@ export default function CadastrarInadimplencia() {
         setForm(prev => ({ ...prev, status: newStatus }))
       }
       setDescricaoEvento('')
+      setDocumentosSolicitados([])
+      setDocumentoInput('')
     } finally {
       setSavingEvento(false)
     }
@@ -367,6 +392,42 @@ export default function CadastrarInadimplencia() {
                     />
                   </div>
                 </div>
+                {tipoEvento === 'Documentação solicitada' && (
+                  <div className="form-group" style={{ marginBottom: 12 }}>
+                    <label>Documentos Solicitados</label>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <input
+                        value={documentoInput}
+                        onChange={e => setDocumentoInput(e.target.value)}
+                        onKeyDown={handleDocumentoInputKeyDown}
+                        placeholder="Digite o nome do documento e pressione Enter..."
+                      />
+                      <button type="button" className="btn btn-secondary" style={{ width: 'auto', whiteSpace: 'nowrap' }} onClick={handleAddDocumento}>
+                        + Adicionar
+                      </button>
+                    </div>
+                    {documentosSolicitados.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                        {documentosSolicitados.map(doc => (
+                          <span
+                            key={doc}
+                            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde047', borderRadius: 999, padding: '4px 10px', fontSize: 12, fontWeight: 600 }}
+                          >
+                            {doc}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveDocumento(doc)}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#854d0e', fontWeight: 700, lineHeight: 1, padding: 0 }}
+                              aria-label={`Remover ${doc}`}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {EVENTO_STATUS_MAP[tipoEvento] && (
                   <div className="info-banner" style={{ marginBottom: 12 }}>
                     <p style={{ margin: 0 }}>Este evento atualizará o status para <strong>{EVENTO_STATUS_MAP[tipoEvento]}</strong>.</p>
@@ -408,7 +469,10 @@ export default function CadastrarInadimplencia() {
                             <span className="timeline-date">{fmtDate(evento.criadoEm)}</span>
                           </div>
                           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12}}>
-                            <p className="timeline-text" style={{ margin: 0 }}> {evento.descricao} </p>
+                            <p className="timeline-text" style={{ margin: 0 }}>
+                              {evento.descricao}
+                              {evento.documentos?.length > 0 && <><br /><strong>Documentos:</strong> {evento.documentos.join(', ')}</>}
+                            </p>
                             <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDeleteEvento(evento.key)} style={{whiteSpace: 'nowrap'}}>Excluir</button>
                           </div>
                         </div>

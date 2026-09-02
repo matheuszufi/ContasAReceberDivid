@@ -1080,6 +1080,7 @@ export default function Dashboard() {
           nomeImovel: getNomeImovel(d) || null,
           tipo: evento.tipo || 'Outros',
           descricao: evento.descricao || '',
+          documentos: evento.documentos || [],
           criadoEm: evento.criadoEm || null,
           statusEvento: evento.statusEvento || EVENTO_STATUS_DEFAULT,
           mesReferencia: evento.criadoEm ? formatDateToMonthKey(evento.criadoEm) : null,
@@ -1915,6 +1916,9 @@ export default function Dashboard() {
                         </p>
                         {item.descricao && (
                           <p className="whitespace-pre-line break-words text-muted-foreground">{item.descricao}</p>
+                        )}
+                        {item.documentos?.length > 0 && (
+                          <p className="break-words text-muted-foreground"><strong className="text-foreground">Documentos:</strong> {item.documentos.join(', ')}</p>
                         )}
                       </div>
                     </div>
