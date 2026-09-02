@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { ref, onValue, remove, update, push } from 'firebase/database'
 import { db } from '../firebase'
@@ -162,6 +163,7 @@ export default function Inadimplentes() {
   const [segurosCatalogo, setSegurosCatalogo] = useState([])
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
   const statusFilterRef = useRef(null)
+  const [statusFilterRect, setStatusFilterRect] = useState(null)
   const [colFilters, setColFilters] = useState({
     inquilino: '',
     imovel: '',
@@ -193,6 +195,23 @@ export default function Inadimplentes() {
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
+  }, [statusFilterOpen])
+
+  // Dropdown é renderizado via portal (fora do .table-container, que tem overflow) para não ser cortado
+  useEffect(() => {
+    if (!statusFilterOpen) return
+    const updateRect = () => {
+      if (!statusFilterRef.current) return
+      const r = statusFilterRef.current.getBoundingClientRect()
+      setStatusFilterRect({ top: r.bottom + 4, left: r.left })
+    }
+    updateRect()
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+    return () => {
+      window.removeEventListener('scroll', updateRect, true)
+      window.removeEventListener('resize', updateRect)
+    }
   }, [statusFilterOpen])
 
   useEffect(() => {
@@ -679,8 +698,8 @@ export default function Inadimplentes() {
                         ? 'Todos'
                         : `${colFilters.status.length} selecionado(s)`} ▾
                     </button>
-                    {statusFilterOpen && (
-                      <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 20, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', padding: 8, minWidth: 190, marginTop: 4 }}>
+                    {statusFilterOpen && statusFilterRect && createPortal(
+                      <div style={{ position: 'fixed', top: statusFilterRect.top, left: statusFilterRect.left, zIndex: 9999, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', padding: 8, minWidth: 190 }}>
                         <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                           <button type="button" className="btn btn-sm" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColFilter('status', STATUS_OPCOES.map(o => o.value))}>Todos</button>
                           <button type="button" className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColFilter('status', [])}>Nenhum</button>
@@ -695,7 +714,8 @@ export default function Inadimplentes() {
                             {o.label}
                           </label>
                         ))}
-                      </div>
+                      </div>,
+                      document.body
                     )}
                   </th>
                   <th></th>

@@ -1808,7 +1808,7 @@ export default function Dashboard() {
                 : `Nenhuma alteração registrada em ${getMonthLabel(historicoMesFiltro)}.`}
             </p>
           ) : (
-            <div className="flex max-h-96 flex-col divide-y overflow-y-auto">
+            <div className="flex flex-col divide-y">
               {historicoFiltrado.map(item => {
                 const campoStyle = HISTORICO_CAMPO_STYLE[item.campo] || HISTORICO_CAMPO_STYLE.status
                 return (

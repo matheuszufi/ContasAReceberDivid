@@ -10,6 +10,8 @@ import { House, ChevronLeft, ChevronRight, Plus, UserPlus, CircleCheck, Triangle
 import './ImoveisTodos.css'
  
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+
+const normalizeTexto = s => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
  
 const CONTAS_OPCOES = [
   { value: 'agua',            label: 'Água' },
@@ -237,7 +239,7 @@ export default function ImoveisTodos() {
     )
  
   const filteredRows = rows.filter(({ imovel, inquilino }) => {
-    if (filterNome && !inquilino.nome?.toLowerCase().includes(filterNome.toLowerCase())) return false
+    if (filterNome && !normalizeTexto(inquilino.nome).includes(normalizeTexto(filterNome))) return false
     if (filterImovel && !imovel.codigo?.toLowerCase().includes(filterImovel.toLowerCase())) return false
     if (filterModelo && imovel.modelo !== filterModelo) return false
     if (filterInadimplentes) {
@@ -993,83 +995,82 @@ export default function ImoveisTodos() {
         </Card>
       </div>
 
-      {!loading && rows.length > 0 && (
-        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}><ListFilter size={14} /> Filtros</span>
-          <input
-            type="text"
-            placeholder="Nome do inquilino..."
-            value={filterNome}
-            onChange={e => setFilterNome(e.target.value)}
-            style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, width: 180, outline: 'none' }}
-          />
-          <input
-            type="text"
-            placeholder="Imóvel..."
-            value={filterImovel}
-            onChange={e => setFilterImovel(e.target.value)}
-            style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, width: 150, outline: 'none' }}
-          />
-          <select
-            value={filterModelo}
-            onChange={e => setFilterModelo(e.target.value)}
-            style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, outline: 'none', background: '#fff', color: '#334155' }}
-          >
-            <option value="">Todos os modelos</option>
-            <option value="MA">MA</option>
-            <option value="ME">ME</option>
-            <option value="ML">ML</option>
-          </select>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
-            <input
-              type="checkbox"
-              checked={filterInadimplentes}
-              onChange={e => setFilterInadimplentes(e.target.checked)}
-            />
-            Apenas com inadimplências
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
-            <input
-              type="checkbox"
-              checked={filterContasVariaveis}
-              onChange={e => setFilterContasVariaveis(e.target.checked)}
-            />
-            Apenas com contas registradas/contas variáveis
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
-            <input
-              type="checkbox"
-              checked={filterDesocupacao}
-              onChange={e => setFilterDesocupacao(e.target.checked)}
-            />
-            Apenas com desocupação
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
-            <input
-              type="checkbox"
-              checked={filterEstrangeiro}
-              onChange={e => setFilterEstrangeiro(e.target.checked)}
-            />
-            Apenas estrangeiros
-          </label>
-          {(filterNome || filterImovel || filterModelo || filterInadimplentes || filterContasVariaveis || filterDesocupacao || filterEstrangeiro) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="ml-auto text-muted-foreground"
-              onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterModelo(''); setFilterInadimplentes(false); setFilterContasVariaveis(false); setFilterDesocupacao(false); setFilterEstrangeiro(false) }}
-            >
-              <X /> Limpar ({filteredRows.length}/{rows.length})
-            </Button>
-          )}
-        </div>
-      )}
-
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-3">
           <CardTitle className="text-lg">Planilha de Pagamentos — {year}</CardTitle>
           <Badge variant="secondary">Todos</Badge>
         </CardHeader>
+        {!loading && rows.length > 0 && (
+          <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '10px 16px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}><ListFilter size={14} /> Filtros</span>
+            <input
+              type="text"
+              placeholder="Nome do inquilino..."
+              value={filterNome}
+              onChange={e => setFilterNome(e.target.value)}
+              style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, width: 180, outline: 'none' }}
+            />
+            <input
+              type="text"
+              placeholder="Imóvel..."
+              value={filterImovel}
+              onChange={e => setFilterImovel(e.target.value)}
+              style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, width: 150, outline: 'none' }}
+            />
+            <select
+              value={filterModelo}
+              onChange={e => setFilterModelo(e.target.value)}
+              style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, outline: 'none', background: '#fff', color: '#334155' }}
+            >
+              <option value="">Todos os modelos</option>
+              <option value="MA">MA</option>
+              <option value="ME">ME</option>
+              <option value="ML">ML</option>
+            </select>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
+              <input
+                type="checkbox"
+                checked={filterInadimplentes}
+                onChange={e => setFilterInadimplentes(e.target.checked)}
+              />
+              Apenas com inadimplências
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
+              <input
+                type="checkbox"
+                checked={filterContasVariaveis}
+                onChange={e => setFilterContasVariaveis(e.target.checked)}
+              />
+              Apenas com contas registradas/contas variáveis
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
+              <input
+                type="checkbox"
+                checked={filterDesocupacao}
+                onChange={e => setFilterDesocupacao(e.target.checked)}
+              />
+              Apenas com desocupação
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
+              <input
+                type="checkbox"
+                checked={filterEstrangeiro}
+                onChange={e => setFilterEstrangeiro(e.target.checked)}
+              />
+              Apenas estrangeiros
+            </label>
+            {(filterNome || filterImovel || filterModelo || filterInadimplentes || filterContasVariaveis || filterDesocupacao || filterEstrangeiro) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto text-muted-foreground"
+                onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterModelo(''); setFilterInadimplentes(false); setFilterContasVariaveis(false); setFilterDesocupacao(false); setFilterEstrangeiro(false) }}
+              >
+                <X /> Limpar ({filteredRows.length}/{rows.length})
+              </Button>
+            )}
+          </div>
+        )}
         <CardContent className="p-0">
           {loading ? (
             <div className="empty-state"><div className="es-icon">⏳</div><p>Carregando...</p></div>
