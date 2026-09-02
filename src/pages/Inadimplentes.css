@@ -223,7 +223,7 @@ body {
   }
 
 .month-card.active strong {
-    color: var(--accent);
+    color: black;
   }
 
 .mc-month {
