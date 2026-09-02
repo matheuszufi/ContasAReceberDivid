@@ -164,9 +164,11 @@ body {
 .link-btn:hover { color: var(--accent-hover); }
 
 .month-group-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
     gap: 8px;
+    padding-bottom: 4px;
   }
 
 .month-card {
@@ -177,7 +179,8 @@ body {
     cursor: pointer;
     text-align: left;
     transition: all 0.18s ease;
-    width: 100%;
+    width: 210px;
+    flex: 0 0 210px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
