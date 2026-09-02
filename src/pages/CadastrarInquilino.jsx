@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
-import { MapaImovelUnico } from '../components/MapaImoveis'
+import { MapaImoveis, buildEnderecoQuery, geocodeEndereco } from '../components/MapaImoveis'
 import './CadastrarInquilino.css'
 
 const GARANTIA_OPCOES = [
@@ -145,6 +145,25 @@ export default function CadastrarInquilino() {
 
   // Sempre recalculado a partir dos dados atuais do imóvel, nunca de um texto salvo
   const imovelSelecionado = imoveis.find(im => im.id === form.imovelId)
+
+  const [geoAproximado, setGeoAproximado] = useState(null)
+  const [geoAproximadoLoading, setGeoAproximadoLoading] = useState(false)
+
+  // Quando o imóvel selecionado não tem posição salva no mapa, tenta localizar
+  // automaticamente pelo endereço só para exibição (não grava nada no imóvel)
+  useEffect(() => {
+    setGeoAproximado(null)
+    if (!imovelSelecionado || (imovelSelecionado.geo?.lat && imovelSelecionado.geo?.lng)) return
+    const query = buildEnderecoQuery(imovelSelecionado.endereco)
+    if (!query) return
+    let cancelado = false
+    setGeoAproximadoLoading(true)
+    geocodeEndereco(query)
+      .then(coords => { if (!cancelado) setGeoAproximado(coords) })
+      .catch(err => console.error('Erro ao geocodificar endereço do imóvel:', err))
+      .finally(() => { if (!cancelado) setGeoAproximadoLoading(false) })
+    return () => { cancelado = true }
+  }, [imovelSelecionado?.id])
 
   // Contas disponíveis para este inquilino: as mesmas cadastradas no imóvel que ele ocupa.
   // "Variável" e "cobrado no boleto" são decididos no cadastro do imóvel, aqui só se herdam.
@@ -761,10 +780,21 @@ required
                 <p style={{ margin: 0 }}>Selecione um imóvel para ver a localização no mapa.</p>
               </div>
             ) : imovelSelecionado?.geo?.lat && imovelSelecionado?.geo?.lng ? (
-              <MapaImovelUnico geo={imovelSelecionado.geo} readOnly />
+              <MapaImoveis imoveis={[imovelSelecionado]} />
+            ) : geoAproximado ? (
+              <>
+                <p style={{ margin: '0 0 8px', fontSize: 12, color: '#64748b' }}>
+                  Localização aproximada, calculada a partir do endereço cadastrado do imóvel.
+                </p>
+                <MapaImoveis imoveis={[{ ...imovelSelecionado, geo: geoAproximado }]} />
+              </>
+            ) : geoAproximadoLoading ? (
+              <div className="info-banner">
+                <p style={{ margin: 0 }}>Localizando pelo endereço...</p>
+              </div>
             ) : (
               <div className="info-banner">
-                <p style={{ margin: 0 }}>Este imóvel ainda não possui uma localização definida no mapa.</p>
+                <p style={{ margin: 0 }}>Não foi possível localizar este imóvel no mapa. Verifique o endereço cadastrado.</p>
               </div>
             )}
           </div>
