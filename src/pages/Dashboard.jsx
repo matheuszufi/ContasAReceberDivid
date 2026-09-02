@@ -1808,7 +1808,7 @@ export default function Dashboard() {
                 : `Nenhuma alteração registrada em ${getMonthLabel(historicoMesFiltro)}.`}
             </p>
           ) : (
-            <div className="flex flex-col divide-y">
+            <div className="flex max-h-96 flex-col divide-y overflow-y-auto">
               {historicoFiltrado.map(item => {
                 const campoStyle = HISTORICO_CAMPO_STYLE[item.campo] || HISTORICO_CAMPO_STYLE.status
                 return (
@@ -1821,20 +1821,20 @@ export default function Dashboard() {
                         {item.campoLabel || (item.campo === 'seguroAcionado' ? 'Seguro Acionado' : 'Status')}
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate font-medium">
+                        <p className="break-words font-medium">
                           {item.inquilinoNome || 'Sem nome'}
                           {item.codigoImovel ? ` (${item.codigoImovel})` : ''}
                         </p>
-                        <p className="flex min-w-0 items-center gap-1 truncate text-muted-foreground">
-                          <span className="truncate">{item.valorAnteriorLabel || '—'}</span>
+                        <p className="flex flex-wrap items-center gap-1 break-words text-muted-foreground">
+                          <span className="break-words">{item.valorAnteriorLabel || '—'}</span>
                           <ArrowRight className="size-3 shrink-0" />
-                          <span className="truncate font-medium text-foreground">{item.valorNovoLabel || '—'}</span>
+                          <span className="break-words font-medium text-foreground">{item.valorNovoLabel || '—'}</span>
                         </p>
-                        <p className="flex min-w-0 items-center gap-1 truncate text-muted-foreground">
-                          <span className="truncate">Total c/ Encargos: {fmtMoney(item.valorTotal)}</span>
-                          {item.valorRecebido > 0 && <span className="truncate">· Recebido: {fmtMoney(item.valorRecebido)}</span>}
-                          {item.mesReferencia && <span className="truncate">· {getMonthLabel(item.mesReferencia)}</span>}
-                          {item.dataSeguro && <span className="truncate">· Data Seguro: {fmtDataCurta(item.dataSeguro)}</span>}
+                        <p className="flex flex-wrap items-center gap-1 break-words text-muted-foreground">
+                          <span className="break-words">Total c/ Encargos: {fmtMoney(item.valorTotal)}</span>
+                          {item.valorRecebido > 0 && <span className="break-words">· Recebido: {fmtMoney(item.valorRecebido)}</span>}
+                          {item.mesReferencia && <span className="break-words">· {getMonthLabel(item.mesReferencia)}</span>}
+                          {item.dataSeguro && <span className="break-words">· Data Seguro: {fmtDataCurta(item.dataSeguro)}</span>}
                         </p>
                       </div>
                     </div>
