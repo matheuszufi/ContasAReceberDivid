@@ -1277,7 +1277,7 @@ export default function Dashboard() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="px-2 py-2">
+        <CardContent className="px-2">
           <div className="flex gap-1 overflow-x-auto">
             {MONTH_LABELS.map((label, index) => (
               <div key={label} className="min-w-[72px] flex-1 border bg-muted/20 px-1.5 py-1">
@@ -1900,8 +1900,8 @@ export default function Dashboard() {
               {eventosFiltrados.map(item => {
                 const tipoStyle = EVENTO_TIPO_STYLE[item.tipo] || EVENTO_TIPO_STYLE.Outros
                 return (
-                  <div key={item.id} className="group flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
-                    <div className="flex min-w-0 flex-1 basis-56 items-center gap-2.5">
+                  <div key={item.id} className="group flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
+                    <div className="flex min-w-0 flex-1 basis-56 items-start gap-2.5">
                       <span
                         className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
                         style={{ background: tipoStyle.bg, color: tipoStyle.color, border: `1px solid ${tipoStyle.border}` }}
@@ -1914,7 +1914,7 @@ export default function Dashboard() {
                           {item.nomeImovel ? ` (${item.nomeImovel})` : ''}
                         </p>
                         {item.descricao && (
-                          <p className="truncate text-muted-foreground">{item.descricao}</p>
+                          <p className="whitespace-pre-line break-words text-muted-foreground">{item.descricao}</p>
                         )}
                       </div>
                     </div>
