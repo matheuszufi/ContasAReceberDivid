@@ -288,6 +288,27 @@ export default function ImoveisTodos() {
   const getBoletosTotal = (inquilinoId, mesKey) =>
     getBoletosDoMes(inquilinoId, mesKey).reduce((s, b) => s + (Number(b.valor) || 0), 0)
 
+  const MAX_MESES_GARANTIA_PAGAMENTO = 3
+
+  // Valor do aluguel de um mês específico do inquilino (considera override salvo e fração de entrada)
+  const getAluguelDoMes = (imovel, inquilino, mesKey) => {
+    const { mesInicio } = getMesRange(inquilino)
+    const vv = valoresVariaveis[inquilino.id]?.[mesKey] || {}
+    const aluguelCheio = Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
+    return '_aluguel' in vv ? Number(vv._aluguel) || 0 : (mesKey === mesInicio ? aluguelCheio * getFracaoEntrada(inquilino) : aluguelCheio)
+  }
+
+  // Meses (até MAX_MESES_GARANTIA_PAGAMENTO) em que a caução/adiantamento do inquilino está sendo
+  // usada como pagamento — o valor total da garantia é consumido descontando o aluguel de cada mês
+  // selecionado, em ordem cronológica, até esgotar o saldo.
+  const getGarantiaUsoMeses = (inquilinoId) => {
+    const meses = valoresVariaveis[inquilinoId] || {}
+    return Object.entries(meses)
+      .filter(([, v]) => Number(v?._garantiaUsoPagamento) > 0)
+      .map(([mes]) => mes)
+      .sort()
+  }
+
   const getTotalMes = (imovel, inquilino, mi) => {
     const cellKey = monthKey(mi)
     const { mesInicio, mesFim } = getMesRange(inquilino)
@@ -309,7 +330,8 @@ export default function ImoveisTodos() {
     const extrasTotal = cellExtras ? Object.values(cellExtras).reduce((s, e) => s + (Number(e.valor) || 0), 0) : 0
     const parcelasTotal = getParcelasTotal(inquilino.id, cellKey)
     const boletosTotal = getBoletosTotal(inquilino.id, cellKey)
-    return aluguel + despesas + valorSeguro + valorGaragem + valorGarantia + extrasTotal + parcelasTotal + boletosTotal
+    const garantiaUsoPagamento = Number(cellVarVals._garantiaUsoPagamento) || 0
+    return aluguel + despesas + valorSeguro + valorGaragem + valorGarantia + extrasTotal + parcelasTotal + boletosTotal - garantiaUsoPagamento
   }
  
   const monthTotals = MESES.map((_, mi) =>
@@ -645,6 +667,59 @@ export default function ImoveisTodos() {
     if (modal?.inquilino?.id && modal?.key) {
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/_registrado`), { [k]: novo })
         .catch(err => { console.error('Erro ao registrar conta:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
+    }
+  }
+
+  // Usa a caução/adiantamento do inquilino (valor único, cadastrado no inquilino) como desconto no
+  // total do mês aberto no modal. O saldo total é consumido descontando o aluguel de cada mês
+  // selecionado (em ordem cronológica), até esgotar o valor — não é dividido igualmente.
+  const handleToggleUsarGarantiaComoPagamento = async () => {
+    if (!modal?.inquilino?.id || !modal?.key) return
+    const { inquilino, imovel } = modal
+    const valorGarantia = Number(inquilino.valorGarantia) || 0
+    if (valorGarantia <= 0) return
+
+    const mesesAtuais = getGarantiaUsoMeses(inquilino.id)
+    const jaSelecionado = mesesAtuais.includes(modal.key)
+
+    let novosMeses
+    if (jaSelecionado) {
+      novosMeses = mesesAtuais.filter(m => m !== modal.key)
+    } else {
+      if (mesesAtuais.length >= MAX_MESES_GARANTIA_PAGAMENTO) {
+        window.alert(`Você já selecionou o máximo de ${MAX_MESES_GARANTIA_PAGAMENTO} meses para usar a ${inquilino.garantia === 'caucao' ? 'caução' : 'adiantamento'} como pagamento. Desmarque um mês antes de adicionar outro.`)
+        return
+      }
+      novosMeses = [...mesesAtuais, modal.key].sort()
+    }
+
+    let saldo = valorGarantia
+    const valoresPorMes = {}
+    novosMeses.forEach(mes => {
+      const aluguelDoMes = getAluguelDoMes(imovel, inquilino, mes)
+      const credito = Math.max(0, Math.min(saldo, aluguelDoMes))
+      valoresPorMes[mes] = credito
+      saldo -= credito
+    })
+
+    const mesesAfetados = new Set([...mesesAtuais, ...novosMeses])
+    const patch = {}
+    mesesAfetados.forEach(mes => {
+      patch[`valoresVariaveis/${inquilino.id}/${mes}/_garantiaUsoPagamento`] = novosMeses.includes(mes) ? (valoresPorMes[mes] || 0) : null
+    })
+
+    try {
+      await update(ref(db), patch)
+      setVarValues(prev => {
+        const n = { ...prev }
+        if (novosMeses.includes(modal.key)) n._garantiaUsoPagamento = valoresPorMes[modal.key] || 0
+        else delete n._garantiaUsoPagamento
+        return n
+      })
+      setSaveError('')
+    } catch (err) {
+      console.error('Erro ao aplicar caução/adiantamento como pagamento:', err)
+      setSaveError(`Erro ao salvar: ${err.message}`)
     }
   }
 
@@ -1136,7 +1211,8 @@ export default function ImoveisTodos() {
                         const boletosPendentes = boletosDoMes.filter(b => !b.registrado)
                         const parcelas       = getParcelasDoMes(inquilino.id, cellKey)
                         const parcelasTotal  = parcelas.reduce((s, p) => s + (Number(p.valorParcela) || 0), 0)
-                        const totalMes    = aluguel + despesas + valorSeguro + valorGaragem + valorGarantia + extrasTotal + parcelasTotal + boletosTotal
+                        const garantiaUsoPagamento = Number(cellVarVals._garantiaUsoPagamento) || 0
+                        const totalMes    = aluguel + despesas + valorSeguro + valorGaragem + valorGarantia + extrasTotal + parcelasTotal + boletosTotal - garantiaUsoPagamento
  
                         let isReajuste = false
                         if (mesInicio) {
@@ -1157,6 +1233,7 @@ export default function ImoveisTodos() {
                         const seguroPendente   = valorSeguro   > 0 && !cellRegistradoVar?._seguro
                         const garagemPendente  = valorGaragem  > 0 && !cellRegistradoVar?._garagem
                         const garantiaPendente = valorGarantia > 0 && !cellRegistradoVar?._garantia
+                        const garantiaPagamentoAtiva = garantiaUsoPagamento > 0
  
                         const hasPendingInadimplencia = items.some(i => (i.status || '').toLowerCase() !== 'pago')
                         const hasSeguroAprovado = items.some(i => i.seguroAcionado === 'pagamento_aprovado')
@@ -1201,12 +1278,15 @@ export default function ImoveisTodos() {
                               ...(isDesocupacao ? { borderLeft: '3px solid #ef4444' } : {}),
                               ...(variavelAlerta && !isDesocupacao ? { borderLeft: '3px solid #f7b155' } : {}),
                               ...(temExtra ? { borderRight: '3px solid #f97316' } : {}),
+                              ...(garantiaPagamentoAtiva && !cellTravado && !isDesocupacao ? { background: 'linear-gradient(135deg, #fde68a9b 0%, #fbbe24a4 50%, #f59f0b96 100%)' } : {}),
                             }}
                             onClick={() => openModal({ imovel, inquilino }, mi)}
                             title={cellTravado
                               ? 'Valores travados — clique para ver detalhes'
                               : isDesocupacao
                               ? 'Mês de desocupação — clique para ver detalhes'
+                              : garantiaPagamentoAtiva
+                              ? `Caução/adiantamento usado como pagamento neste mês (${fmtBRL(garantiaUsoPagamento)}) — clique para ver detalhes`
                               : variavelPendente
                               ? `Falta lançar: ${pendentesNomes.join(', ')}`
                               : variavelZerada
@@ -1238,8 +1318,11 @@ export default function ImoveisTodos() {
                                   {fmtBRL(totalMes)}
                                 </span>
                               </div>
-                              {(contasVariaveisPendentes.length > 0 || temExtra || seguroPendente || garagemPendente || garantiaPendente || parcelas.length > 0 || boletosDoMes.length > 0) && (
+                              {(contasVariaveisPendentes.length > 0 || temExtra || seguroPendente || garagemPendente || garantiaPendente || garantiaPagamentoAtiva || parcelas.length > 0 || boletosDoMes.length > 0) && (
                                 <div style={{ display: 'flex', gap: 3, fontSize: 10, lineHeight: 1 }}>
+                                  {garantiaPagamentoAtiva && (
+                                    <span title={`Caução/adiantamento usado como pagamento (${fmtBRL(garantiaUsoPagamento)})`}>💰</span>
+                                  )}
                                   {contasVariaveisPendentes.map(k => {
                                     const pendente = !(k in cellVarVals) || Number(cellVarVals[k]) === 0
                                     const { label, icone } = getContaMeta(k)
@@ -1437,6 +1520,8 @@ export default function ImoveisTodos() {
               const seguroBase     = (modal.inquilino.garantia === 'seguro' && isMesDentroRange(modal.key, modal.inquilino.seguroFiancaMesInicio, modal.inquilino.seguroFiancaMesFim)) ? Number(modal.inquilino.valorSeguro) || 0 : 0
               const garagemBase    = (Number(modal.inquilino.vagas) || 0) * (Number(modal.inquilino.valorVaga) || 0)
               const garantiaBase   = (modal.inquilino.garantia === 'caucao' || modal.inquilino.garantia === 'adiantamento') && modal.key === modalMesInicio ? Number(modal.inquilino.valorGarantia) || 0 : 0
+              const garantiaDisponivelValor = (modal.inquilino.garantia === 'caucao' || modal.inquilino.garantia === 'adiantamento') ? Number(modal.inquilino.valorGarantia) || 0 : 0
+              const garantiaDisponivelLabel = modal.inquilino.garantia === 'caucao' ? 'Caução' : 'Adiantamento'
               const aluguel        = '_aluguel' in varValues ? Number(varValues._aluguel)  || 0 : aluguelBase
               const valorSeguro    = '_seguro'   in varValues ? Number(varValues._seguro)   || 0 : seguroBase
               const valorGaragem   = '_garagem'  in varValues ? Number(varValues._garagem)  || 0 : garagemBase
@@ -1447,7 +1532,14 @@ export default function ImoveisTodos() {
               const boletosTotalModal  = boletosModal.reduce((s, b) => s + (parseFloat(b.valor) || 0), 0)
               const parcelasModal      = getParcelasDoMes(modal.inquilino.id, modal.key)
               const parcelasModalTotal = parcelasModal.reduce((s, p) => s + (Number(p.valorParcela) || 0), 0)
-              const totalMes       = aluguel + despesas + valorSeguro + valorGaragem + valorGarantia + extrasTotal + parcelasModalTotal + boletosTotalModal
+              const garantiaUsoPagamento = Number(varValues._garantiaUsoPagamento) || 0
+              const totalMes       = aluguel + despesas + valorSeguro + valorGaragem + valorGarantia + extrasTotal + parcelasModalTotal + boletosTotalModal - garantiaUsoPagamento
+              const garantiaUsoMeses = getGarantiaUsoMeses(modal.inquilino.id)
+              const usandoGarantiaComoPagamento = garantiaUsoMeses.includes(modal.key)
+              const garantiaUsoMesesOutros = garantiaUsoMeses.filter(m => m !== modal.key)
+              const garantiaLimiteAtingido = garantiaUsoMeses.length >= MAX_MESES_GARANTIA_PAGAMENTO && !usandoGarantiaComoPagamento
+              const garantiaValorTotalUsado = garantiaUsoMeses.reduce((s, mes) => s + (Number(valoresVariaveis[modal.inquilino.id]?.[mes]?._garantiaUsoPagamento) || 0), 0)
+              const garantiaSaldoRestante = Math.max(0, garantiaDisponivelValor - garantiaValorTotalUsado)
               const temVariavel    = allContas.some(c => c.isVariavel)
               const varPreenchido  = allContas.filter(c => c.isVariavel).every(c => Number(varValues[c.key]) > 0)
               const diasNoMesModal = getDiasNoMes(modal.key)
@@ -1658,6 +1750,40 @@ export default function ImoveisTodos() {
                     {garantiaBase > 0 && (
                       <EditableRow icon="🔒" label={modal.inquilino.garantia === 'caucao' ? 'Caução' : 'Adiantamento'} baseVal={garantiaBase} vKey="_garantia" registradoKey="_garantia" />
                     )}
+                    {garantiaDisponivelValor > 0 && (
+                      <div style={{
+                        display: 'flex', flexDirection: 'column', gap: 6,
+                        background: usandoGarantiaComoPagamento ? '#fef3c7' : '#fff',
+                        border: `1.5px dashed ${usandoGarantiaComoPagamento ? '#fbbf24' : '#e2e8f0'}`,
+                        borderRadius: 6, padding: '8px 10px',
+                        opacity: garantiaLimiteAtingido ? 0.6 : 1,
+                      }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#92400e', fontWeight: 700, cursor: garantiaLimiteAtingido ? 'not-allowed' : 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={usandoGarantiaComoPagamento}
+                            onChange={handleToggleUsarGarantiaComoPagamento}
+                            disabled={garantiaLimiteAtingido}
+                            style={{ cursor: garantiaLimiteAtingido ? 'not-allowed' : 'pointer' }}
+                          />
+                          💰 Usar {garantiaDisponivelLabel.toLowerCase()} ({fmtBRL(garantiaDisponivelValor)}) para descontar o aluguel (até {MAX_MESES_GARANTIA_PAGAMENTO} meses)
+                        </label>
+                        <span style={{ fontSize: 11, color: '#64748b' }}>
+                          {garantiaUsoMeses.length}/{MAX_MESES_GARANTIA_PAGAMENTO} meses selecionados
+                          {garantiaUsoMeses.length > 0 && ` — ${fmtBRL(garantiaValorTotalUsado)} usado, ${fmtBRL(garantiaSaldoRestante)} restante`}
+                        </span>
+                        {garantiaUsoMesesOutros.length > 0 && (
+                          <span style={{ fontSize: 11, color: '#64748b' }}>
+                            Também aplicada em: {garantiaUsoMesesOutros.join(', ')}
+                          </span>
+                        )}
+                        {garantiaLimiteAtingido && (
+                          <span style={{ fontSize: 11, color: '#b45309' }}>
+                            Máximo de {MAX_MESES_GARANTIA_PAGAMENTO} meses já selecionado. Desmarque um mês antes de adicionar outro.
+                          </span>
+                        )}
+                      </div>
+                    )}
                     {parcelasModal.length > 0 && (
                       <div style={{ borderTop: '1px dashed #e2e8f0', paddingTop: 6, marginTop: 2, display: 'flex', flexDirection: 'column', gap: 6 }}>
                         {parcelasModal.map(p => (
@@ -1866,6 +1992,12 @@ export default function ImoveisTodos() {
                         🔖 Novo boleto
                       </button>
                     </div>
+                    {usandoGarantiaComoPagamento && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#92400e' }}>
+                        <span>💰 Uso de {garantiaDisponivelLabel.toLowerCase()} como pagamento ({garantiaUsoMeses.length}/{MAX_MESES_GARANTIA_PAGAMENTO} meses)</span>
+                        <strong>− {fmtBRL(garantiaUsoPagamento)}</strong>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 700, borderTop: '1px solid #e2e8f0', paddingTop: 8, marginTop: 2 }}>
                       <span>= Total do Mês</span>
                       <span style={{ color: temVariavel && !varPreenchido ? '#94a3b8' : '#1e40af' }}>
@@ -2055,7 +2187,8 @@ export default function ImoveisTodos() {
                     const _extrasTotal = extraContas.reduce((s, e) => s + (parseFloat(e.valor) || 0), 0)
                     const _boletosTotal = boletosModal.reduce((s, b) => s + (parseFloat(b.valor) || 0), 0)
                     const _parcelasTotal = getParcelasTotal(modal.inquilino.id, modal.key)
-                    const _totalMes    = _aluguel + _despesas + _seguro + _garagem + _garantia + _extrasTotal + _parcelasTotal + _boletosTotal
+                    const _garantiaUsoPagamento = Number(varValues._garantiaUsoPagamento) || 0
+                    const _totalMes    = _aluguel + _despesas + _seguro + _garagem + _garantia + _extrasTotal + _parcelasTotal + _boletosTotal - _garantiaUsoPagamento
                     setRegForm({
                       tipoDebito:     'Aluguel',
                       dataVencimento: '',
