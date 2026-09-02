@@ -237,7 +237,7 @@ body {
   }
 
 .month-grid.month-grid-compact .month-card .mc-value-group strong {
-    font-size: 12.5px;
+    font-size: 10px;
     color: var(--text-primary);
   }
 

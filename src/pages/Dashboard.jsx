@@ -181,6 +181,44 @@ const formatMonthKeyShort = (monthKey) => {
   return `${MONTH_LABELS[Number(month) - 1]}/${year}`
 }
 
+// Formata um objeto Date para "YYYY-MM-DD" (valor usado por <input type="date">)
+const toYmd = (date) => {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+// Monta a série mensal do total de inquilinos ativos entre duas datas (contrato vigente
+// em algum momento do mês, considerando dataEntrada/dataSaida), usada no gráfico cronológico
+const buildInquilinosAtivosChronData = (inquilinos, startDate, endDate) => {
+  if (!startDate || !endDate) return []
+  const start = new Date(`${startDate}T00:00:00`)
+  const end = new Date(`${endDate}T00:00:00`)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return []
+
+  const data = []
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+  const endCursor = new Date(end.getFullYear(), end.getMonth(), 1)
+  // limite de segurança para nunca gerar uma série absurdamente longa
+  let guard = 0
+  while (cursor <= endCursor && guard < 600) {
+    const monthKey = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`
+    const monthStart = `${monthKey}-01`
+    const lastDay = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate()
+    const monthEnd = `${monthKey}-${String(lastDay).padStart(2, '0')}`
+    const count = inquilinos.filter(i => {
+      if (!i.dataEntrada || i.dataEntrada > monthEnd) return false
+      if (i.dataSaida && i.dataSaida < monthStart) return false
+      return true
+    }).length
+    data.push({ monthKey, label: formatMonthKeyShort(monthKey), count })
+    cursor.setMonth(cursor.getMonth() + 1)
+    guard += 1
+  }
+  return data
+}
+
 const DONUT_RADIUS = 40
 const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS
 
@@ -284,6 +322,12 @@ export default function Dashboard() {
   const [garantiaInquilinosStatusFilter, setGarantiaInquilinosStatusFilter] = useState('ativos') // 'ativos' | 'todos'
   const [garantiaInquilinosPeriodStart, setGarantiaInquilinosPeriodStart] = useState('') // YYYY-MM
   const [garantiaInquilinosPeriodEnd, setGarantiaInquilinosPeriodEnd] = useState('')     // YYYY-MM
+
+  // Filtro de período do card "Inquilinos Ativos ao Longo do Tempo" (padrão: últimos 12 meses)
+  const [inquilinosAtivosPeriodStart, setInquilinosAtivosPeriodStart] = useState(
+    () => toYmd(new Date(now.getFullYear(), now.getMonth() - 11, 1))
+  )
+  const [inquilinosAtivosPeriodEnd, setInquilinosAtivosPeriodEnd] = useState(() => toYmd(now))
 
   const setColFilter = (field, value) =>
     setColFilters(prev => ({ ...prev, [field]: value }))
@@ -620,6 +664,42 @@ export default function Dashboard() {
 
   const handleOcupacoesYearChange = (direction) => {
     setOcupacoesYear(prev => String(Number(prev) + direction))
+  }
+
+  // Série mensal de inquilinos ativos no período filtrado, para o gráfico cronológico
+  const inquilinosAtivosChronData = useMemo(
+    () => buildInquilinosAtivosChronData(inquilinos, inquilinosAtivosPeriodStart, inquilinosAtivosPeriodEnd),
+    [inquilinos, inquilinosAtivosPeriodStart, inquilinosAtivosPeriodEnd]
+  )
+
+  const chronMaxCount = useMemo(
+    () => Math.max(1, ...inquilinosAtivosChronData.map(d => d.count)),
+    [inquilinosAtivosChronData]
+  )
+
+  const chronPointX = (index) => {
+    const n = inquilinosAtivosChronData.length
+    return n <= 1 ? 150 : (index / (n - 1)) * 300
+  }
+
+  const chronPointY = (count) => 96 - (count / chronMaxCount) * 88
+
+  const chronLinePoints = useMemo(
+    () => inquilinosAtivosChronData
+      .map((item, index) => `${chronPointX(index)},${chronPointY(item.count)}`)
+      .join(' '),
+    [inquilinosAtivosChronData, chronMaxCount]
+  )
+
+  const chronAreaPoints = useMemo(() => {
+    if (!chronLinePoints) return ''
+    const lastX = inquilinosAtivosChronData.length <= 1 ? 150 : 300
+    return `0,96 ${chronLinePoints} ${lastX},96`
+  }, [chronLinePoints, inquilinosAtivosChronData])
+
+  const limparFiltroInquilinosAtivosPeriodo = () => {
+    setInquilinosAtivosPeriodStart(toYmd(new Date(now.getFullYear(), now.getMonth() - 11, 1)))
+    setInquilinosAtivosPeriodEnd(toYmd(now))
   }
 
   const monthCards = useMemo(() => MONTH_FULL_LABELS.map((label, index) => {
@@ -1094,51 +1174,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card className="mb-3">
-        <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-2">
-            <MapPin className="size-4 text-muted-foreground" />
-            <div>
-              <CardTitle className="text-sm">Mapa de Imóveis</CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                {imoveisMapaComGeoCount} de {imoveisMapaFiltrados.length} imóveis localizados no mapa a partir do endereço cadastrado.
-              </CardDescription>
-            </div>
-          </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={mapaFiltroTexto}
-                onChange={e => setMapaFiltroTexto(e.target.value)}
-                placeholder="Buscar por código ou nome do imóvel..."
-                className="h-8 w-56 pl-7 pr-7 text-xs"
-              />
-              {mapaFiltroTexto && (
-                <button
-                  type="button"
-                  onClick={() => setMapaFiltroTexto('')}
-                  aria-label="Limpar busca"
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="size-3.5" />
-                </button>
-              )}
-            </div>
-            <Tabs value={mapaFiltroOcupacao} onValueChange={setMapaFiltroOcupacao}>
-              <TabsList>
-                <TabsTrigger value="todos">Todos</TabsTrigger>
-                <TabsTrigger value="ocupados">Ocupados</TabsTrigger>
-                <TabsTrigger value="desocupados">Desocupados</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </CardHeader>
-        <CardContent className="p-2">
-          <MapaImoveis imoveis={imoveisMapaFiltrados} />
-        </CardContent>
-      </Card>
-
       {(segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0) && (
         <div className="mb-3 flex flex-wrap gap-2">
           {segurosExpirandoFianca.length > 0 && (
@@ -1184,37 +1219,149 @@ export default function Dashboard() {
         </div>
       )}
 
+      <Card className="mb-3">
+        <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-2">
+            <MapPin className="size-4 text-muted-foreground" />
+            <div>
+              <CardTitle className="text-sm">Mapa de Imóveis</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                {imoveisMapaComGeoCount} de {imoveisMapaFiltrados.length} imóveis localizados no mapa a partir do endereço cadastrado.
+              </CardDescription>
+            </div>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={mapaFiltroTexto}
+                onChange={e => setMapaFiltroTexto(e.target.value)}
+                placeholder="Buscar por código ou nome do imóvel..."
+                className="h-8 w-56 pl-7 pr-7 text-xs"
+              />
+              {mapaFiltroTexto && (
+                <button
+                  type="button"
+                  onClick={() => setMapaFiltroTexto('')}
+                  aria-label="Limpar busca"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-3.5" />
+                </button>
+              )}
+            </div>
+            <Tabs value={mapaFiltroOcupacao} onValueChange={setMapaFiltroOcupacao}>
+              <TabsList>
+                <TabsTrigger value="todos">Todos</TabsTrigger>
+                <TabsTrigger value="ocupados">Ocupados</TabsTrigger>
+                <TabsTrigger value="desocupados">Desocupados</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </CardHeader>
+        <CardContent className="p-2">
+          <MapaImoveis imoveis={imoveisMapaFiltrados} />
+        </CardContent>
+      </Card>
+
+      <Card className="mb-3">
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-2">
+          <CardTitle className="text-sm">Ocupações por Mês</CardTitle>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button variant="outline" size="icon" className="size-6" onClick={() => handleOcupacoesYearChange(-1)} aria-label="Ano anterior">
+              <ChevronLeft className="size-3.5" />
+            </Button>
+            <Badge variant="secondary" className="h-6 min-w-11 justify-center px-2 text-xs">{ocupacoesYear}</Badge>
+            <Button variant="outline" size="icon" className="size-6" onClick={() => handleOcupacoesYearChange(1)} aria-label="Próximo ano">
+              <ChevronRight className="size-3.5" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="px-2 py-2">
+          <div className="flex gap-1 overflow-x-auto">
+            {MONTH_LABELS.map((label, index) => (
+              <div key={label} className="min-w-[72px] flex-1 border bg-muted/20 px-1.5 py-1">
+                <p className="text-[9px] font-medium text-muted-foreground">{label}</p>
+                <div className="mt-0.5 flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1" title="Ocupações no mês">
+                    <Home className="size-3 text-muted-foreground" />
+                    <strong className="text-xs leading-none">{ocupacoesPorMes[index]}</strong>
+                  </div>
+                  <div className="text-[9px] text-muted-foreground" title="Desocupações no mês">
+                    <strong className="text-[11px] text-foreground">{desocupacoesPorMes[index]}</strong> D
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       <div className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
         <Card>
-          <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-2">
-            <CardTitle className="text-sm">Ocupações por Mês</CardTitle>
-            <div className="flex shrink-0 items-center gap-1">
-              <Button variant="outline" size="icon" className="size-6" onClick={() => handleOcupacoesYearChange(-1)} aria-label="Ano anterior">
-                <ChevronLeft className="size-3.5" />
-              </Button>
-              <Badge variant="secondary" className="h-6 min-w-11 justify-center px-2 text-xs">{ocupacoesYear}</Badge>
-              <Button variant="outline" size="icon" className="size-6" onClick={() => handleOcupacoesYearChange(1)} aria-label="Próximo ano">
-                <ChevronRight className="size-3.5" />
+          <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2">
+            <CardTitle className="text-sm">Inquilinos Ativos ao Longo do Tempo</CardTitle>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <input
+                type="date"
+                value={inquilinosAtivosPeriodStart}
+                max={inquilinosAtivosPeriodEnd || undefined}
+                onChange={e => setInquilinosAtivosPeriodStart(e.target.value)}
+                className="h-7 rounded-md border px-1.5 text-[11px]"
+                aria-label="Data inicial"
+              />
+              <span className="text-[11px] text-muted-foreground">até</span>
+              <input
+                type="date"
+                value={inquilinosAtivosPeriodEnd}
+                min={inquilinosAtivosPeriodStart || undefined}
+                onChange={e => setInquilinosAtivosPeriodEnd(e.target.value)}
+                className="h-7 rounded-md border px-1.5 text-[11px]"
+                aria-label="Data final"
+              />
+              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={limparFiltroInquilinosAtivosPeriodo}>
+                Limpar
               </Button>
             </div>
           </CardHeader>
           <CardContent className="px-2 py-2">
-            <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6">
-              {MONTH_LABELS.map((label, index) => (
-                <div key={label} className=" border bg-muted/20 px-1.5 py-1">
-                  <p className="text-[9px] font-medium text-muted-foreground">{label}</p>
-                  <div className="mt-0.5 flex items-center justify-between gap-1.5">
-                    <div className="flex items-center gap-1" title="Ocupações no mês">
-                      <Home className="size-3 text-muted-foreground" />
-                      <strong className="text-xs leading-none">{ocupacoesPorMes[index]}</strong>
-                    </div>
-                    <div className="text-[9px] text-muted-foreground" title="Desocupações no mês">
-                      <strong className="text-[11px] text-foreground">{desocupacoesPorMes[index]}</strong> D
-                    </div>
-                  </div>
+            {inquilinosAtivosChronData.length === 0 ? (
+              <p className="py-6 text-center text-xs text-muted-foreground">Selecione um período válido.</p>
+            ) : (
+              <>
+                <svg viewBox="0 0 300 100" className="h-32 w-full" preserveAspectRatio="none" aria-label="Gráfico de inquilinos ativos ao longo do tempo">
+                  <line x1="0" y1="96" x2="300" y2="96" stroke="var(--border)" strokeWidth="1" />
+                  {chronAreaPoints && <polygon points={chronAreaPoints} fill="#2563eb1a" />}
+                  <polyline
+                    points={chronLinePoints}
+                    fill="none"
+                    stroke="#2563eb"
+                    strokeWidth="2"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                  {inquilinosAtivosChronData.map((item, index) => (
+                    <circle key={item.monthKey} cx={chronPointX(index)} cy={chronPointY(item.count)} r="2.2" fill="#2563eb">
+                      <title>{`${item.label}: ${item.count} inquilino(s) ativo(s)`}</title>
+                    </circle>
+                  ))}
+                </svg>
+                <div className="mt-1 flex text-[9px] text-muted-foreground">
+                  {inquilinosAtivosChronData.map((item, index, arr) => {
+                    // evita labels amontoados quando o período abrange muitos meses
+                    const step = Math.max(1, Math.ceil(arr.length / 8))
+                    const showLabel = index % step === 0 || index === arr.length - 1
+                    return (
+                      <span key={item.monthKey} className="flex-1 truncate text-center" title={item.label}>
+                        {showLabel ? item.label : ''}
+                      </span>
+                    )
+                  })}
                 </div>
-              ))}
-            </div>
+                <p className="mt-1 text-center text-[11px] text-muted-foreground">
+                  Pico no período: <strong className="text-foreground">{chronMaxCount}</strong> inquilino(s) ativo(s)
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 

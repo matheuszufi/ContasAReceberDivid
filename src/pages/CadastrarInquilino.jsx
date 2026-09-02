@@ -482,15 +482,20 @@ export default function CadastrarInquilino() {
                     <p style={{ margin: 0 }}>Nenhum imóvel cadastrado. <button type="button" className="link-btn" onClick={() => navigate('/imoveis/cadastrar')}>Cadastrar imóvel</button></p>
                   </div>
                 ) : form.imovelId ? (
-                  <div style={{position:'relative',display:'flex',alignItems:'center',justifyContent:'space-between',border:'1px solid #ddd',borderRadius:6,padding:'10px 12px'}}>
-                    <span>
+                  <div style={{position:'relative',display:'flex',alignItems:'center',justifyContent:'space-between',gap:8,border:'1px solid #ddd',borderRadius:6,padding:'10px 12px'}}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/imoveis/editar/${form.imovelId}`)}
+                      title="Ir para o cadastro deste imóvel"
+                      style={{border:'none',background:'transparent',cursor:'pointer',padding:0,textAlign:'left',color:'inherit',textDecoration:'underline',textUnderlineOffset:3}}
+                    >
                       <strong>{imovelSelecionado?.codigo || '—'}</strong>
                       {imovelSelecionado?.endereco?.rua ? ` — ${imovelSelecionado.endereco.rua}${imovelSelecionado.endereco?.numero ? `, ${imovelSelecionado.endereco.numero}` : ''}` : ''}
-                    </span>
+                    </button>
                     <button
                       type="button"
                       onClick={()=>{setBuscaImovel('');setForm(f=>({...f,imovelId:'',codigoImovel:''}))}}
-                      style={{border:'none',background:'transparent',cursor:'pointer',fontSize:18}}
+                      style={{border:'none',background:'transparent',cursor:'pointer',fontSize:18,flexShrink:0}}
                     >✕</button>
                   </div>
                 ) : (
