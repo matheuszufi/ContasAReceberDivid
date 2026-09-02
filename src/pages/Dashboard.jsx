@@ -762,7 +762,7 @@ export default function Dashboard() {
     ) : (
       <div className="flex max-h-60 flex-col gap-1 overflow-y-auto">
         {list.map((item, i) => (
-          <div key={i} className="flex items-center justify-between gap-3">
+          <div key={i} className="flex items-center justify-between gap-2">
             <span className="truncate">{item.name}{item.imovel ? ` (${item.imovel})` : ''}</span>
             <span className="shrink-0 font-medium">{fmtMoney(item.value)}</span>
           </div>
@@ -1035,70 +1035,71 @@ export default function Dashboard() {
 
   return (
     <Layout title="Dashboard" subtitle="Visão geral do sistema de gestão">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-4">
+      <div className="dashboard-page">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-3">
         <Card>
-          <CardContent className="flex items-center gap-3">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center  bg-blue-500/10 text-blue-600">
               <Building2 className="size-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-xl font-semibold tracking-tight">{totalImoveis}</p>
+              <p className="text-lg font-semibold tracking-tight">{totalImoveis}</p>
               <p className="truncate text-xs text-muted-foreground">Total de Imóveis</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-emerald-500/10 text-emerald-600">
               <Users className="size-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-xl font-semibold tracking-tight">{totalInquilinosAtivos}</p>
+              <p className="text-lg font-semibold tracking-tight">{totalInquilinosAtivos}</p>
               <p className="truncate text-xs text-muted-foreground">Inquilinos Ativos</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-amber-500/10 text-amber-600">
               <TriangleAlert className="size-4" />
             </div>
             <div className="min-w-0">
-              <p className="text-xl font-semibold tracking-tight">{uniqueInadimplentes}</p>
+              <p className="text-lg font-semibold tracking-tight">{uniqueInadimplentes}</p>
               <p className="truncate text-xs text-muted-foreground">Inadimplentes</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-violet-500/10 text-violet-600">
               <Wallet className="size-4" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(receitaMensal)}</p>
+              <p className="truncate text-lg font-semibold tracking-tight">{fmtMoney(receitaMensal)}</p>
               <p className="truncate text-xs text-muted-foreground">Receita Mensal</p>
             </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="flex items-center gap-3">
+          <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-cyan-500/10 text-cyan-600">
               <TrendingUp className="size-4" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xl font-semibold tracking-tight">{fmtMoney(valorMedioAluguel)}</p>
+              <p className="truncate text-lg font-semibold tracking-tight">{fmtMoney(valorMedioAluguel)}</p>
               <p className="truncate text-xs text-muted-foreground">Valor Médio dos Aluguéis</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="mb-4">
-        <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-3 lg:flex-row lg:items-center lg:justify-between">
+      <Card className="mb-3">
+        <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
             <MapPin className="size-4 text-muted-foreground" />
             <div>
-              <CardTitle className="text-base">Mapa de Imóveis</CardTitle>
+              <CardTitle className="text-sm">Mapa de Imóveis</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 {imoveisMapaComGeoCount} de {imoveisMapaFiltrados.length} imóveis localizados no mapa a partir do endereço cadastrado.
               </CardDescription>
@@ -1133,13 +1134,13 @@ export default function Dashboard() {
             </Tabs>
           </div>
         </CardHeader>
-        <CardContent className="p-3">
+        <CardContent className="p-2">
           <MapaImoveis imoveis={imoveisMapaFiltrados} />
         </CardContent>
       </Card>
 
       {(segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0) && (
-        <div className="mb-4 flex flex-wrap gap-3">
+        <div className="mb-3 flex flex-wrap gap-2">
           {segurosExpirandoFianca.length > 0 && (
             <Card className="flex-1 border-amber-300" style={{ background: '#fffbeb' }}>
               <CardHeader className="">
@@ -1183,7 +1184,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="mb-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+      <div className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-2">
             <CardTitle className="text-sm">Ocupações por Mês</CardTitle>
@@ -1197,7 +1198,7 @@ export default function Dashboard() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="px-3 py-2">
+          <CardContent className="px-2 py-2">
             <div className="grid grid-cols-3 gap-1 sm:grid-cols-4 md:grid-cols-6">
               {MONTH_LABELS.map((label, index) => (
                 <div key={label} className=" border bg-muted/20 px-1.5 py-1">
@@ -1233,7 +1234,7 @@ export default function Dashboard() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="px-3 py-2">
+          <CardContent className="px-2 py-2">
             {maxLucroValor <= 0 ? (
               <p className="py-6 text-center text-xs text-muted-foreground">Nenhum lucro calculado para {lucroAno}.</p>
             ) : (
@@ -1278,10 +1279,10 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <Card className="mb-4">
-        <CardHeader className="flex w-full flex-row items-center justify-between gap-4 border-b py-3">
+      <Card className="mb-3">
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-3 border-b py-2">
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-            <CardTitle className="shrink-0 text-base">Inadimplência por Período</CardTitle>
+            <CardTitle className="shrink-0 text-sm">Inadimplência por Período</CardTitle>
             <CardDescription className="truncate text-xs text-muted-foreground">
               Navegue por ano e filtre por mês para ver valores e recuperação.
             </CardDescription>
@@ -1296,7 +1297,7 @@ export default function Dashboard() {
             </Button>
           </div>
         </CardHeader>
-        <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2 border-b px-2 py-2">
           <select
             value={colFilters.modelo}
             onChange={e => setColFilter('modelo', e.target.value)}
@@ -1323,9 +1324,9 @@ export default function Dashboard() {
             </Button>
           )}
         </div>
-        <CardContent className="p-3">
-          <div className="grid grid-cols-1 gap-3 xl:grid-cols-[0.5fr_0.8fr_300px]">
-            <div className="flex min-w-0 flex-col border bg-card p-3">
+        <CardContent className="p-2">
+          <div className="grid grid-cols-1 gap-2 xl:grid-cols-[0.5fr_0.8fr_300px]">
+            <div className="flex min-w-0 flex-col border bg-card p-2">
               <div className="mb-2">
                 <h4 className="text-sm font-medium">Recuperação de Inadimplência</h4>
                 <p className="text-xs text-muted-foreground">{selectedPeriodLabel}</p>
@@ -1510,7 +1511,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex min-w-0 flex-col border bg-card p-3">
+            <div className="flex min-w-0 flex-col border bg-card p-2">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-medium">Pagamentos por mês</h4>
@@ -1584,7 +1585,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex min-h-0 min-w-0 flex-col border bg-card p-3">
+            <div className="flex min-h-0 min-w-0 flex-col border bg-card p-2">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-medium">Maiores inadimplentes</h4>
@@ -1602,7 +1603,7 @@ export default function Dashboard() {
                   <p className="py-6 text-center text-xs text-muted-foreground">Nenhum inadimplente no período.</p>
                 ) : (
                   topInadimplentes.map((item, index) => (
-                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
+                    <div key={item.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50">
                       <div className="flex min-w-0 items-center gap-2">
                         <Badge variant={index === 0 ? 'default' : 'secondary'} className="h-5 w-5 justify-center rounded-full p-0 text-[10px]">
                           {index === 0 ? <Trophy className="size-3" /> : `#${index + 1}`}
@@ -1623,13 +1624,13 @@ export default function Dashboard() {
       </Card>
 
       {/* ── Histórico de Alterações e Histórico Seguradoras, lado a lado ── */}
-      <div className="mb-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
+      <div className="mb-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
       <Card>
-        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-3">
+        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
           <div className="flex items-center gap-2">
             <Clock className="size-4 text-muted-foreground" />
             <div>
-              <CardTitle className="text-base">Histórico de Alterações</CardTitle>
+              <CardTitle className="text-sm">Histórico de Alterações</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Atualizações de Status e Seguro Acionado na planilha de inadimplentes, mais recentes primeiro.
               </CardDescription>
@@ -1652,7 +1653,7 @@ export default function Dashboard() {
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="p-3">
+        <CardContent className="p-2">
           {historicoFiltrado.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">
               {historicoMesFiltro === 'todos'
@@ -1713,11 +1714,11 @@ export default function Dashboard() {
 
       {/* ── Histórico de Eventos da Timeline ── */}
       <Card>
-        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-3">
+        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
           <div className="flex items-center gap-2">
             <History className="size-4 text-muted-foreground" />
             <div>
-              <CardTitle className="text-base">Histórico Seguradoras</CardTitle>
+              <CardTitle className="text-sm">Histórico Seguradoras</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Eventos registrados na timeline das inadimplências, mais recentes primeiro.
               </CardDescription>
@@ -1740,7 +1741,7 @@ export default function Dashboard() {
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="p-3">
+        <CardContent className="p-2">
           {eventosFiltrados.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">
               {eventosMesFiltro === 'todos'
@@ -1802,11 +1803,11 @@ export default function Dashboard() {
       </Card>
       </div>
 
-      <div className="mb-4 grid grid-cols-1 gap-3 xl:grid-cols-2">
+      <div className="mb-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
         <Card>
-          <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-3 border-b py-3">
+          <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
             <div>
-              <CardTitle className="text-base">Garantias dos Inadimplentes</CardTitle>
+              <CardTitle className="text-sm">Garantias dos Inadimplentes</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Cada inquilino é contado uma vez (inclui pagos e em aberto), com detalhamento por seguradora quando aplicável.
               </CardDescription>
@@ -1844,9 +1845,9 @@ export default function Dashboard() {
               )}
             </div>
           </CardHeader>
-          <CardContent className="p-3">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-[0.6fr_1fr]">
-              <div className="flex min-w-0 flex-col items-center justify-center border bg-card p-3">
+          <CardContent className="p-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[0.6fr_1fr]">
+              <div className="flex min-w-0 flex-col items-center justify-center border bg-card p-2">
                 <p className="mb-2 text-xs text-muted-foreground">{garantiaFilterLabel}</p>
                 <div className="donut-chart" aria-label="Gráfico de pizza de garantias dos inadimplentes">
                   <svg viewBox="0 0 120 120" className="donut-svg">
@@ -1898,9 +1899,9 @@ export default function Dashboard() {
         </Card>
 
         <Card>
-          <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-3 lg:flex-row lg:items-center lg:justify-between">
+          <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <CardTitle className="text-base">Garantias de Todos os Inquilinos</CardTitle>
+              <CardTitle className="text-sm">Garantias de Todos os Inquilinos</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Distribuição das garantias cadastradas, filtrável por status e por período de vigência do contrato.
               </CardDescription>
@@ -1934,9 +1935,9 @@ export default function Dashboard() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="p-3">
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-[0.6fr_1fr]">
-              <div className="flex min-w-0 flex-col items-center justify-center border bg-card p-3">
+          <CardContent className="p-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[0.6fr_1fr]">
+              <div className="flex min-w-0 flex-col items-center justify-center border bg-card p-2">
                 <p className="mb-2 text-center text-xs text-muted-foreground">{garantiaInquilinosFilterLabel}</p>
                 <div className="donut-chart" aria-label="Gráfico de pizza de garantias de todos os inquilinos">
                   <svg viewBox="0 0 120 120" className="donut-svg">
@@ -1986,6 +1987,7 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+      </div>
       </div>
     </Layout>
   )

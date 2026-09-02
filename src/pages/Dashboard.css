@@ -61,7 +61,7 @@ body {
     background: var(--card);
     border: 1.5px solid var(--border);
     /* border-radius: 12px; */
-    padding: 8px 10px;
+    padding: 6px 8px;
     cursor: pointer;
     text-align: left;
     transition: all 0.18s ease;
@@ -85,29 +85,29 @@ body {
 
 .month-card strong {
     display: block;
-    font-size: 14px;
+    font-size: 12.5px;
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
 
 .month-card span {
-    font-size: 13px;
+    font-size: 11.5px;
     color: var(--text-secondary);
   }
 
 .month-card.compact {
     /* border-radius: 12px; */
-    padding: 14px 16px;
+    padding: 10px 12px;
     min-height: auto;
   }
 
 .month-card.compact strong {
-    font-size: 15px;
+    font-size: 13px;
   }
 
 .month-card.compact span {
-    font-size: 13px;
+    font-size: 11.5px;
   }
 
 .month-card.active strong {
@@ -195,49 +195,49 @@ body {
 
 .month-grid.month-grid-compact .month-card {
     /* border-radius: 12px; */
-    padding: 12px 14px;
+    padding: 8px 10px;
     justify-content: flex-start;
-    min-height: 120px;
+    min-height: 96px;
   }
 
 .month-grid.month-grid-compact .month-card .mc-top-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
-    gap: 8px;
+    margin-bottom: 6px;
+    gap: 6px;
   }
 
 .month-grid.month-grid-compact .month-card .mc-top-row span {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 700;
     color: var(--text-secondary);
   }
 
 .month-grid.month-grid-compact .month-card .mc-top-row strong {
-    font-size: 15px;
+    font-size: 13px;
   }
 
 .month-grid.month-grid-compact .month-card .mc-values-row {
     display: grid;
-    gap: 6px;
+    gap: 4px;
   }
 
 .month-grid.month-grid-compact .month-card .mc-value-group {
     display: flex;
     justify-content: space-between;
-    gap: 8px;
+    gap: 6px;
   }
 
 .month-grid.month-grid-compact .month-card .mc-value-label {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.3px;
   }
 
 .month-grid.month-grid-compact .month-card .mc-value-group strong {
-    font-size: 14px;
+    font-size: 12.5px;
     color: var(--text-primary);
   }
 
@@ -260,4 +260,9 @@ body {
     overflow: hidden;
     border-radius: 2px;
     background: var(--border);
+  }
+
+/* Dashboard mais compacto: menos respiro ao redor do conteúdo, sem afetar outras páginas */
+.page-body:has(.dashboard-page) {
+    padding: 10px 12px;
   }
