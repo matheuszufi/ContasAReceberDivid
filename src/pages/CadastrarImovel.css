@@ -281,6 +281,21 @@ body {
     grid-column: span 2;
   }
 
+@media (max-width: 768px) {
+  .property-compact-form .form-grid-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .property-compact-form .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+  .property-compact-form .form-grid-2 .fg-full {
+    grid-column: span 1;
+  }
+}
+
 .property-compact-form .form-group {
     min-width: 0;
     margin-bottom: 6px;
