@@ -1402,8 +1402,15 @@ export default function Dashboard() {
   // ---- Card "Histórico de Alterações" ----
 
   // Ordena as alterações de status/seguro acionado da mais recente para a mais antiga
+  // (exclui as alterações de conta feitas na Planilha de Cobrança, exibidas em seu próprio card)
   const historicoOrdenado = useMemo(
-    () => [...historicoAlteracoes].sort((a, b) => (b.data || 0) - (a.data || 0)),
+    () => [...historicoAlteracoes].filter(item => item.origem !== 'planilha_cobranca').sort((a, b) => (b.data || 0) - (a.data || 0)),
+    [historicoAlteracoes]
+  )
+
+  // Alterações de valores de conta feitas na Planilha de Cobrança, mais recentes primeiro
+  const historicoPlanilhaOrdenado = useMemo(
+    () => [...historicoAlteracoes].filter(item => item.origem === 'planilha_cobranca').sort((a, b) => (b.data || 0) - (a.data || 0)),
     [historicoAlteracoes]
   )
 
@@ -2719,6 +2726,62 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Alterações na Planilha de Cobrança (com o usuário responsável), no final da página ── */}
+      <Card className="mb-3">
+        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
+          <div className="flex items-center gap-2">
+            <History className="size-4 text-muted-foreground" />
+            <div>
+              <CardTitle className="text-sm">Alterações na Planilha de Cobrança</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Valores de contas alterados na Planilha de Cobrança, com o usuário responsável, mais recentes primeiro.
+              </CardDescription>
+            </div>
+          </div>
+          <Badge variant="secondary" className="shrink-0 text-xs">
+            {historicoPlanilhaOrdenado.length} registro{historicoPlanilhaOrdenado.length === 1 ? '' : 's'}
+          </Badge>
+        </CardHeader>
+        <CardContent className="p-2">
+          {historicoPlanilhaOrdenado.length === 0 ? (
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              Nenhuma alteração registrada na Planilha de Cobrança ainda.
+            </p>
+          ) : (
+            <div className="flex max-h-96 flex-col divide-y overflow-y-auto">
+              {historicoPlanilhaOrdenado.map(item => (
+                <div key={item.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
+                  <div className="flex min-w-0 flex-1 basis-56 items-center gap-2.5">
+                    <span
+                      className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
+                      style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}
+                    >
+                      {item.campoLabel || item.campo}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="break-words font-medium">
+                        {item.inquilinoNome || 'Sem nome'}
+                        {item.codigoImovel ? ` (${item.codigoImovel})` : ''}
+                      </p>
+                      <p className="flex flex-wrap items-center gap-1 break-words text-muted-foreground">
+                        <span className="break-words">{item.valorAnteriorLabel || '—'}</span>
+                        <ArrowRight className="size-3 shrink-0" />
+                        <span className="break-words font-medium text-foreground">{item.valorNovoLabel || '—'}</span>
+                      </p>
+                      <p className="flex flex-wrap items-center gap-1 break-words text-muted-foreground">
+                        {item.mesReferenciaPlanilha && <span className="break-words">{getMonthLabel(item.mesReferenciaPlanilha)}</span>}
+                        <span className="break-words">· Alterado por: {item.usuario || 'Desconhecido'}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <span className="shrink-0 text-muted-foreground">{fmtDataHora(item.data)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {relatorioTipo && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>

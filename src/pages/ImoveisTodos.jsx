@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ref, onValue, update, push, set, remove } from 'firebase/database'
 import { db } from '../firebase'
+import { useAuth } from '../auth'
 import Layout from '../components/Layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -109,6 +110,7 @@ const tdC = { padding: '5px 4px',   textAlign: 'center', verticalAlign: 'middle'
  
 export default function ImoveisTodos() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const currentYear = new Date().getFullYear()
   const [year, setYear]             = useState(currentYear)
   const [imoveis, setImoveis]       = useState([])
@@ -125,6 +127,11 @@ export default function ImoveisTodos() {
   const [registradoVar, setRegistradoVar] = useState({})
   const [extraContas, setExtraContas] = useState([])
   const [boletosModal, setBoletosModal] = useState([])
+  // Guarda o último valor efetivamente salvo no Firebase de cada cobrança (por id), para comparar
+  // com o valor atual ao clicar em "Salvar cobranças" e só então registrar a alteração no histórico.
+  const extraSavedRef = useRef({})
+  const boletoSavedRef = useRef({})
+  const [salvandoCobrancas, setSalvandoCobrancas] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [regForm, setRegForm]         = useState(null)
   const [regSaving, setRegSaving]     = useState(false)
@@ -164,6 +171,7 @@ export default function ImoveisTodos() {
  
   const closeModal = () => {
     setModal(null); setVarValues({}); setRegistradoVar({}); setExtraContas([]); setBoletosModal([]); setSaveError('')
+    extraSavedRef.current = {}; boletoSavedRef.current = {}
     setRegForm(null); setObsModal(''); setDiaSaidaModal(''); setContasProporcionaisModal([]); setDesocupacaoModal(false)
   }
  
@@ -213,6 +221,51 @@ export default function ImoveisTodos() {
     if (catalogConta) return { label: catalogConta.nome, icone: catalogConta.icone || '📄' }
     const legacy = CONTAS_OPCOES.find(o => o.value === k)
     return { label: legacy?.label || k, icone: CONTA_ICONS[k] || '📄' }
+  }
+
+  const CAMPO_ESPECIAL_LABELS = {
+    _aluguel: 'Aluguel',
+    _seguro: 'Seguro Fiança',
+    _garagem: 'Garagem',
+    _garantia: 'Caução/Adiantamento',
+  }
+
+  const getCampoLabel = (k) => CAMPO_ESPECIAL_LABELS[k] || getContaMeta(k).label
+
+  // Grava no histórico (exibido no Dashboard) uma alteração de valor de conta feita na planilha de
+  // cobrança, junto com o usuário responsável — usa o mesmo nó "historicoAlteracoes" das inadimplências,
+  // marcado com origem própria para não se misturar ao card "Histórico de Alterações" existente.
+  // Inclui os mesmos campos usados pelas inadimplências (mesmo que nulos) para não esbarrar em regras
+  // do Firebase que exijam esse formato.
+  const registrarAlteracaoConta = async (row, mesKey, campo, valorAnteriorLabel, valorNovoLabel) => {
+    console.log('[registrarAlteracaoConta] chamado', { row: row?.inquilino?.id, mesKey, campo, valorAnteriorLabel, valorNovoLabel, usuario: user?.email })
+    try {
+      const novaChave = await push(ref(db, 'historicoAlteracoes'), {
+        origem: 'planilha_cobranca',
+        debitoId: null,
+        inquilinoId: row?.inquilino?.id || null,
+        inquilinoNome: row?.inquilino?.nome || null,
+        codigoImovel: row?.imovel?.codigo || null,
+        mesReferenciaPlanilha: mesKey || null,
+        mesReferencia: mesKey || null,
+        campo,
+        campoLabel: getCampoLabel(campo),
+        valorAnteriorKey: null,
+        valorAnteriorLabel: valorAnteriorLabel || '—',
+        valorNovoKey: null,
+        valorNovoLabel: valorNovoLabel || '—',
+        valorTotal: 0,
+        valorRecebido: null,
+        dataSeguro: null,
+        usuario: user?.email || 'Desconhecido',
+        data: Date.now(),
+      })
+      console.log('[registrarAlteracaoConta] gravado com sucesso, key:', novaChave.key)
+    } catch (err) {
+      console.error('Erro ao registrar histórico de alteração da planilha:', err.code || '', err.message || err)
+      setSaveError(`Erro ao registrar histórico: ${err.message || err}`)
+      window.alert(`Falha ao registrar histórico de alteração:\n${err.code || ''} ${err.message || err}`)
+    }
   }
 
   // Identifica a conta "Seguro Incêndio" tanto no formato antigo (chave fixa) quanto no
@@ -351,6 +404,8 @@ export default function ImoveisTodos() {
     setRegistradoVar(_registrado || {})
     setExtraContas(extras ? Object.entries(extras).map(([id, v]) => ({ id, ...v })) : [])
     setBoletosModal(boletos ? Object.entries(boletos).map(([id, v]) => ({ id, ...v })) : [])
+    extraSavedRef.current = extras ? Object.fromEntries(Object.entries(extras).map(([id, v]) => [id, v])) : {}
+    boletoSavedRef.current = boletos ? Object.fromEntries(Object.entries(boletos).map(([id, v]) => [id, v])) : {}
     setObsModal(_obs || '')
     setDiaSaidaModal(_diaSaida ? String(_diaSaida) : '')
     setContasProporcionaisModal(_contasProporcionais || (_diaSaida ? ['_aluguel'] : []))
@@ -358,19 +413,24 @@ export default function ImoveisTodos() {
   }
  
   const handleVarValue = (contaKey, rawValue) => {
+    const valorAnterior = varValues[contaKey]
     setVarValues(prev => ({ ...prev, [contaKey]: rawValue }))
     if (modal?.inquilino?.id && modal?.key) {
+      const novoValor = parseFloat(rawValue) || 0
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), {
-        [contaKey]: parseFloat(rawValue) || 0,
+        [contaKey]: novoValor,
       }).catch(err => { console.error('Erro ao salvar valor:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
+      registrarAlteracaoConta(modal, modal.key, contaKey, fmtBRL(valorAnterior), fmtBRL(novoValor))
     }
   }
  
   const handleRemoveVarValue = (contaKey) => {
+    const valorAnterior = varValues[contaKey]
     setVarValues(prev => { const n = { ...prev }; delete n[contaKey]; return n })
     if (modal?.inquilino?.id && modal?.key) {
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), { [contaKey]: null })
         .catch(err => { console.error('Erro ao reverter valor:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
+      registrarAlteracaoConta(modal, modal.key, contaKey, fmtBRL(valorAnterior), 'Valor padrão (revertido)')
       // Se essa conta fazia parte do rateio proporcional, tira ela da seleção também
       if (contasProporcionaisModal.includes(contaKey)) {
         const next = contasProporcionaisModal.filter(k => k !== contaKey)
@@ -556,6 +616,15 @@ export default function ImoveisTodos() {
       if (finalId !== extra.id) {
         setExtraContas(prev => prev.map((e, i) => i === idx ? { ...e, id: finalId } : e))
       }
+      const anterior = extraSavedRef.current[finalId]
+      const prevNum = !anterior || anterior.valor === '' || anterior.valor === undefined || anterior.valor === null
+        ? 0
+        : (parseFloat(anterior.valor) || 0)
+      if (prevNum !== numVal) {
+        const label = payload.nome || payload.contaId || 'Conta extra'
+        registrarAlteracaoConta(modal, modal.key, label, prevNum === 0 ? '—' : fmtBRL(prevNum), fmtBRL(numVal))
+      }
+      extraSavedRef.current[finalId] = payload
     } catch (err) {
       console.error('[saveExtra] ERRO ao salvar conta extra:', err)
       setSaveError(`Erro ao salvar conta: ${err.message}`)
@@ -563,12 +632,10 @@ export default function ImoveisTodos() {
     }
   }
 
+  // Só atualiza o estado local — a gravação no Firebase (e o registro no histórico do Dashboard)
+  // só acontece quando o usuário clica em "Salvar cobranças".
   const handleExtraChange = (idx, field, value) => {
-    const next = extraContas.map((e, i) => i === idx ? { ...e, [field]: value } : e)
-    setExtraContas(next)
-    if (['valor', 'contaId', 'nome'].includes(field)) {
-      saveExtra(idx, next[idx])
-    }
+    setExtraContas(prev => prev.map((e, i) => i === idx ? { ...e, [field]: value } : e))
   }
 
   const handleExtraSave = (idx) => saveExtra(idx, extraContas[idx])
@@ -576,16 +643,20 @@ export default function ImoveisTodos() {
   const handleExtraContaChange = (idx, contaId) => {
     const conta = contasCatalogo.find(c => c.id === contaId)
     const nome = conta?.nome || ''
-    const next = extraContas.map((e, i) => i === idx ? { ...e, contaId, nome } : e)
-    setExtraContas(next)
-    saveExtra(idx, next[idx])
+    setExtraContas(prev => prev.map((e, i) => i === idx ? { ...e, contaId, nome } : e))
   }
 
   const handleRemoveExtra = async (idx) => {
     const extra = extraContas[idx]
     if (extra?.id && modal?.inquilino?.id && modal?.key) {
+      const salva = extraSavedRef.current[extra.id]
       try {
         await remove(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/extras/${extra.id}`))
+        delete extraSavedRef.current[extra.id]
+        if (salva) {
+          const label = salva.nome || salva.contaId || 'Conta extra'
+          registrarAlteracaoConta(modal, modal.key, label, fmtBRL(parseFloat(salva.valor) || 0), 'Excluída')
+        }
       } catch (err) {
         console.error('Erro ao remover conta extra:', err)
         setSaveError(`Erro ao remover conta: ${err.message}`)
@@ -627,6 +698,15 @@ export default function ImoveisTodos() {
     try {
       await set(ref(db, `${basePath}/${finalId}`), payload)
       setSaveError('')
+      const anterior = boletoSavedRef.current[finalId]
+      const prevNum = !anterior || anterior.valor === '' || anterior.valor === undefined || anterior.valor === null
+        ? 0
+        : (parseFloat(anterior.valor) || 0)
+      if (prevNum !== numVal) {
+        const label = payload.descricao || 'Boleto avulso'
+        registrarAlteracaoConta(modal, modal.key, label, prevNum === 0 ? '—' : fmtBRL(prevNum), fmtBRL(numVal))
+      }
+      boletoSavedRef.current[finalId] = payload
     } catch (err) {
       console.error('[saveBoleto] ERRO ao salvar boleto:', err)
       setSaveError(`Erro ao salvar boleto: ${err.message}`)
@@ -634,12 +714,9 @@ export default function ImoveisTodos() {
     }
   }
 
+  // Só atualiza o estado local — a gravação (e o registro no histórico) só acontece ao salvar.
   const handleBoletoChange = (idx, field, value) => {
-    const next = boletosModal.map((b, i) => i === idx ? { ...b, [field]: value } : b)
-    setBoletosModal(next)
-    if (['valor', 'descricao', 'vencimento'].includes(field)) {
-      saveBoleto(idx, next[idx])
-    }
+    setBoletosModal(prev => prev.map((b, i) => i === idx ? { ...b, [field]: value } : b))
   }
 
   const handleBoletoSave = (idx) => saveBoleto(idx, boletosModal[idx])
@@ -647,8 +724,14 @@ export default function ImoveisTodos() {
   const handleRemoveBoleto = async (idx) => {
     const boleto = boletosModal[idx]
     if (boleto?.id && modal?.inquilino?.id && modal?.key) {
+      const salvo = boletoSavedRef.current[boleto.id]
       try {
         await remove(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/boletos/${boleto.id}`))
+        delete boletoSavedRef.current[boleto.id]
+        if (salvo) {
+          const label = salvo.descricao || 'Boleto avulso'
+          registrarAlteracaoConta(modal, modal.key, label, fmtBRL(parseFloat(salvo.valor) || 0), 'Excluído')
+        }
       } catch (err) {
         console.error('Erro ao remover boleto:', err)
         setSaveError(`Erro ao remover boleto: ${err.message}`)
@@ -757,6 +840,27 @@ export default function ImoveisTodos() {
       setRegistradoVar(prev => ({ ...prev, ...patch }))
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/_registrado`), patch)
         .catch(err => { console.error('Erro ao marcar todas:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
+    }
+  }
+
+  // Persiste no Firebase todas as cobranças (contas extras + boletos) preenchidas no modal e só
+  // então registra cada alteração de valor no histórico exibido no Dashboard.
+  const handleSalvarCobrancas = async () => {
+    if (!modal?.inquilino?.id || !modal?.key) return
+    setSalvandoCobrancas(true)
+    try {
+      for (let idx = 0; idx < extraContas.length; idx++) {
+        const extra = extraContas[idx]
+        if (!extra.contaId && !extra.nome) continue
+        await saveExtra(idx, extra)
+      }
+      for (let idx = 0; idx < boletosModal.length; idx++) {
+        const boleto = boletosModal[idx]
+        if (!boleto.descricao && (boleto.valor === '' || boleto.valor === undefined)) continue
+        await saveBoleto(idx, boleto)
+      }
+    } finally {
+      setSalvandoCobrancas(false)
     }
   }
 
@@ -1823,8 +1927,8 @@ export default function ImoveisTodos() {
                             type="checkbox"
                             checked={!!extra.registrado}
                             onChange={() => handleExtraToggleRegistrado(idx)}
-                            disabled={(!extra.contaId && !extra.nome) || extra.valor === '' || extra.valor === undefined}
-                            title={(extra.contaId || extra.nome) && extra.valor !== '' ? 'Registrada no sistema de pagamento' : 'Preencha a conta e o valor antes de marcar'}
+                            disabled={(!extra.contaId && !extra.nome) || extra.valor === '' || extra.valor === undefined || !extraSavedRef.current[extra.id]}
+                            title={!extraSavedRef.current[extra.id] ? 'Salve a cobrança antes de marcar como registrada' : 'Registrada no sistema de pagamento'}
                             style={{ flexShrink: 0, cursor: 'pointer' }}
                           />
                           <span style={{ fontSize: 13, flexShrink: 0 }}>{icone}</span>
@@ -1890,15 +1994,14 @@ export default function ImoveisTodos() {
                                 type="checkbox"
                                 checked={!!boleto.registrado}
                                 onChange={() => handleBoletoToggleRegistrado(idx)}
-                                disabled={!boleto.descricao || boleto.valor === '' || boleto.valor === undefined}
-                                title={boleto.descricao && boleto.valor !== '' ? 'Registrado no sistema de pagamento' : 'Preencha a descrição e o valor antes de marcar'}
+                                disabled={!boleto.descricao || boleto.valor === '' || boleto.valor === undefined || !boletoSavedRef.current[boleto.id]}
+                                title={!boletoSavedRef.current[boleto.id] ? 'Salve o boleto antes de marcar como registrado' : 'Registrado no sistema de pagamento'}
                                 style={{ flexShrink: 0, cursor: 'pointer' }}
                               />
                               <input
                                 type="text"
                                 value={boleto.descricao}
                                 onChange={e => handleBoletoChange(idx, 'descricao', e.target.value)}
-                                onBlur={() => handleBoletoSave(idx)}
                                 placeholder="Descrição do boleto..."
                                 style={{
                                   flex: '1 1 140px', minWidth: 0, padding: '4px 8px',
@@ -1922,7 +2025,6 @@ export default function ImoveisTodos() {
                                 placeholder="0,00"
                                 value={boleto.valor}
                                 onChange={e => handleBoletoChange(idx, 'valor', e.target.value)}
-                                onBlur={() => handleBoletoSave(idx)}
                                 style={{
                                   width: 90, padding: '4px 8px', flexShrink: 0,
                                   border: '1.5px solid #e2e8f0', borderRadius: 6,
@@ -1993,6 +2095,20 @@ export default function ImoveisTodos() {
                         🔖 Novo boleto
                       </button>
                     </div>
+                    {(extraContas.length > 0 || boletosModal.length > 0) && (
+                      <button
+                        onClick={handleSalvarCobrancas}
+                        disabled={salvandoCobrancas}
+                        style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                          background: salvandoCobrancas ? '#93c5fd' : '#2563eb', border: 'none', borderRadius: 6,
+                          padding: '7px 10px', cursor: salvandoCobrancas ? 'default' : 'pointer', fontSize: 13, fontWeight: 700, color: '#fff',
+                          width: '100%', marginTop: 2,
+                        }}
+                      >
+                        {salvandoCobrancas ? 'Salvando...' : '💾 Salvar cobranças'}
+                      </button>
+                    )}
                     {usandoGarantiaComoPagamento && (
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#92400e' }}>
                         <span>💰 Uso de {garantiaDisponivelLabel.toLowerCase()} como pagamento ({garantiaUsoMeses.length}/{MAX_MESES_GARANTIA_PAGAMENTO} meses)</span>
