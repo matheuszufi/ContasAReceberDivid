@@ -8,7 +8,6 @@ const navSections = [
     label: 'Principal',
     items: [
       { path: '/dashboard', icon: '', label: 'Dashboard' },
-      { path: '/perfil',    icon: '', label: 'Meu Perfil' },
     ]
   },
   {
@@ -93,6 +92,13 @@ export default function Layout({ children, title, subtitle }) {
           <div className="sidebar-user">
             <p>{user?.email}</p>
           </div>
+          <button
+            className={`nav-item${location.pathname === '/perfil' ? ' active' : ''}`}
+            onClick={() => handleNavigate('/perfil')}
+          >
+            <span className="nav-icon">👤</span>
+            Meu Perfil
+          </button>
           <button className="nav-item logout-item" onClick={handleLogout}>
             <span className="nav-icon">🚪</span>
             Sair

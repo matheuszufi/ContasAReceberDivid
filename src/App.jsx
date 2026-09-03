@@ -25,6 +25,7 @@ const SeguroFianca            = lazy(() => import('./pages/SeguroFianca'))
 const SeguroIncendio          = lazy(() => import('./pages/SeguroIncendio'))
 const Desocupacoes            = lazy(() => import('./pages/Desocupacoes'))
 const Perfil                  = lazy(() => import('./pages/Perfil'))
+const AlteracoesPlanilha       = lazy(() => import('./pages/AlteracoesPlanilha'))
 
 
 function PrivateRoute({ children }) {
@@ -97,6 +98,7 @@ export default function App() {
         <Route path="/seguro-incendio"             element={<PrivateRoute><SeguroIncendio /></PrivateRoute>} />
         <Route path="/desocupacoes"                element={<PrivateRoute><Desocupacoes /></PrivateRoute>} />
         <Route path="/perfil"                      element={<PrivateRoute><Perfil /></PrivateRoute>} />
+        <Route path="/alteracoes-planilha"          element={<PrivateRoute><AlteracoesPlanilha /></PrivateRoute>} />
       </Routes>
     </Suspense>
   )

@@ -163,6 +163,7 @@ export default function Inadimplentes() {
   const [segurosCatalogo, setSegurosCatalogo] = useState([])
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
   const statusFilterRef = useRef(null)
+  const statusFilterPanelRef = useRef(null)
   const [statusFilterRect, setStatusFilterRect] = useState(null)
   const [colFilters, setColFilters] = useState({
     inquilino: '',
@@ -191,7 +192,9 @@ export default function Inadimplentes() {
   useEffect(() => {
     if (!statusFilterOpen) return
     const handler = (e) => {
-      if (statusFilterRef.current && !statusFilterRef.current.contains(e.target)) setStatusFilterOpen(false)
+      if (statusFilterRef.current?.contains(e.target)) return
+      if (statusFilterPanelRef.current?.contains(e.target)) return
+      setStatusFilterOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -699,7 +702,7 @@ export default function Inadimplentes() {
                         : `${colFilters.status.length} selecionado(s)`} ▾
                     </button>
                     {statusFilterOpen && statusFilterRect && createPortal(
-                      <div style={{ position: 'fixed', top: statusFilterRect.top, left: statusFilterRect.left, zIndex: 9999, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', padding: 8, minWidth: 190 }}>
+                      <div ref={statusFilterPanelRef} style={{ position: 'fixed', top: statusFilterRect.top, left: statusFilterRect.left, zIndex: 9999, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', padding: 8, minWidth: 190 }}>
                         <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
                           <button type="button" className="btn btn-sm" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColFilter('status', STATUS_OPCOES.map(o => o.value))}>Todos</button>
                           <button type="button" className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColFilter('status', [])}>Nenhum</button>

@@ -51,6 +51,7 @@ const TIPOS_EVENTO = [
   { value: 'Encaminhado jurídico',    icon: '⚖️', color: '#ef4444' },
   { value: 'Seguro acionado',         icon: '🛡️', color: '#0ea5e9' },
   { value: 'Seguro aprovado',         icon: '✅', color: '#16a34a' },
+  { value: 'Seguro reprovado',        icon: '❌', color: '#dc2626' },
   { value: 'Quitado',                 icon: '✅', color: '#22c55e' },
   { value: 'Outros',                  icon: '📌', color: '#94a3b8' },
 ]

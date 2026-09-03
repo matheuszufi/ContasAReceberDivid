@@ -4,7 +4,6 @@ import { ref, onValue, update, remove } from 'firebase/database'
 import { jsPDF } from 'jspdf'
 import { gsap } from 'gsap'
 import { db } from '../firebase'
-import { useAuth } from '../auth'
 import Layout from '../components/Layout'
 import { normalizeText } from '@/lib/utils'
 import dividLogo from '../assets/images/divid-logo.png'
@@ -600,7 +599,6 @@ const getPieSegments = (inadimplente, recuperado, aprovadoSeguradora, aguardarAc
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { isAdmin } = useAuth()
   const now = new Date()
   const currentYear = String(now.getFullYear())
   const currentMonth = `${currentYear}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -1409,26 +1407,6 @@ export default function Dashboard() {
     () => [...historicoAlteracoes].filter(item => item.origem !== 'planilha_cobranca').sort((a, b) => (b.data || 0) - (a.data || 0)),
     [historicoAlteracoes]
   )
-
-  // Alterações de valores de conta feitas na Planilha de Cobrança, mais recentes primeiro
-  const historicoPlanilhaOrdenado = useMemo(
-    () => [...historicoAlteracoes].filter(item => item.origem === 'planilha_cobranca').sort((a, b) => (b.data || 0) - (a.data || 0)),
-    [historicoAlteracoes]
-  )
-
-  const [filtroPlanilhaUsuario, setFiltroPlanilhaUsuario] = useState('')
-  const [filtroPlanilhaInquilino, setFiltroPlanilhaInquilino] = useState('')
-
-  // Aplica os filtros de usuário e inquilino (busca por substring, sem diferenciar maiúsculas/minúsculas)
-  const historicoPlanilhaFiltrado = useMemo(() => {
-    const buscaUsuario = filtroPlanilhaUsuario.trim().toLowerCase()
-    const buscaInquilino = filtroPlanilhaInquilino.trim().toLowerCase()
-    return historicoPlanilhaOrdenado.filter(item => {
-      const okUsuario = !buscaUsuario || (item.usuario || '').toLowerCase().includes(buscaUsuario)
-      const okInquilino = !buscaInquilino || (item.inquilinoNome || '').toLowerCase().includes(buscaInquilino)
-      return okUsuario && okInquilino
-    })
-  }, [historicoPlanilhaOrdenado, filtroPlanilhaUsuario, filtroPlanilhaInquilino])
 
   // Mês em que a alteração foi de fato feita, derivado do timestamp "data" (não do mesReferencia do
   // débito), para que o registro sempre apareça no mês em que ocorreu, independente do mês da conta
@@ -2742,102 +2720,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
-
-      {/* ── Alterações na Planilha de Cobrança (com o usuário responsável), no final da página ── */}
-      <Card className="mb-3">
-        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
-          <div className="flex items-center gap-2">
-            <History className="size-4 text-muted-foreground" />
-            <div>
-              <CardTitle className="text-sm">Alterações na Planilha de Cobrança</CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                Valores de contas alterados na Planilha de Cobrança, com o usuário responsável, mais recentes primeiro.
-              </CardDescription>
-            </div>
-          </div>
-          <Badge variant="secondary" className="shrink-0 text-xs">
-            {historicoPlanilhaFiltrado.length} registro{historicoPlanilhaFiltrado.length === 1 ? '' : 's'}
-          </Badge>
-        </CardHeader>
-        <CardContent className="p-2">
-          <div className="flex flex-wrap items-center gap-2 border-b p-2">
-            <Input
-              value={filtroPlanilhaUsuario}
-              onChange={e => setFiltroPlanilhaUsuario(e.target.value)}
-              placeholder="Filtrar por usuário..."
-              className="h-8 w-full text-xs sm:w-56"
-            />
-            <Input
-              value={filtroPlanilhaInquilino}
-              onChange={e => setFiltroPlanilhaInquilino(e.target.value)}
-              placeholder="Filtrar por inquilino..."
-              className="h-8 w-full text-xs sm:w-56"
-            />
-            {(filtroPlanilhaUsuario || filtroPlanilhaInquilino) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 text-xs"
-                onClick={() => { setFiltroPlanilhaUsuario(''); setFiltroPlanilhaInquilino('') }}
-              >
-                Limpar filtros
-              </Button>
-            )}
-          </div>
-          {historicoPlanilhaFiltrado.length === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">
-              {historicoPlanilhaOrdenado.length === 0
-                ? 'Nenhuma alteração registrada na Planilha de Cobrança ainda.'
-                : 'Nenhuma alteração encontrada para os filtros selecionados.'}
-            </p>
-          ) : (
-            <div className="flex max-h-96 flex-col divide-y overflow-y-auto">
-              {historicoPlanilhaFiltrado.map(item => (
-                <div key={item.id} className="group flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
-                  <div className="flex min-w-0 flex-1 basis-56 items-center gap-2.5">
-                    <span
-                      className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
-                      style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}
-                    >
-                      {item.campoLabel || item.campo}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="break-words font-medium">
-                        {item.inquilinoNome || 'Sem nome'}
-                        {item.codigoImovel ? ` (${item.codigoImovel})` : ''}
-                      </p>
-                      <p className="flex flex-wrap items-center gap-1 break-words text-muted-foreground">
-                        <span className="break-words">{item.valorAnteriorLabel || '—'}</span>
-                        <ArrowRight className="size-3 shrink-0" />
-                        <span className="break-words font-medium text-foreground">{item.valorNovoLabel || '—'}</span>
-                      </p>
-                      <p className="flex flex-wrap items-center gap-1 break-words text-muted-foreground">
-                        {item.mesReferenciaPlanilha && <span className="break-words">{getMonthLabel(item.mesReferenciaPlanilha)}</span>}
-                        <span className="break-words">· Alterado por: {item.usuario || 'Desconhecido'}</span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-muted-foreground">{fmtDataHora(item.data)}</span>
-                    {isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-6 shrink-0 text-muted-foreground opacity-100 transition-opacity hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
-                        onClick={() => handleExcluirHistorico(item.id)}
-                        aria-label="Cancelar registro do histórico"
-                        title="Cancelar registro do histórico"
-                      >
-                        <X className="size-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {relatorioTipo && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>

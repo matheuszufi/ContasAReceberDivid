@@ -7,7 +7,7 @@ import Layout from '../components/Layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { House, ChevronLeft, ChevronRight, Plus, UserPlus, CircleCheck, TriangleAlert, Wallet, ListFilter, X, Repeat, Trash2 } from 'lucide-react'
+import { House, ChevronLeft, ChevronRight, Plus, UserPlus, CircleCheck, TriangleAlert, Wallet, ListFilter, X, Repeat, Trash2, History } from 'lucide-react'
 import './ImoveisTodos.css'
  
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
@@ -1050,6 +1050,7 @@ export default function ImoveisTodos() {
           <Button onClick={() => navigate('/imoveis/cadastrar')}><Plus /> Imóvel</Button>
           <Button variant="secondary" onClick={() => navigate('/inquilinos/cadastrar')}><UserPlus /> Inquilino</Button>
           <Button variant="secondary" onClick={() => setModalParcela(true)}><Repeat /> Cobrança Parcelada</Button>
+          <Button variant="secondary" onClick={() => navigate('/alteracoes-planilha')}><History /> Alterações na Planilha</Button>
         </div>
       </div>
 
