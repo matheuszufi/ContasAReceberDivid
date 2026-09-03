@@ -146,6 +146,7 @@ export default function ImoveisTodos() {
   const [filterContasVariaveis, setFilterContasVariaveis] = useState(false)
   const [filterDesocupacao, setFilterDesocupacao] = useState(false)
   const [filterEstrangeiro, setFilterEstrangeiro] = useState(false)
+  const [filterInativos, setFilterInativos] = useState(false)
   const [sortBy, setSortBy]   = useState(null)
   const [sortDir, setSortDir] = useState('asc')
 
@@ -287,7 +288,7 @@ export default function ImoveisTodos() {
  
   const rows = imoveis
     .flatMap(im => inquilinos
-      .filter(inq => inq.imovelId === im.id && inq.status !== 'Inativo')
+      .filter(inq => inq.imovelId === im.id && (filterInativos || inq.status !== 'Inativo'))
       .map(inquilino => ({ imovel: im, inquilino }))
     )
  
@@ -1163,12 +1164,20 @@ export default function ImoveisTodos() {
               />
               Apenas estrangeiros
             </label>
-            {(filterNome || filterImovel || filterModelo || filterInadimplentes || filterContasVariaveis || filterDesocupacao || filterEstrangeiro) && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer', flexShrink: 0 }}>
+              <input
+                type="checkbox"
+                checked={filterInativos}
+                onChange={e => setFilterInativos(e.target.checked)}
+              />
+              Mostrar inquilinos inativos
+            </label>
+            {(filterNome || filterImovel || filterModelo || filterInadimplentes || filterContasVariaveis || filterDesocupacao || filterEstrangeiro || filterInativos) && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="ml-auto text-muted-foreground"
-                onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterModelo(''); setFilterInadimplentes(false); setFilterContasVariaveis(false); setFilterDesocupacao(false); setFilterEstrangeiro(false) }}
+                onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterModelo(''); setFilterInadimplentes(false); setFilterContasVariaveis(false); setFilterDesocupacao(false); setFilterEstrangeiro(false); setFilterInativos(false) }}
               >
                 <X /> Limpar ({filteredRows.length}/{rows.length})
               </Button>

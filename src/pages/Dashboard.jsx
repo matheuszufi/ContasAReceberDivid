@@ -4,6 +4,7 @@ import { ref, onValue, update, remove } from 'firebase/database'
 import { jsPDF } from 'jspdf'
 import { gsap } from 'gsap'
 import { db } from '../firebase'
+import { useAuth } from '../auth'
 import Layout from '../components/Layout'
 import { normalizeText } from '@/lib/utils'
 import dividLogo from '../assets/images/divid-logo.png'
@@ -599,6 +600,7 @@ const getPieSegments = (inadimplente, recuperado, aprovadoSeguradora, aguardarAc
 
 export default function Dashboard() {
   const navigate = useNavigate()
+  const { isAdmin } = useAuth()
   const now = new Date()
   const currentYear = String(now.getFullYear())
   const currentMonth = `${currentYear}-${String(now.getMonth() + 1).padStart(2, '0')}`
@@ -2791,7 +2793,7 @@ export default function Dashboard() {
           ) : (
             <div className="flex max-h-96 flex-col divide-y overflow-y-auto">
               {historicoPlanilhaFiltrado.map(item => (
-                <div key={item.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
+                <div key={item.id} className="group flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
                   <div className="flex min-w-0 flex-1 basis-56 items-center gap-2.5">
                     <span
                       className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
@@ -2815,7 +2817,21 @@ export default function Dashboard() {
                       </p>
                     </div>
                   </div>
-                  <span className="shrink-0 text-muted-foreground">{fmtDataHora(item.data)}</span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-muted-foreground">{fmtDataHora(item.data)}</span>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-6 shrink-0 text-muted-foreground opacity-100 transition-opacity hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
+                        onClick={() => handleExcluirHistorico(item.id)}
+                        aria-label="Cancelar registro do histórico"
+                        title="Cancelar registro do histórico"
+                      >
+                        <X className="size-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
