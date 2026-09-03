@@ -1414,6 +1414,20 @@ export default function Dashboard() {
     [historicoAlteracoes]
   )
 
+  const [filtroPlanilhaUsuario, setFiltroPlanilhaUsuario] = useState('')
+  const [filtroPlanilhaInquilino, setFiltroPlanilhaInquilino] = useState('')
+
+  // Aplica os filtros de usuário e inquilino (busca por substring, sem diferenciar maiúsculas/minúsculas)
+  const historicoPlanilhaFiltrado = useMemo(() => {
+    const buscaUsuario = filtroPlanilhaUsuario.trim().toLowerCase()
+    const buscaInquilino = filtroPlanilhaInquilino.trim().toLowerCase()
+    return historicoPlanilhaOrdenado.filter(item => {
+      const okUsuario = !buscaUsuario || (item.usuario || '').toLowerCase().includes(buscaUsuario)
+      const okInquilino = !buscaInquilino || (item.inquilinoNome || '').toLowerCase().includes(buscaInquilino)
+      return okUsuario && okInquilino
+    })
+  }, [historicoPlanilhaOrdenado, filtroPlanilhaUsuario, filtroPlanilhaInquilino])
+
   // Mês em que a alteração foi de fato feita, derivado do timestamp "data" (não do mesReferencia do
   // débito), para que o registro sempre apareça no mês em que ocorreu, independente do mês da conta
   const getHistoricoMes = (item) => formatDateToMonthKey(item.data)
@@ -2740,17 +2754,43 @@ export default function Dashboard() {
             </div>
           </div>
           <Badge variant="secondary" className="shrink-0 text-xs">
-            {historicoPlanilhaOrdenado.length} registro{historicoPlanilhaOrdenado.length === 1 ? '' : 's'}
+            {historicoPlanilhaFiltrado.length} registro{historicoPlanilhaFiltrado.length === 1 ? '' : 's'}
           </Badge>
         </CardHeader>
         <CardContent className="p-2">
-          {historicoPlanilhaOrdenado.length === 0 ? (
+          <div className="flex flex-wrap items-center gap-2 border-b p-2">
+            <Input
+              value={filtroPlanilhaUsuario}
+              onChange={e => setFiltroPlanilhaUsuario(e.target.value)}
+              placeholder="Filtrar por usuário..."
+              className="h-8 w-full text-xs sm:w-56"
+            />
+            <Input
+              value={filtroPlanilhaInquilino}
+              onChange={e => setFiltroPlanilhaInquilino(e.target.value)}
+              placeholder="Filtrar por inquilino..."
+              className="h-8 w-full text-xs sm:w-56"
+            />
+            {(filtroPlanilhaUsuario || filtroPlanilhaInquilino) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => { setFiltroPlanilhaUsuario(''); setFiltroPlanilhaInquilino('') }}
+              >
+                Limpar filtros
+              </Button>
+            )}
+          </div>
+          {historicoPlanilhaFiltrado.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">
-              Nenhuma alteração registrada na Planilha de Cobrança ainda.
+              {historicoPlanilhaOrdenado.length === 0
+                ? 'Nenhuma alteração registrada na Planilha de Cobrança ainda.'
+                : 'Nenhuma alteração encontrada para os filtros selecionados.'}
             </p>
           ) : (
             <div className="flex max-h-96 flex-col divide-y overflow-y-auto">
-              {historicoPlanilhaOrdenado.map(item => (
+              {historicoPlanilhaFiltrado.map(item => (
                 <div key={item.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
                   <div className="flex min-w-0 flex-1 basis-56 items-center gap-2.5">
                     <span
