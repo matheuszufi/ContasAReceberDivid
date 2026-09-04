@@ -641,6 +641,8 @@ export default function Dashboard() {
   const [lucroAno, setLucroAno] = useState(currentYear)
   const [rankingMes, setRankingMes] = useState(currentMonth)
   const [faixaAluguelStatus, setFaixaAluguelStatus] = useState('ativos')
+  const [faixaAluguelPeriodStart, setFaixaAluguelPeriodStart] = useState('')
+  const [faixaAluguelPeriodEnd, setFaixaAluguelPeriodEnd] = useState('')
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [topFilter, setTopFilter] = useState('valor')
@@ -851,6 +853,13 @@ export default function Dashboard() {
       if (faixaAluguelStatus === 'ativos') return inquilino.status === 'Ativo'
       if (faixaAluguelStatus === 'inativos') return inquilino.status === 'Inativo'
       return true
+    }).filter(inquilino => {
+      if (!faixaAluguelPeriodStart && !faixaAluguelPeriodEnd) return true
+      const entrada = inquilino.dataEntrada?.slice(0, 7)
+      const saida = inquilino.dataSaida?.slice(0, 7)
+      if (faixaAluguelPeriodEnd && entrada && entrada > faixaAluguelPeriodEnd) return false
+      if (faixaAluguelPeriodStart && saida && saida < faixaAluguelPeriodStart) return false
+      return true
     }).map(inquilino => Number(inquilino.valorAluguel) || 0).filter(valor => valor > 0)
 
     if (lista.length === 0) return []
@@ -866,7 +875,7 @@ export default function Dashboard() {
         quantidade: lista.filter(valor => valor >= inicio && valor < inicio + passo).length,
       }
     }).filter(faixa => faixa.quantidade > 0)
-  }, [inquilinos, faixaAluguelStatus])
+  }, [inquilinos, faixaAluguelStatus, faixaAluguelPeriodStart, faixaAluguelPeriodEnd])
 
   const maiorQuantidadeFaixaAluguel = Math.max(...faixasAluguel.map(faixa => faixa.quantidade), 0)
 
@@ -3061,13 +3070,51 @@ export default function Dashboard() {
               </CardDescription>
             </div>
           </div>
-          <Tabs value={faixaAluguelStatus} onValueChange={setFaixaAluguelStatus}>
-            <TabsList>
-              <TabsTrigger value="ativos">Ativos</TabsTrigger>
-              <TabsTrigger value="inativos">Inativos</TabsTrigger>
-              <TabsTrigger value="todos">Ativos + Inativos</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <div className="flex items-center gap-1.5">
+              <label className="sr-only" htmlFor="faixa-aluguel-period-start">Mês inicial</label>
+              <input
+                id="faixa-aluguel-period-start"
+                type="month"
+                value={faixaAluguelPeriodStart}
+                max={faixaAluguelPeriodEnd || undefined}
+                onChange={e => setFaixaAluguelPeriodStart(e.target.value)}
+                className="h-7 rounded-md border px-1.5 text-xs"
+                aria-label="Mês inicial da faixa de aluguel"
+              />
+              <span className="text-xs text-muted-foreground">até</span>
+              <label className="sr-only" htmlFor="faixa-aluguel-period-end">Mês final</label>
+              <input
+                id="faixa-aluguel-period-end"
+                type="month"
+                value={faixaAluguelPeriodEnd}
+                min={faixaAluguelPeriodStart || undefined}
+                onChange={e => setFaixaAluguelPeriodEnd(e.target.value)}
+                className="h-7 rounded-md border px-1.5 text-xs"
+                aria-label="Mês final da faixa de aluguel"
+              />
+              {(faixaAluguelPeriodStart || faixaAluguelPeriodEnd) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => {
+                    setFaixaAluguelPeriodStart('')
+                    setFaixaAluguelPeriodEnd('')
+                  }}
+                >
+                  Limpar
+                </Button>
+              )}
+            </div>
+            <Tabs value={faixaAluguelStatus} onValueChange={setFaixaAluguelStatus}>
+              <TabsList>
+                <TabsTrigger value="ativos">Ativos</TabsTrigger>
+                <TabsTrigger value="inativos">Inativos</TabsTrigger>
+                <TabsTrigger value="todos">Ativos + Inativos</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </CardHeader>
         <CardContent className="p-3">
           {faixasAluguel.length === 0 ? (
