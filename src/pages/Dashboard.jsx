@@ -1195,15 +1195,50 @@ export default function Dashboard() {
     return filteredInadimplencias.filter(d => keys.has(getMonthKey(d)))
   }, [filteredInadimplencias, periodMonthKeys])
 
+  const getInquilinoRegistroKey = (debito) => {
+    if (debito.inquilinoId) return `id:${debito.inquilinoId}`
+    if (debito.inquilinoNome) return `nome:${normalizeText(debito.inquilinoNome)}`
+    return null
+  }
+
+  const inquilinosAtivosNoPeriodo = useMemo(() => {
+    const inicioPeriodo = periodMonthKeys[0]
+    const fimPeriodo = periodMonthKeys[periodMonthKeys.length - 1]
+    if (!inicioPeriodo || !fimPeriodo) return []
+
+    return inquilinos.filter(inquilino => {
+      const entrada = inquilino.dataEntrada?.slice(0, 7)
+      const saida = inquilino.dataSaida?.slice(0, 7)
+      if (entrada && entrada > fimPeriodo) return false
+      if (saida && saida < inicioPeriodo) return false
+      return true
+    })
+  }, [inquilinos, periodMonthKeys])
+
+  const inquilinoKeysAtivosNoPeriodo = useMemo(() => new Set(
+    inquilinosAtivosNoPeriodo.flatMap(inquilino => [
+      `id:${inquilino.id}`,
+      ...(inquilino.nome ? [`nome:${normalizeText(inquilino.nome)}`] : []),
+    ])
+  ), [inquilinosAtivosNoPeriodo])
+
+  const periodDebtsDeInquilinosAtivos = useMemo(
+    () => periodDebts.filter(debito => inquilinoKeysAtivosNoPeriodo.has(getInquilinoRegistroKey(debito))),
+    [periodDebts, inquilinoKeysAtivosNoPeriodo]
+  )
+
   const inquilinosInadimplentesNoPeriodo = useMemo(() => {
     const ids = new Set()
-    periodDebts
+    periodDebtsDeInquilinosAtivos
       .filter(debito => debito.status !== 'pago')
-      .forEach(debito => ids.add(debito.inquilinoId || debito.inquilinoNome || debito.id))
+      .forEach(debito => {
+        const key = getInquilinoRegistroKey(debito)
+        if (key) ids.add(key)
+      })
     return ids.size
-  }, [periodDebts])
+  }, [periodDebtsDeInquilinosAtivos])
 
-  const totalInquilinos = inquilinos.length
+  const totalInquilinos = inquilinosAtivosNoPeriodo.length
   const percentualInquilinosInadimplentes = totalInquilinos > 0
     ? Math.round((inquilinosInadimplentesNoPeriodo / totalInquilinos) * 100)
     : 0
@@ -1211,9 +1246,12 @@ export default function Dashboard() {
 
   const inquilinosComRegistroNoPeriodo = useMemo(() => {
     const ids = new Set()
-    periodDebts.forEach(debito => ids.add(debito.inquilinoId || debito.inquilinoNome || debito.id))
+    periodDebtsDeInquilinosAtivos.forEach(debito => {
+      const key = getInquilinoRegistroKey(debito)
+      if (key) ids.add(key)
+    })
     return ids.size
-  }, [periodDebts])
+  }, [periodDebtsDeInquilinosAtivos])
 
   const percentualInquilinosComRegistro = totalInquilinos > 0
     ? Math.round((inquilinosComRegistroNoPeriodo / totalInquilinos) * 100)
@@ -2586,7 +2624,12 @@ export default function Dashboard() {
             </div>
             <div className="flex min-w-0 flex-col justify-center rounded-md border bg-muted/10 p-2">
               <div className="mb-2">
-                <h4 className="text-sm font-medium">Histórico de Inadimplência</h4>
+                <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+                  <h4 className="truncate text-sm font-medium">Histórico de Inadimplência</h4>
+                  <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                    Total de inquilinos: <strong className="text-foreground">{totalInquilinos}</strong>
+                  </span>
+                </div>
                 <p className="text-xs text-muted-foreground">Inquilinos com qualquer registro no período, pago ou em aberto.</p>
               </div>
               <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[180px_1fr]">
