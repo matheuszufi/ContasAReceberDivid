@@ -105,6 +105,152 @@ body {
 
 .form-section-body { padding: 10px; }
 
+.perfil-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+  }
+
+.perfil-panel {
+    margin-bottom: 16px;
+  }
+
+.perfil-panel .form-section-body {
+    height: calc(100% - 45px);
+  }
+
+.section-caption {
+    margin: 3px 0 0;
+    color: var(--text-secondary);
+    font-size: 11px;
+  }
+
+.usuarios-panel {
+    margin-bottom: 0;
+  }
+
+.usuarios-panel .form-section-header {
+    padding: 13px 16px;
+  }
+
+.usuarios-panel .form-section-body {
+    padding: 0;
+  }
+
+.usuarios-table {
+    width: 100%;
+    min-width: 560px;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: #fff;
+  }
+
+.usuarios-table th {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+.usuarios-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #eef1f6;
+    color: var(--text-primary);
+    font-size: 13px;
+    vertical-align: middle;
+  }
+
+.usuarios-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+.usuarios-table tbody tr:hover {
+    background: #f8fbff;
+  }
+
+.usuario-email-cell {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+  }
+
+.usuario-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    border-radius: 50%;
+    background: #e0ecff;
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 9px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+.role-admin {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+.role-user {
+    border-color: #cbd5e1;
+    background: #f8fafc;
+    color: #475569;
+  }
+
+.role-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+.usuario-action-cell {
+    text-align: right;
+  }
+
+.btn-table-action {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+.usuarios-empty {
+    padding: 28px 16px !important;
+    color: var(--text-secondary) !important;
+    text-align: center;
+  }
+
+@media (max-width: 760px) {
+  .perfil-form-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .perfil-panel {
+    margin-bottom: 12px;
+  }
+}
+
 .form-group { display: flex; flex-direction: column; }
 
 .form-group label { font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }

@@ -181,7 +181,8 @@ export default function Perfil() {
         </div>
       </div>
 
-      <div className="form-section">
+      <div className="perfil-form-grid">
+      <div className="form-section perfil-panel">
         <div className="form-section-header">
           <span className="form-section-icon">🔒</span>
           <h3>Alterar senha</h3>
@@ -236,7 +237,7 @@ export default function Perfil() {
       </div>
 
       {isAdmin && (
-        <div className="form-section">
+        <div className="form-section perfil-panel">
           <div className="form-section-header">
             <span className="form-section-icon">➕</span>
             <h3>Cadastrar novo usuário</h3>
@@ -281,14 +282,18 @@ export default function Perfil() {
           </div>
         </div>
       )}
+      </div>
 
-      <div className="form-section">
+      <div className="form-section usuarios-panel">
         <div className="form-section-header">
           <span className="form-section-icon">🛡️</span>
-          <h3>Usuários cadastrados</h3>
+          <div>
+            <h3>Usuários cadastrados</h3>
+            <p className="section-caption">Contas com acesso ao sistema</p>
+          </div>
         </div>
         <div className="form-section-body table-container">
-          <table className="imoveis-table">
+          <table className="imoveis-table usuarios-table">
             <thead>
               <tr>
                 <th>E-mail</th>
@@ -297,18 +302,30 @@ export default function Perfil() {
               </tr>
             </thead>
             <tbody>
-              {usuarios.map(u => (
+              {usuarios.length === 0 ? (
+                <tr>
+                  <td colSpan={isAdmin ? 3 : 2} className="usuarios-empty">Nenhum usuário encontrado.</td>
+                </tr>
+              ) : usuarios.map(u => (
                 <tr key={u.id}>
-                  <td>{u.email}</td>
-                  <td>{u.role === 'admin' ? 'Administrador' : 'Usuário'}</td>
+                  <td className="usuario-email-cell">
+                    <span className="usuario-avatar">{(u.email || '?').charAt(0).toUpperCase()}</span>
+                    <span>{u.email}</span>
+                  </td>
+                  <td>
+                    <span className={`role-badge ${u.role === 'admin' ? 'role-admin' : 'role-user'}`}>
+                      <span className="role-dot" />
+                      {u.role === 'admin' ? 'Administrador' : 'Usuário'}
+                    </span>
+                  </td>
                   {isAdmin && (
-                    <td>
+                    <td className="usuario-action-cell">
                       {u.role === 'admin' ? (
-                        <button type="button" className="btn btn-secondary" onClick={() => handleAlterarRole(u.id, 'user')}>
+                        <button type="button" className="btn btn-secondary btn-table-action" onClick={() => handleAlterarRole(u.id, 'user')}>
                           Remover admin
                         </button>
                       ) : (
-                        <button type="button" className="btn btn-primary" onClick={() => handleAlterarRole(u.id, 'admin')}>
+                        <button type="button" className="btn btn-primary btn-table-action" onClick={() => handleAlterarRole(u.id, 'admin')}>
                           Tornar admin
                         </button>
                       )}
