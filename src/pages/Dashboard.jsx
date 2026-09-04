@@ -1774,7 +1774,7 @@ export default function Dashboard() {
                 <div className="flex flex-col gap-1">
                   {segurosExpirandoFianca.map(i => (
                     <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="font-medium">{i.nome}</span>
+                      <span className="font-small">{i.nome}</span>
                       <span className="text-muted-foreground">{SEGURO_FIANCA_LABELS[i.seguro] || i.seguro || '—'}</span>
                     </div>
                   ))}
@@ -1794,7 +1794,7 @@ export default function Dashboard() {
                 <div className="flex flex-col gap-1">
                   {segurosExpirandoIncendio.map(i => (
                     <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="font-medium">{i.nome}</span>
+                      <span className="font-small">{i.nome}</span>
                       <span className="text-muted-foreground">Seguro Incêndio</span>
                     </div>
                   ))}

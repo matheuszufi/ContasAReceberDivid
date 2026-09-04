@@ -537,7 +537,7 @@ export default function Inadimplentes() {
                 <TriangleAlert className="size-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-2xl font-semibold tracking-tight">{pendentes.length}</p>
+                <p className=" font-semibold tracking-tight">{pendentes.length}</p>
                 <p className="truncate text-sm text-muted-foreground">Débitos em Aberto</p>
               </div>
             </CardContent>
@@ -548,7 +548,7 @@ export default function Inadimplentes() {
                 <Wallet className="size-5" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-lg font-semibold tracking-tight">{fmtMoney(totalAberto)}</p>
+                <p className="truncate font-semibold tracking-tight">{fmtMoney(totalAberto)}</p>
                 <p className="truncate text-sm text-muted-foreground">Total em Aberto</p>
               </div>
             </CardContent>
@@ -559,7 +559,7 @@ export default function Inadimplentes() {
                 <CircleCheck className="size-5" />
               </div>
               <div className="min-w-0">
-                <p className="truncate text-lg font-semibold tracking-tight">{fmtMoney(totalRecup)}</p>
+                <p className="truncate font-semibold tracking-tight">{fmtMoney(totalRecup)}</p>
                 <p className="truncate text-sm text-muted-foreground">Total Recuperado</p>
               </div>
             </CardContent>
@@ -572,7 +572,7 @@ export default function Inadimplentes() {
               <Wallet className="size-5" />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-lg font-semibold tracking-tight">
+              <p className="truncate font-semibold tracking-tight">
                 {valorMedioAluguelInadimplentes > 0 ? fmtMoney(valorMedioAluguelInadimplentes) : '—'}
               </p>
               <p className="truncate text-sm text-muted-foreground">Aluguel médio dos inadimplentes</p>
@@ -581,12 +581,12 @@ export default function Inadimplentes() {
         </Card>
 
         <Card className="flex-[1_1_260px] max-w-[360px]">
-          <CardHeader className="flex-row items-center justify-between gap-2">
-            <CardTitle className="flex items-center gap-1.5 text-sm">
+          <CardHeader className="flex min-w-0 flex-row items-center justify-between gap-2">
+            <CardTitle className="flex min-w-0 flex-1 items-center gap-1.5 text-sm">
               <Trophy className="size-4" /> Ranking de Inadimplentes
             </CardTitle>
             {rankingInadimplentes.length > 0 ? (
-              <Button variant="outline" size="sm" onClick={() => setShowRankingModal(true)}>
+              <Button variant="outline" size="sm" className="shrink-0 whitespace-nowrap" onClick={() => setShowRankingModal(true)}>
                 Ver lista completa
               </Button>
             ) : (
