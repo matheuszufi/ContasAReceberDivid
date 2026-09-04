@@ -440,6 +440,16 @@ export default function Inadimplentes() {
     return Object.values(counts).sort((a, b) => b.total - a.total)
   })()
 
+  const valorMedioAluguelInadimplentes = useMemo(() => {
+    const inquilinoIds = new Set(baseSemStatus.map(d => d.inquilinoId).filter(Boolean))
+    const valores = [...inquilinoIds]
+      .map(id => Number(inquilinos.find(inquilino => inquilino.id === id)?.valorAluguel) || 0)
+      .filter(valor => valor > 0)
+    return valores.length > 0
+      ? valores.reduce((total, valor) => total + valor, 0) / valores.length
+      : 0
+  }, [baseSemStatus, inquilinos])
+
   const monthGroups = buildMonthGroups(debitos)
 
   const filtered = mesSelecionado
@@ -555,6 +565,20 @@ export default function Inadimplentes() {
             </CardContent>
           </Card>
         </div>
+
+        <Card className="flex-[1_1_260px] max-w-[360px]">
+          <CardContent className="flex items-center gap-2">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600">
+              <Wallet className="size-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-lg font-semibold tracking-tight">
+                {valorMedioAluguelInadimplentes > 0 ? fmtMoney(valorMedioAluguelInadimplentes) : '—'}
+              </p>
+              <p className="truncate text-sm text-muted-foreground">Aluguel médio dos inadimplentes</p>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card className="flex-[1_1_260px] max-w-[360px]">
           <CardHeader className="flex-row items-center justify-between gap-2">
