@@ -52,6 +52,7 @@ import {
   History,
   ArrowRight,
   FileText,
+  BarChart3,
 } from 'lucide-react'
 
 // --- Mapa de imóveis (Leaflet + OpenStreetMap) ---
@@ -228,13 +229,15 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
   doc.line(margin, y, pageWidth - margin, y)
   y += 7
 
-  const graficoNoInicio = tipoGrafico === 'pizza' && posicaoGrafico === 'inicio'
+  const graficoNoInicio = posicaoGrafico === 'inicio'
   if (graficoNoInicio && resumoStatus && resumoStatus.length > 0) {
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
     doc.text('Resumo por Status', margin, y)
     y += 8
-    y = desenharResumoPizza(doc, margin, y, contentWidth, resumoStatus)
+    y = tipoGrafico === 'pizza'
+      ? desenharResumoPizza(doc, margin, y, contentWidth, resumoStatus)
+      : desenharResumoBarras(doc, margin, y, contentWidth, pageHeight, resumoStatus)
     doc.setDrawColor(200)
     doc.line(margin, y, pageWidth - margin, y)
     y += 7
@@ -289,27 +292,7 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
     doc.setFontSize(12)
     doc.text('Resumo por Status', margin, y)
     y += 9
-
-    const totalGeral = resumoStatus.reduce((s, r) => s + r.valor, 0) || 1
-    const labelWidth = 44
-    const valueWidth = 30
-    const barWidth = contentWidth - labelWidth - valueWidth
-    const barHeight = 6
-
-    resumoStatus.forEach(r => {
-      if (y > pageHeight - margin - 12) { doc.addPage(); y = margin }
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(9)
-      doc.text(r.label, margin, y + 4.2)
-      const largura = Math.max(1.5, (r.valor / totalGeral) * barWidth)
-      doc.setFillColor(...hexToRgb(r.color))
-      doc.rect(margin + labelWidth, y, largura, barHeight, 'F')
-      doc.setDrawColor(210)
-      doc.rect(margin + labelWidth, y, barWidth, barHeight)
-      doc.setFont('helvetica', 'bold')
-      doc.text(`${fmtNumeroPdf(r.valor)} (${Math.round((r.valor / totalGeral) * 100)}%)`, margin + labelWidth + barWidth + 4, y + 4.2)
-      y += barHeight + 6
-    })
+    y = desenharResumoBarras(doc, margin, y, contentWidth, pageHeight, resumoStatus)
   }
 
   return doc
@@ -363,6 +346,32 @@ const desenharResumoPizza = (doc, margin, y, contentWidth, resumoStatus) => {
   })
 
   return y + Math.max(raio * 2 + 6, legendaY - y + 4)
+}
+
+// Desenha o gráfico de barras do resumo por status e retorna o novo "y" após o desenho
+const desenharResumoBarras = (doc, margin, y, contentWidth, pageHeight, resumoStatus) => {
+  const totalGeral = resumoStatus.reduce((s, r) => s + r.valor, 0) || 1
+  const labelWidth = 44
+  const valueWidth = 30
+  const barWidth = contentWidth - labelWidth - valueWidth
+  const barHeight = 6
+
+  resumoStatus.forEach(r => {
+    if (y > pageHeight - margin - 12) { doc.addPage(); y = margin }
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.text(r.label, margin, y + 4.2)
+    const largura = Math.max(1.5, (r.valor / totalGeral) * barWidth)
+    doc.setFillColor(...hexToRgb(r.color))
+    doc.rect(margin + labelWidth, y, largura, barHeight, 'F')
+    doc.setDrawColor(210)
+    doc.rect(margin + labelWidth, y, barWidth, barHeight)
+    doc.setFont('helvetica', 'bold')
+    doc.text(`${fmtNumeroPdf(r.valor)} (${Math.round((r.valor / totalGeral) * 100)}%)`, margin + labelWidth + barWidth + 4, y + 4.2)
+    y += barHeight + 6
+  })
+
+  return y
 }
 
 // Desenha um gráfico de barras cronológico (um valor por mês), usado no relatório anual
@@ -484,6 +493,9 @@ const hexToRgb = (hex) => {
 // Formata um número com separador de milhar e 2 casas decimais (ex: 1.000.000,00), usado nos gráficos do PDF
 const fmtNumeroPdf = (v) =>
   Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+const formatFaixaAluguel = (inicio, fim) =>
+  `${fmtMoney(inicio)} - ${fmtMoney(fim)}`
 
 // Formata uma chave de mês (YYYY-MM) de forma curta, ex: "Jan/2026"
 const formatMonthKeyShort = (monthKey) => {
@@ -613,6 +625,8 @@ export default function Dashboard() {
   const [historicoAlteracoes, setHistoricoAlteracoes] = useState([])
   const [historicoMesFiltro, setHistoricoMesFiltro] = useState(currentMonth)
   const [lucroAno, setLucroAno] = useState(currentYear)
+  const [rankingMes, setRankingMes] = useState(currentMonth)
+  const [faixaAluguelStatus, setFaixaAluguelStatus] = useState('ativos')
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [topFilter, setTopFilter] = useState('valor')
@@ -818,6 +832,30 @@ export default function Dashboard() {
     return soma / ativos.length
   }, [inquilinos])
 
+  const faixasAluguel = useMemo(() => {
+    const lista = inquilinos.filter(inquilino => {
+      if (faixaAluguelStatus === 'ativos') return inquilino.status === 'Ativo'
+      if (faixaAluguelStatus === 'inativos') return inquilino.status === 'Inativo'
+      return true
+    }).map(inquilino => Number(inquilino.valorAluguel) || 0).filter(valor => valor > 0)
+
+    if (lista.length === 0) return []
+
+    const passo = 500
+    const maiorFaixa = Math.floor(Math.max(...lista) / passo)
+    return Array.from({ length: maiorFaixa + 1 }, (_, indice) => {
+      const inicio = indice * passo
+      const fim = inicio + passo - 0.01
+      return {
+        inicio,
+        fim,
+        quantidade: lista.filter(valor => valor >= inicio && valor < inicio + passo).length,
+      }
+    }).filter(faixa => faixa.quantidade > 0)
+  }, [inquilinos, faixaAluguelStatus])
+
+  const maiorQuantidadeFaixaAluguel = Math.max(...faixasAluguel.map(faixa => faixa.quantidade), 0)
+
   const imoveisComGeoCount = useMemo(
     () => imoveis.filter(im => im.geo?.lat && im.geo?.lng).length,
     [imoveis]
@@ -912,59 +950,65 @@ export default function Dashboard() {
     return imovel?.nome || d.codigoImovel || ''
   }
 
+  const calcularLucroProprietario = (proprietario, mes) => {
+    return Object.entries(proprietario?.imoveisVinculos || {}).reduce((somaImovel, [imovelId, vinculo]) => {
+      const inquilino = inquilinos
+        .filter(item => {
+          if (item.imovelId !== imovelId) return false
+          const entrada = item.dataEntrada?.slice(0, 7)
+          const saida = item.dataSaida?.slice(0, 7)
+          return (!entrada || mes >= entrada) && (!saida || mes <= saida)
+        })
+        .sort((a, b) => (b.dataEntrada || '').localeCompare(a.dataEntrada || ''))[0]
+
+      if (!inquilino) return somaImovel
+
+      const valoresMes = valoresVariaveis[inquilino.id]?.[mes] || {}
+      const { _registrado = {}, _obs, extras = {}, ...valoresLancados } = valoresMes
+      const aluguel = '_aluguel' in valoresLancados
+        ? Number(valoresLancados._aluguel) || 0
+        : Number(inquilino.valorAluguel) || 0
+
+      const getValorConta = contaId => contaId in valoresLancados
+        ? Number(valoresLancados[contaId]) || 0
+        : Number(inquilino.contasValores?.[contaId]) || 0
+
+      const incidencia = vinculo.incidenciaTaxaAdm?.length ? vinculo.incidenciaTaxaAdm : []
+      const baseAdministrativa = incidencia.reduce((total, item) => {
+        if (item === 'aluguel') return total + aluguel
+        const termo = item === 'condominio' ? 'condom' : item === 'iptu' ? 'iptu' : 'serv'
+        const contaIds = new Set([
+          ...Object.keys(inquilino.contasValores || {}),
+          ...Object.keys(valoresLancados).filter(key => !key.startsWith('_')),
+        ])
+        return total + [...contaIds].reduce((somaContas, contaId) => {
+          const nomeConta = normalizeText(contasCatalogo.find(conta => conta.id === contaId)?.nome || contaId)
+          return nomeConta.includes(termo) ? somaContas + getValorConta(contaId) : somaContas
+        }, 0)
+      }, 0)
+
+      const taxaAdministrativa = baseAdministrativa * ((Number(vinculo.taxaAdministracao) || 0) / 100)
+      const taxaContrato = inquilino.dataEntrada?.slice(0, 7) === mes
+        ? aluguel * ((Number(vinculo.taxaContrato) || 0) / 100)
+        : 0
+
+      return somaImovel + taxaAdministrativa + taxaContrato
+    }, 0)
+  }
+
+  const rankingProprietarios = useMemo(() => proprietarios
+    .map(proprietario => {
+      const total = calcularLucroProprietario(proprietario, rankingMes)
+      return { id: proprietario.id, nome: proprietario.nome || 'Sem nome', total }
+    })
+    .filter(proprietario => proprietario.total > 0)
+    .sort((a, b) => b.total - a.total),
+  [proprietarios, inquilinos, contasCatalogo, valoresVariaveis, rankingMes])
+
   // Soma o lucro da imobiliária (Taxa Adm + Taxa Contrato) mês a mês para o ano selecionado.
   const lucroPorMes = useMemo(() => {
     const calcularLucroMes = (mes) => {
-      return proprietarios.reduce((somaProprietario, proprietario) => {
-        const lucroProprietario = Object.entries(proprietario?.imoveisVinculos || {}).reduce((somaImovel, [imovelId, vinculo]) => {
-          const inquilino = inquilinos
-            .filter(item => {
-              if (item.imovelId !== imovelId) return false
-              const entrada = item.dataEntrada?.slice(0, 7)
-              const saida = item.dataSaida?.slice(0, 7)
-              return (!entrada || mes >= entrada) && (!saida || mes <= saida)
-            })
-            .sort((a, b) => (b.dataEntrada || '').localeCompare(a.dataEntrada || ''))[0]
-
-          if (!inquilino) return somaImovel
-
-          const valoresMes = valoresVariaveis[inquilino.id]?.[mes] || {}
-          const { _registrado = {}, _obs, extras = {}, ...valoresLancados } = valoresMes
-          const aluguel = '_aluguel' in valoresLancados
-            ? Number(valoresLancados._aluguel) || 0
-            : Number(inquilino.valorAluguel) || 0
-
-          const getValorConta = contaId => contaId in valoresLancados
-            ? Number(valoresLancados[contaId]) || 0
-            : Number(inquilino.contasValores?.[contaId]) || 0
-
-          const incidencia = vinculo.incidenciaTaxaAdm?.length ? vinculo.incidenciaTaxaAdm : []
-          const baseAdministrativa = incidencia.reduce((total, item) => {
-            if (item === 'aluguel') return total + aluguel
-
-            const termo = item === 'condominio' ? 'condom' : item === 'iptu' ? 'iptu' : 'serv'
-            const contaIds = new Set([
-              ...Object.keys(inquilino.contasValores || {}),
-              ...Object.keys(valoresLancados).filter(key => !key.startsWith('_')),
-            ])
-            const valorContas = [...contaIds].reduce((somaContas, contaId) => {
-              const nomeConta = normalizeText(contasCatalogo.find(conta => conta.id === contaId)?.nome || contaId)
-              return nomeConta.includes(termo) ? somaContas + getValorConta(contaId) : somaContas
-            }, 0)
-            return total + valorContas
-          }, 0)
-
-          const taxaAdministrativa = baseAdministrativa * ((Number(vinculo.taxaAdministracao) || 0) / 100)
-          const primeiroAluguel = inquilino.dataEntrada?.slice(0, 7) === mes
-          const taxaContrato = primeiroAluguel
-            ? aluguel * ((Number(vinculo.taxaContrato) || 0) / 100)
-            : 0
-
-          return somaImovel + taxaAdministrativa + taxaContrato
-        }, 0)
-
-        return somaProprietario + lucroProprietario
-      }, 0)
+      return proprietarios.reduce((total, proprietario) => total + calcularLucroProprietario(proprietario, mes), 0)
     }
 
     return Array.from({ length: 12 }, (_, index) => {
@@ -1550,7 +1594,7 @@ export default function Dashboard() {
           (item.valorRecebido > 0 ? ` · Recebido: ${fmtMoney(item.valorRecebido)}` : '') +
           (item.mesReferencia ? ` · ${getMonthLabel(item.mesReferencia)}` : '') +
           (item.dataSeguro ? ` · Data Seguro: ${fmtDataCurta(item.dataSeguro)}` : ''),
-      ], resumoStatus)
+      ], resumoStatus, { posicao: 'inicio' })
       doc.save(`historico-alteracoes_${relatorioInicio || 'inicio'}_${relatorioFim || 'fim'}.pdf`)
     } else if (relatorioTipo === 'seguradoras') {
       const itens = eventosTimelineOrdenados.filter(item => dentroDoPeriodo(item.criadoEm))
@@ -1618,7 +1662,7 @@ export default function Dashboard() {
     <Layout title="Dashboard" subtitle="Visão geral do sistema de gestão">
       <div className="dashboard-page" ref={dashboardPageRef}>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-3">
-        <Card>
+        <Card className="min-w-0">
           <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center  bg-blue-500/10 text-blue-600">
               <Building2 className="size-4" />
@@ -1839,7 +1883,7 @@ export default function Dashboard() {
         </CardContent>
       </Card>
 
-      <div className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
+      <div className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2">
             <CardTitle className="text-sm">Inquilinos Ativos ao Longo do Tempo</CardTitle>
@@ -1907,7 +1951,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
             <div>
               <CardTitle className="text-sm">Lucro por Mês</CardTitle>
@@ -1923,7 +1967,7 @@ export default function Dashboard() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="px-2 py-2">
+          <CardContent className="min-w-0 px-2 py-2">
             {maxLucroValor <= 0 ? (
               <p className="py-6 text-center text-xs text-muted-foreground">Nenhum lucro calculado para {lucroAno}.</p>
             ) : (
@@ -1936,17 +1980,17 @@ export default function Dashboard() {
                   </p>
                 </div>
 
-                <div className="flex items-end gap-1">
+                <div className="flex min-w-0 items-end gap-1">
                   {lucroPorMes.map((m, index) => {
                     const isMax = m.total > 0 && m.total === maxLucroValor
                     const alturaPercentual = m.total > 0 ? Math.max((m.total / maxLucroValor) * 100, 4) : 0
                     return (
                       <div
                         key={m.mes}
-                        className="flex flex-1 flex-col items-center gap-1"
+                        className="flex min-w-0 flex-1 flex-col items-center gap-1"
                         title={`${MONTH_LABELS[index]} de ${lucroAno}: ${fmtMoney(m.total)}`}
                       >
-                        <span className="h-3 text-[9px] font-medium text-muted-foreground">
+                        <span className="h-3 max-w-full truncate text-[9px] font-medium text-muted-foreground">
                           {m.total > 0 ? fmtMoneyCompact(m.total) : ''}
                         </span>
                         <div className="flex w-full items-end justify-center" style={{ height: 80 }}>
@@ -1955,7 +1999,7 @@ export default function Dashboard() {
                             style={{ height: `${alturaPercentual}%` }}
                           />
                         </div>
-                        <span className={`text-[10px] ${isMax ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
+                        <span className={`max-w-full truncate text-[10px] ${isMax ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
                           {MONTH_LABELS[index]}
                         </span>
                       </div>
@@ -1963,6 +2007,43 @@ export default function Dashboard() {
                   })}
                 </div>
               </>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="min-h-0">
+          <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
+            <div>
+              <CardTitle className="text-sm">Top Proprietários</CardTitle>
+              <CardDescription className="text-[11px]">Taxa Adm + Taxa de Contrato no mês</CardDescription>
+            </div>
+            <input
+              type="month"
+              value={rankingMes}
+              onChange={e => setRankingMes(e.target.value)}
+              className="h-7 min-w-0 rounded-md border px-1.5 text-[11px]"
+              aria-label="Mês do ranking de proprietários"
+            />
+          </CardHeader>
+          <CardContent className="min-h-0 px-2 py-2">
+            {rankingProprietarios.length === 0 ? (
+              <p className="py-6 text-center text-xs text-muted-foreground">
+                Nenhum proprietário com lucro em {formatMonthKeyShort(rankingMes)}.
+              </p>
+            ) : (
+              <div className="flex max-h-[250px] flex-col gap-1 overflow-y-auto pr-1">
+                {rankingProprietarios.map((proprietario, index) => (
+                  <div key={proprietario.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/50">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Badge variant={index === 0 ? 'default' : 'secondary'} className="h-5 w-5 shrink-0 justify-center rounded-full p-0 text-[10px]">
+                        {index === 0 ? <Trophy className="size-3" /> : `#${index + 1}`}
+                      </Badge>
+                      <p className="truncate text-xs font-medium">{proprietario.nome}</p>
+                    </div>
+                    <strong className="shrink-0 text-xs text-emerald-700">{fmtMoney(proprietario.total)}</strong>
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -2720,6 +2801,51 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mb-3">
+        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="size-4 text-blue-600" />
+            <div>
+              <CardTitle className="text-sm">Quantidade de Aluguéis por Faixa de Preço</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Distribuição dos inquilinos conforme o valor cadastrado do aluguel.
+              </CardDescription>
+            </div>
+          </div>
+          <Tabs value={faixaAluguelStatus} onValueChange={setFaixaAluguelStatus}>
+            <TabsList>
+              <TabsTrigger value="ativos">Ativos</TabsTrigger>
+              <TabsTrigger value="inativos">Inativos</TabsTrigger>
+              <TabsTrigger value="todos">Ativos + Inativos</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </CardHeader>
+        <CardContent className="p-3">
+          {faixasAluguel.length === 0 ? (
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              Nenhum inquilino com valor de aluguel cadastrado para o filtro selecionado.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2" aria-label="Gráfico de quantidade de aluguéis por faixa de preço">
+              {faixasAluguel.map(faixa => (
+                <div key={faixa.inicio} className="grid grid-cols-[minmax(110px,150px)_1fr_44px] items-center gap-2 text-xs">
+                  <span className="truncate text-muted-foreground" title={formatFaixaAluguel(faixa.inicio, faixa.fim)}>
+                    {formatFaixaAluguel(faixa.inicio, faixa.fim)}
+                  </span>
+                  <div className="h-5 overflow-hidden rounded-sm bg-muted" role="img" aria-label={`${faixa.quantidade} aluguel(is)`}>
+                    <div
+                      className="h-full rounded-sm bg-blue-500 transition-all"
+                      style={{ width: `${(faixa.quantidade / maiorQuantidadeFaixaAluguel) * 100}%` }}
+                    />
+                  </div>
+                  <strong className="text-right text-foreground">{faixa.quantidade}</strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {relatorioTipo && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>

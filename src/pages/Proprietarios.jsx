@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Users, UserCheck, UserX, Plus, Upload, RotateCcw, Search, Pencil, Trash2, HandCoins, FileText, Percent, Eye, X, Trophy } from 'lucide-react'
+import { Users, UserCheck, UserX, Plus, Upload, RotateCcw, Search, Pencil, Trash2, HandCoins, FileText, Percent, Eye, X } from 'lucide-react'
 import { normalizeText } from '@/lib/utils'
 import './Proprietarios.css'
 
@@ -176,10 +176,6 @@ export default function Proprietarios() {
   const [dragOverKey, setDragOverKey] = useState(null)
   const [extratoProprietario, setExtratoProprietario] = useState(null)
   const [extratoMes, setExtratoMes] = useState(() => new Date().toISOString().slice(0, 7))
-
-  // Ranking de proprietários por Taxa Adm + Taxa Contrato
-  const [rankingMes, setRankingMes] = useState(() => new Date().toISOString().slice(0, 7))
-  const [showRankingModal, setShowRankingModal] = useState(false)
 
   useEffect(() => {
     const r = ref(db, 'proprietarios')
@@ -351,25 +347,6 @@ export default function Proprietarios() {
       return total
     }, { repasse: 0, taxaContrato: 0, taxaAdministrativa: 0 })
   }, [proprietarios, inquilinos, contasCatalogo, valoresVariaveis])
-
-  // Ranking dos proprietários que mais geram Taxa Adm + Taxa Contrato no mês selecionado
-  const rankingProprietarios = useMemo(() => {
-    return proprietarios
-      .map(proprietario => {
-        const totais = calcularExtrato(proprietario, rankingMes).totais
-        return {
-          id: proprietario.id,
-          nome: proprietario.nome || 'Sem nome',
-          totalTaxaAdm: totais.taxaAdministrativa,
-          totalTaxaContrato: totais.taxaContrato,
-          total: totais.taxaAdministrativa + totais.taxaContrato,
-        }
-      })
-      .filter(p => p.total > 0)
-      .sort((a, b) => b.total - a.total)
-  }, [proprietarios, inquilinos, contasCatalogo, valoresVariaveis, rankingMes])
-
-  const topRankingProprietarios = rankingProprietarios.slice(0, 5)
 
   const extratoSelecionado = useMemo(
     () => calcularExtrato(extratoProprietario, extratoMes),
@@ -891,65 +868,6 @@ export default function Proprietarios() {
 
         </div>
 
-        {/* ── Top Proprietários por Taxa Adm + Taxa Contrato ── */}
-        <Card className="xl:sticky xl:top-4">
-          <CardHeader className="gap-2 border-b pb-3">
-            <div>
-              <CardTitle className="text-sm">Top Proprietários</CardTitle>
-              <CardDescription className="text-xs">Taxa Adm + Taxa Contrato no mês</CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-              <Input
-                type="month"
-                value={rankingMes}
-                onChange={e => setRankingMes(e.target.value)}
-                className="h-8 flex-1 text-xs"
-              />
-              {rankingProprietarios.length > 0 && (
-                <Button variant="outline" size="sm" className="h-8 shrink-0 text-xs" onClick={() => setShowRankingModal(true)}>
-                  Ver tudo
-                </Button>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {rankingProprietarios.length === 0 ? (
-              <p className="py-6 text-center text-xs text-muted-foreground">
-                Nenhum proprietário com Taxa Adm ou Taxa Contrato em {formatCompetencia(rankingMes)}.
-              </p>
-            ) : (
-              <div className="flex flex-col gap-1.5">
-                {topRankingProprietarios.map((p, index) => (
-                  <div key={p.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/50">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Badge variant={index === 0 ? 'default' : 'secondary'} className="h-5 w-5 shrink-0 justify-center rounded-full p-0 text-[10px]">
-                        {index === 0 ? <Trophy className="size-3" /> : `#${index + 1}`}
-                      </Badge>
-                      <div className="min-w-0">
-                        <p className="truncate text-xs font-medium">{p.nome}</p>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          Adm: {formatMoney(p.totalTaxaAdm)} · Contrato: {formatMoney(p.totalTaxaContrato)}
-                        </p>
-                      </div>
-                    </div>
-                    <strong className="shrink-0 text-xs text-emerald-700">{formatMoney(p.total)}</strong>
-                  </div>
-                ))}
-
-                {rankingProprietarios.length > topRankingProprietarios.length && (
-                  <button
-                    type="button"
-                    className="link-btn"
-                    style={{ alignSelf: 'flex-start', fontSize: 11, marginTop: 2 }}
-                    onClick={() => setShowRankingModal(true)}
-                  >
-                    Ver todos os {rankingProprietarios.length} →
-                  </button>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
 
       <Card>
@@ -1111,58 +1029,6 @@ export default function Proprietarios() {
         </div>
       )}
 
-      {showRankingModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="ranking-proprietarios-titulo"
-          onMouseDown={e => e.target === e.currentTarget && setShowRankingModal(false)}
-          style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15, 23, 42, 0.55)' }}
-        >
-          <div style={{ width: 'min(560px, 96vw)', maxHeight: '80vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', borderRadius: 8, background: '#fff', boxShadow: '0 24px 60px rgba(15, 23, 42, 0.25)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '14px 18px', borderBottom: '1px solid var(--border)' }}>
-              <div>
-                <h2 id="ranking-proprietarios-titulo" style={{ margin: 0, fontSize: 16 }}>Ranking de Taxa Adm + Taxa Contrato</h2>
-                <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-secondary)' }}>{formatCompetencia(rankingMes)}</p>
-              </div>
-              <Button variant="outline" size="icon" onClick={() => setShowRankingModal(false)} title="Fechar ranking">
-                <X />
-              </Button>
-            </div>
-
-            <div style={{ overflowY: 'auto', padding: '12px 18px 18px' }}>
-              {rankingProprietarios.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  Nenhum proprietário com Taxa Adm ou Taxa Contrato neste mês.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-1.5">
-                  {rankingProprietarios.map((p, index) => (
-                    <div
-                      key={p.id}
-                      className="flex items-center justify-between gap-2 rounded-md px-2 py-2"
-                      style={{ background: index < 3 ? '#f0fdf4' : 'transparent' }}
-                    >
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <Badge variant={index === 0 ? 'default' : 'secondary'} className="h-6 w-6 justify-center rounded-full p-0">
-                          {index === 0 ? <Trophy className="size-3.5" /> : `#${index + 1}`}
-                        </Badge>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">{p.nome}</p>
-                          <p className="text-xs text-muted-foreground">
-                            Adm: {formatMoney(p.totalTaxaAdm)} · Contrato: {formatMoney(p.totalTaxaContrato)}
-                          </p>
-                        </div>
-                      </div>
-                      <strong className="shrink-0 text-sm text-emerald-700">{formatMoney(p.total)}</strong>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </Layout>
   )
 }
