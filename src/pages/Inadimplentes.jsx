@@ -332,6 +332,14 @@ export default function Inadimplentes() {
     await update(ref(db, `inadimplencias/${id}`), { dataSeguro: value })
   }
 
+  const handleDataVencimentoChange = async (id, value) => {
+    await update(ref(db, `inadimplencias/${id}`), { dataVencimento: value })
+  }
+
+  const handleDataPagamentoChange = async (id, value) => {
+    await update(ref(db, `inadimplencias/${id}`), { dataPagamento: value })
+  }
+
   // Altera a garantia/seguro no cadastro do inquilino (fonte oficial) e, se o débito
   // guardar uma cópia própria desses campos, mantém essa cópia sincronizada também.
   const handleGarantiaChange = async (d, novaGarantia) => {
@@ -648,6 +656,8 @@ export default function Inadimplentes() {
                   <th>Total c/ Encargos</th>
                   <th>Valor Recebido</th>
                   <th>Mês Ref.</th>
+                  <th>Vencimento Boleto</th>
+                  <th>Data Pagamento</th>
                   <th>Garantia</th>
                   <th>Seguro Acionado</th>
                   <th>Data Seguro</th>
@@ -674,6 +684,8 @@ export default function Inadimplentes() {
                       style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                     />
                   </th>
+                  <th></th>
+                  <th></th>
                   <th></th>
                   <th></th>
                   <th>
@@ -752,7 +764,7 @@ export default function Inadimplentes() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={11}>
+                    <td colSpan={13}>
                       <div className="empty-state">
                         <div className="es-icon">✅</div>
                         <h3>Nenhum débito encontrado</h3>
@@ -796,6 +808,24 @@ export default function Inadimplentes() {
                       />
                     </td>
                     <td>{d.mesReferencia ? formatMonthShort(d.mesReferencia) : '—'}</td>
+                    <td>
+                      <input
+                        type="date"
+                        value={d.dataVencimento || ''}
+                        onChange={e => handleDataVencimentoChange(d.id, e.target.value)}
+                        aria-label={`Data de vencimento do boleto de ${getInquilinoNome(d)}`}
+                        style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="date"
+                        value={d.dataPagamento || ''}
+                        onChange={e => handleDataPagamentoChange(d.id, e.target.value)}
+                        aria-label={`Data de pagamento de ${getInquilinoNome(d)}`}
+                        style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                      />
+                    </td>
                     <td>
                       {(() => {
                         const { key: gKey, label: g, seguro: seguroNome } = getGarantia(d)

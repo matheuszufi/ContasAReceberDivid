@@ -512,6 +512,20 @@ const toYmd = (date) => {
   return `${y}-${m}-${d}`
 }
 
+const calcularDiasEntreDatas = (dataInicial, dataFinal) => {
+  if (!dataInicial || !dataFinal) return null
+  const inicio = new Date(`${dataInicial}T00:00:00`)
+  const fim = new Date(`${dataFinal}T00:00:00`)
+  if (Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime())) return null
+  return Math.round((fim - inicio) / (1000 * 60 * 60 * 24))
+}
+
+const formatarDataCurta = (value) => {
+  if (!value) return '—'
+  const [year, month, day] = value.split('-')
+  return day && month && year ? `${day}/${month}/${year}` : value
+}
+
 // Monta a série mensal do total de inquilinos ativos entre duas datas (contrato vigente
 // em algum momento do mês, considerando dataEntrada/dataSaida), usada no gráfico cronológico
 const buildInquilinosAtivosChronData = (inquilinos, startDate, endDate) => {
@@ -855,6 +869,27 @@ export default function Dashboard() {
   }, [inquilinos, faixaAluguelStatus])
 
   const maiorQuantidadeFaixaAluguel = Math.max(...faixasAluguel.map(faixa => faixa.quantidade), 0)
+
+  const inadimplenciasRecebidas = useMemo(() => inadimplencias
+    .filter(debito => debito.status === 'pago' && debito.dataVencimento && debito.dataPagamento)
+    .map(debito => ({
+      ...debito,
+      diasAtePagamento: calcularDiasEntreDatas(debito.dataVencimento, debito.dataPagamento),
+    }))
+    .filter(debito => debito.diasAtePagamento !== null && debito.diasAtePagamento >= 0)
+    .sort((a, b) => b.dataPagamento.localeCompare(a.dataPagamento)),
+  [inadimplencias])
+
+  const mediaDiasAtePagamento = useMemo(() => {
+    if (inadimplenciasRecebidas.length === 0) return 0
+    const totalDias = inadimplenciasRecebidas.reduce((total, debito) => total + debito.diasAtePagamento, 0)
+    return totalDias / inadimplenciasRecebidas.length
+  }, [inadimplenciasRecebidas])
+
+  const maiorDiasAtePagamento = useMemo(
+    () => Math.max(...inadimplenciasRecebidas.map(debito => debito.diasAtePagamento), 0),
+    [inadimplenciasRecebidas]
+  )
 
   const imoveisComGeoCount = useMemo(
     () => imoveis.filter(im => im.geo?.lat && im.geo?.lng).length,
@@ -2842,6 +2877,63 @@ export default function Dashboard() {
                   <strong className="text-right text-foreground">{faixa.quantidade}</strong>
                 </div>
               ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-3">
+        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
+          <div className="flex items-center gap-2">
+            <Clock className="size-4 text-emerald-600" />
+            <div>
+              <CardTitle className="text-sm">Tempo para Receber Inadimplências</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Dias corridos entre o vencimento do boleto e a data de pagamento informada na planilha.
+              </CardDescription>
+            </div>
+          </div>
+          {inadimplenciasRecebidas.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <Badge variant="secondary">
+                Média: {mediaDiasAtePagamento.toFixed(1).replace('.', ',')} dias
+              </Badge>
+              <Badge variant="secondary">
+                Maior prazo: {maiorDiasAtePagamento} dias
+              </Badge>
+            </div>
+          )}
+        </CardHeader>
+        <CardContent className="p-2">
+          {inadimplenciasRecebidas.length === 0 ? (
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              Nenhuma inadimplência paga com vencimento e data de pagamento informados.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <div className="min-w-[620px] divide-y">
+                <div className="grid grid-cols-[minmax(180px,1fr)_120px_120px_100px] gap-2 px-2 py-1.5 text-[11px] font-semibold text-muted-foreground">
+                  <span>Inquilino</span>
+                  <span>Vencimento</span>
+                  <span>Pagamento</span>
+                  <span className="text-right">Tempo</span>
+                </div>
+                {inadimplenciasRecebidas.map(debito => (
+                  <div
+                    key={debito.id}
+                    className="grid grid-cols-[minmax(180px,1fr)_120px_120px_100px] items-center gap-2 px-2 py-2 text-xs"
+                  >
+                    <span className="truncate font-medium" title={debito.inquilinoNome || 'Sem nome'}>
+                      {debito.inquilinoNome || 'Sem nome'}
+                    </span>
+                    <span className="text-muted-foreground">{formatarDataCurta(debito.dataVencimento)}</span>
+                    <span className="text-muted-foreground">{formatarDataCurta(debito.dataPagamento)}</span>
+                    <strong className="text-right text-emerald-700">
+                      {debito.diasAtePagamento} {debito.diasAtePagamento === 1 ? 'dia' : 'dias'}
+                    </strong>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </CardContent>
