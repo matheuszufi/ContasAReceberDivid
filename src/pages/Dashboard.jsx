@@ -1195,6 +1195,31 @@ export default function Dashboard() {
     return filteredInadimplencias.filter(d => keys.has(getMonthKey(d)))
   }, [filteredInadimplencias, periodMonthKeys])
 
+  const inquilinosInadimplentesNoPeriodo = useMemo(() => {
+    const ids = new Set()
+    periodDebts
+      .filter(debito => debito.status !== 'pago')
+      .forEach(debito => ids.add(debito.inquilinoId || debito.inquilinoNome || debito.id))
+    return ids.size
+  }, [periodDebts])
+
+  const totalInquilinos = inquilinos.length
+  const percentualInquilinosInadimplentes = totalInquilinos > 0
+    ? Math.round((inquilinosInadimplentesNoPeriodo / totalInquilinos) * 100)
+    : 0
+  const percentualInquilinosSemInadimplencia = Math.max(0, 100 - percentualInquilinosInadimplentes)
+
+  const inquilinosComRegistroNoPeriodo = useMemo(() => {
+    const ids = new Set()
+    periodDebts.forEach(debito => ids.add(debito.inquilinoId || debito.inquilinoNome || debito.id))
+    return ids.size
+  }, [periodDebts])
+
+  const percentualInquilinosComRegistro = totalInquilinos > 0
+    ? Math.round((inquilinosComRegistroNoPeriodo / totalInquilinos) * 100)
+    : 0
+  const percentualInquilinosSemRegistro = Math.max(0, 100 - percentualInquilinosComRegistro)
+
   const periodPagas = useMemo(
     () => periodDebts.filter(d => d.status === 'pago'),
     [periodDebts]
@@ -2066,7 +2091,7 @@ export default function Dashboard() {
                 Nenhum proprietário com lucro em {formatMonthKeyShort(rankingMes)}.
               </p>
             ) : (
-              <div className="flex max-h-[250px] flex-col gap-1 overflow-y-auto pr-1">
+              <div className="flex max-h-[190px] flex-col gap-1 overflow-y-auto pr-1">
                 {rankingProprietarios.map((proprietario, index) => (
                   <div key={proprietario.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/50">
                     <div className="flex min-w-0 items-center gap-2">
@@ -2459,6 +2484,151 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-3">
+        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
+          <div>
+            <CardTitle className="text-sm">Percentual de Inquilinos Inadimplentes</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              Comparação entre inquilinos inadimplentes e o total de inquilinos em {selectedPeriodLabel.toLowerCase()}.
+            </CardDescription>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            <label className="sr-only" htmlFor="percentual-ano">Ano de referência</label>
+            <input
+              id="percentual-ano"
+              type="number"
+              value={selectedYear}
+              onChange={e => {
+                const year = e.target.value
+                setSelectedYear(year)
+                if (selectedMonth) setSelectedMonth(`${year}-${selectedMonth.slice(-2)}`)
+              }}
+              className="h-7 w-20 rounded-md border px-1.5 text-xs"
+              aria-label="Ano de referência"
+            />
+            <label className="sr-only" htmlFor="percentual-mes">Mês de referência</label>
+            <select
+              id="percentual-mes"
+              value={periodMode === 'month' ? selectedMonth || '' : ''}
+              onChange={e => {
+                if (!e.target.value) {
+                  setSelectedMonth(null)
+                  setPeriodMode('ano')
+                  return
+                }
+                setSelectedMonth(e.target.value)
+                setPeriodMode('month')
+              }}
+              className="h-7 rounded-md border px-1.5 text-xs"
+              aria-label="Mês de referência"
+            >
+              <option value="">Todos os meses</option>
+              {MONTH_FULL_LABELS.map((label, index) => {
+                const monthKey = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
+                return <option key={monthKey} value={monthKey}>{label}</option>
+              })}
+            </select>
+            <Badge variant="secondary" className="shrink-0 text-xs">{totalInquilinos} inquilino{totalInquilinos === 1 ? '' : 's'}</Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 gap-4 p-3 xl:grid-cols-2">
+          {totalInquilinos === 0 ? (
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              Nenhum inquilino cadastrado para calcular o percentual.
+            </p>
+          ) : (
+            <>
+            <div className="min-w-0 rounded-md border bg-muted/10 p-2">
+              <div className="mb-2">
+                <h4 className="text-sm font-medium">Inadimplência em Aberto</h4>
+                <p className="text-xs text-muted-foreground">Inquilinos com débitos ainda não pagos no período.</p>
+              </div>
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[180px_1fr]">
+              <div className="relative mx-auto size-40" aria-label={`Gráfico de ${percentualInquilinosInadimplentes}% de inquilinos inadimplentes`}>
+                <svg viewBox="0 0 120 120" className="size-full -rotate-90">
+                  <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="22" />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="40"
+                    fill="none"
+                    stroke="#f97316"
+                    strokeWidth="22"
+                    strokeDasharray={`${(percentualInquilinosInadimplentes / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (percentualInquilinosInadimplentes / 100) * DONUT_CIRCUMFERENCE}`}
+                    strokeLinecap="butt"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <strong className="text-2xl font-bold">{percentualInquilinosInadimplentes}%</strong>
+                  <span className="text-[11px] text-muted-foreground">inadimplentes</span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-2 text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="size-2.5 shrink-0 rounded-full bg-orange-500" />
+                    Inquilinos inadimplentes
+                  </span>
+                  <strong>{inquilinosInadimplentesNoPeriodo} ({percentualInquilinosInadimplentes}%)</strong>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="size-2.5 shrink-0 rounded-full bg-slate-200" />
+                    Sem inadimplência no período
+                  </span>
+                  <strong>{totalInquilinos - inquilinosInadimplentesNoPeriodo} ({percentualInquilinosSemInadimplencia}%)</strong>
+                </div>
+              </div>
+              </div>
+            </div>
+            <div className="flex min-w-0 flex-col justify-center rounded-md border bg-muted/10 p-2">
+              <div className="mb-2">
+                <h4 className="text-sm font-medium">Histórico de Inadimplência</h4>
+                <p className="text-xs text-muted-foreground">Inquilinos com qualquer registro no período, pago ou em aberto.</p>
+              </div>
+              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[180px_1fr]">
+                <div className="relative mx-auto size-40" aria-label={`Gráfico de ${percentualInquilinosComRegistro}% de inquilinos com registro de inadimplência`}>
+                  <svg viewBox="0 0 120 120" className="size-full -rotate-90">
+                    <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="22" />
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="40"
+                      fill="none"
+                      stroke="#2563eb"
+                      strokeWidth="22"
+                      strokeDasharray={`${(percentualInquilinosComRegistro / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (percentualInquilinosComRegistro / 100) * DONUT_CIRCUMFERENCE}`}
+                      strokeLinecap="butt"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <strong className="text-2xl font-bold">{percentualInquilinosComRegistro}%</strong>
+                    <span className="text-[11px] text-muted-foreground">com registro</span>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="size-2.5 shrink-0 rounded-full bg-blue-600" />
+                      Com registro de inadimplência
+                    </span>
+                    <strong>{inquilinosComRegistroNoPeriodo} ({percentualInquilinosComRegistro}%)</strong>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-1.5 text-muted-foreground">
+                      <span className="size-2.5 shrink-0 rounded-full bg-slate-200" />
+                      Sem registro de inadimplência
+                    </span>
+                    <strong>{totalInquilinos - inquilinosComRegistroNoPeriodo} ({percentualInquilinosSemRegistro}%)</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+            </>
+          )}
         </CardContent>
       </Card>
 
