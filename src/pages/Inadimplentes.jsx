@@ -32,6 +32,7 @@ const STATUS_OPCOES = [
   { value: 'acordo',          label: 'Acordo',            bg: '#fffbeb',   color: '#b45309', border: '#fde68a' },
   { value: 'juridico',        label: 'Jurídico',          bg: '#fef2f2',   color: '#b91c1c', border: '#fecaca' },
   { value: 'pago',            label: 'Pago',              bg: '#f0fdf4',   color: '#166534', border: '#86efac' },
+  { value: 'pago_caucao',     label: 'Pago com caução',   bg: '#ecfdf5',   color: '#047857', border: '#6ee7b7' },
 ]
 
 const SEGURO_ACIONADO_OPCOES = [
@@ -40,6 +41,7 @@ const SEGURO_ACIONADO_OPCOES = [
   { value: 'aguardar_para_acionar', label: 'Aguardar para Acionar', bg: '#adadad8a', color: '#555555', border: '#585858' },
   { value: 'necessita_documentos',  label: 'Necessita Documentos',  bg: '#fffbeb', color: '#b45309', border: '#fde68a' },
   { value: 'pagamento_aprovado',    label: 'Pagamento Aprovado',    bg: '#f0fdf4', color: '#166534', border: '#86efac' },
+  { value: 'pago_pela_seguradora',  label: 'Pago pela seguradora',  bg: '#ecfeff', color: '#0e7490', border: '#67e8f9' },
   { value: 'pagamento_reprovado',   label: 'Pagamento Reprovado',   bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
   { value: 'juridico',   label: 'Jurídico',   bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
 ]
@@ -70,6 +72,9 @@ const GARANTIA_STYLE = {
   adiantamento: { bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd', icon: '💵' },
   sem_garantia: { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0', icon: '🚫' },
 }
+
+const isStatusRecuperado = status => status === 'pago' || status === 'pago_caucao'
+const isSeguroRecuperado = seguroAcionado => seguroAcionado === 'pago_pela_seguradora'
 
 const fmtMoney = (v) =>
   'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
@@ -131,8 +136,8 @@ function buildMonthGroups(debitos) {
 }
 
 function monthStats(list) {
-  const pending = list.filter(d => d.status !== 'pago')
-  const paid    = list.filter(d => d.status === 'pago')
+  const pending = list.filter(d => !isStatusRecuperado(d.status))
+  const paid    = list.filter(d => isStatusRecuperado(d.status))
   const uniqueInq = new Set(pending.map(d => d.inquilinoId).filter(Boolean))
   return {
     totalInadimplentes: uniqueInq.size || pending.length,
@@ -143,7 +148,7 @@ function monthStats(list) {
 }
 
 // Por padrão o filtro de status mostra tudo, exceto os débitos já pagos
-const DEFAULT_STATUS_FILTRO = STATUS_OPCOES.filter(o => o.value !== 'pago').map(o => o.value)
+const DEFAULT_STATUS_FILTRO = STATUS_OPCOES.filter(o => !isStatusRecuperado(o.value)).map(o => o.value)
 
 const isDefaultStatusFiltro = (arr) =>
   arr.length === DEFAULT_STATUS_FILTRO.length && DEFAULT_STATUS_FILTRO.every(v => arr.includes(v))
@@ -312,9 +317,36 @@ export default function Inadimplentes() {
   }
 
   const handleStatusChange = async (d, value) => {
+    if (value === 'pago_caucao') {
+      const garantia = getGarantia(d).key
+      if (garantia !== 'caucao' && garantia !== 'adiantamento') {
+        alert('O status Pago com caução só pode ser usado para caução ou adiantamento.')
+        return
+      }
+    }
     const anterior = STATUS_OPCOES.find(o => o.value === d.status) || STATUS_OPCOES[0]
     const novo = STATUS_OPCOES.find(o => o.value === value) || STATUS_OPCOES[0]
     await update(ref(db, `inadimplencias/${d.id}`), { status: value })
+
+    if (d.inquilinoId && anterior.value !== novo.value) {
+      const inquilino = inquilinos.find(item => item.id === d.inquilinoId)
+      const valorDebito = Number(d.valorTotal || d.valorOriginal || 0)
+      const totalGarantia = Number(inquilino?.valorGarantia || 0)
+      const utilizadoAtual = Number(inquilino?.valorGarantiaUtilizado || 0)
+      const variacao = novo.value === 'pago_caucao'
+        ? valorDebito
+        : anterior.value === 'pago_caucao'
+          ? -valorDebito
+          : 0
+
+      if (variacao !== 0) {
+        const utilizadoNovo = Math.max(0, Math.min(totalGarantia, utilizadoAtual + variacao))
+        await update(ref(db, `inquilinos/${d.inquilinoId}`), {
+          valorGarantiaUtilizado: utilizadoNovo,
+          valorGarantiaRestante: Math.max(0, totalGarantia - utilizadoNovo),
+        })
+      }
+    }
     if (anterior.value !== novo.value) {
       await registrarHistorico(d, 'status', 'Status', anterior.value, anterior.label, novo.value, novo.label)
     }
@@ -425,9 +457,9 @@ export default function Inadimplentes() {
     .filter(d => colFilters.status.includes(STATUS_OPCOES.find(o => o.value === d.status)?.value || 'selecione')),
   [baseSemStatus, colFilters.status])
 
-  const pendentes    = baseSemStatus.filter(d => d.status !== 'pago')
+  const pendentes    = baseSemStatus.filter(d => !isStatusRecuperado(d.status) && !isSeguroRecuperado(d.seguroAcionado))
   const totalAberto  = pendentes.reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
-  const totalRecup   = baseSemStatus.filter(d => d.status === 'pago').reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
+  const totalRecup   = baseSemStatus.filter(d => isStatusRecuperado(d.status) || isSeguroRecuperado(d.seguroAcionado)).reduce((s, d) => s + (d.valorTotal || d.valorOriginal || 0), 0)
 
   // Ranking dos inquilinos ativos com mais inadimplências cadastradas (histórico completo, não só em aberto)
   const rankingInadimplentes = (() => {
@@ -901,7 +933,7 @@ export default function Inadimplentes() {
                               cursor: 'pointer'
                             }}
                           >
-                            {SEGURO_ACIONADO_OPCOES.map(o => (
+                            {SEGURO_ACIONADO_OPCOES.filter(o => o.value !== 'pago_pela_seguradora' || getGarantia(d).key === 'seguro').map(o => (
                               <option key={o.value} value={o.value}>{o.label}</option>
                             ))}
                           </select>
@@ -931,7 +963,7 @@ export default function Inadimplentes() {
                               cursor: 'pointer'
                             }}
                           >
-                            {STATUS_OPCOES.map(o => (
+                            {STATUS_OPCOES.filter(o => o.value !== 'pago_caucao' || ['caucao', 'adiantamento'].includes(getGarantia(d).key)).map(o => (
                               <option key={o.value} value={o.value}>{o.label}</option>
                             ))}
                           </select>

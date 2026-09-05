@@ -32,6 +32,19 @@ const formatPhone = (v) => {
   return d.replace(/(\d{2})(\d{5})(\d{0,4})/, '($1) $2-$3').trim()
 }
 
+const formatMoney = value => Number(value || 0).toLocaleString('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+})
+
+const formatMonth = monthKey => {
+  if (!monthKey) return 'Mês não informado'
+  const [year, month] = monthKey.split('-')
+  return new Date(Number(year), Number(month) - 1, 1)
+    .toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+    .replace(/^./, char => char.toUpperCase())
+}
+
 const initialForm = {
   nome: '',
   locatario: '',
@@ -60,6 +73,8 @@ const initialForm = {
   valorSeguro: '',
   seguroCobradoBoleto: false,
   valorGarantia: '',
+  valorGarantiaUtilizado: '',
+  valorGarantiaRestante: '',
   seguroFiancaMesInicio: '',
   seguroFiancaMesFim: '',
   seguroIncendioMesInicio: '',
@@ -75,6 +90,7 @@ export default function CadastrarInquilino() {
   const [imoveis, setImoveis] = useState([])
   const [segurosCatalogo, setSegurosCatalogo] = useState([])
   const [contasCatalogo, setContasCatalogo] = useState([])
+  const [inadimplencias, setInadimplencias] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [buscaImovel, setBuscaImovel] = useState('')
@@ -120,6 +136,24 @@ export default function CadastrarInquilino() {
       setContasCatalogo(data ? Object.entries(data).map(([id, v]) => ({ id, ...v })) : [])
     })
   }, [])
+
+  useEffect(() => {
+    if (!id) {
+      setInadimplencias([])
+      return undefined
+    }
+
+    return onValue(ref(db, 'inadimplencias'), snap => {
+      const data = snap.val()
+      const utilizadas = data
+        ? Object.entries(data)
+          .map(([debitoId, value]) => ({ id: debitoId, ...value }))
+          .filter(debito => debito.inquilinoId === id && debito.status === 'pago_caucao')
+          .sort((a, b) => (b.mesReferencia || b.dataVencimento || '').localeCompare(a.mesReferencia || a.dataVencimento || ''))
+        : []
+      setInadimplencias(utilizadas)
+    })
+  }, [id])
 
   useEffect(() => {
     if (!isEdit) return
@@ -207,6 +241,8 @@ export default function CadastrarInquilino() {
         valorSeguro: value === 'seguro' ? prev.valorSeguro : '',
         seguroCobradoBoleto: value === 'seguro' ? prev.seguroCobradoBoleto : false,
         valorGarantia: (value === 'caucao' || value === 'adiantamento') ? prev.valorGarantia : '',
+        valorGarantiaUtilizado: (value === 'caucao' || value === 'adiantamento') ? prev.valorGarantiaUtilizado : '',
+        valorGarantiaRestante: (value === 'caucao' || value === 'adiantamento') ? prev.valorGarantiaRestante : '',
       }))
     } else {
       setForm(prev => ({ ...prev, [name]: value }))
@@ -286,6 +322,8 @@ export default function CadastrarInquilino() {
       valorSeguro: parseFloat(form.valorSeguro) || 0,
       seguroCobradoBoleto: form.garantia === 'seguro' ? !!form.seguroCobradoBoleto : false,
       valorGarantia: parseFloat(form.valorGarantia) || 0,
+      valorGarantiaUtilizado: parseFloat(form.valorGarantiaUtilizado) || 0,
+      valorGarantiaRestante: Math.max(0, (parseFloat(form.valorGarantia) || 0) - (parseFloat(form.valorGarantiaUtilizado) || 0)),
     }
 
 
@@ -743,13 +781,61 @@ required
             )}
 
             {(form.garantia === 'caucao' || form.garantia === 'adiantamento') && (
-              <div className="form-group" style={{ marginBottom: '20px' }}>
-                <label>{`Valor d${form.garantia === 'caucao' ? 'a Caução' : 'o Adiantamento'} (R$)`}</label>
-                <input
-                  name="valorGarantia" type="number" step="0.01" min="0"
-                  value={form.valorGarantia} onChange={handleChange}
-                  placeholder="0,00"
-                />
+              <div className="form-grid form-grid-3" style={{ marginBottom: '20px' }}>
+                <div className="form-group">
+                  <label>{`Valor d${form.garantia === 'caucao' ? 'a Caução' : 'o Adiantamento'} (R$)`}</label>
+                  <input
+                    name="valorGarantia" type="number" step="0.01" min="0"
+                    value={form.valorGarantia} onChange={handleChange}
+                    placeholder="0,00"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Valor utilizado (R$)</label>
+                  <input
+                    name="valorGarantiaUtilizado" type="number" step="0.01" min="0"
+                    value={form.valorGarantiaUtilizado} onChange={handleChange}
+                    placeholder="0,00"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Valor restante (R$)</label>
+                  <input
+                    type="number"
+                    value={Math.max(0, (parseFloat(form.valorGarantia) || 0) - (parseFloat(form.valorGarantiaUtilizado) || 0))}
+                    readOnly
+                    tabIndex="-1"
+                  />
+                </div>
+                {isEdit && (
+                  <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                    <label>Onde a garantia foi utilizada</label>
+                    {inadimplencias.length === 0 ? (
+                      <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>
+                        Nenhum pagamento com {form.garantia === 'caucao' ? 'caução' : 'adiantamento'} registrado.
+                      </p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        {inadimplencias.map(debito => {
+                          const mesReferencia = debito.mesReferencia || debito.dataVencimento?.slice(0, 7)
+                          const valor = Number(debito.valorTotal || debito.valorOriginal || 0)
+                          return (
+                            <div
+                              key={debito.id}
+                              style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, padding: '8px 10px', border: '1px solid #bbf7d0', background: '#f0fdf4', fontSize: 12 }}
+                            >
+                              <span>
+                                <strong>{formatMonth(mesReferencia)}</strong>
+                                {debito.tipoDebito ? ` · ${debito.tipoDebito}` : ''}
+                              </span>
+                              <strong style={{ color: '#166534' }}>{formatMoney(valor)}</strong>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

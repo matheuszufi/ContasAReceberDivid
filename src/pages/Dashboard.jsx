@@ -105,6 +105,8 @@ const GARANTIA_CHART_COLORS = {
 // Cores usadas no card "Recuperação de Inadimplência" (donut + tooltips + cards mensais)
 const RECOVERY_COLORS = {
   recuperado: '#22c55e9f',
+  utilizacaoCaucao: '#0f766e',
+  pagoSeguradora: '#0891b2',
   aprovadoSeguradora: '#54ec2686',
   reprovado: '#dc262690',
   aguardarAcionar: '#64748b',
@@ -399,17 +401,18 @@ const desenharGraficoMensal = (doc, margin, y, contentWidth, dadosMensais) => {
   return baseY + 8
 }
 
-// Desenha a tabela de detalhamento mensal (total / recuperado / em aberto), usada no relatório anual
+// Desenha a tabela de detalhamento mensal do relatório anual
 const desenharTabelaMensal = (doc, margin, y, contentWidth, pageHeight, dadosMensais) => {
   const colMes = 26
-  const colValor = (contentWidth - colMes) / 3
+  const colValor = (contentWidth - colMes) / 4
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(9)
   doc.text('Mês', margin, y)
   doc.text('Total', margin + colMes, y)
   doc.text('Recuperado', margin + colMes + colValor, y)
-  doc.text('Em aberto', margin + colMes + colValor * 2, y)
+  doc.text('Caução/adiant.', margin + colMes + colValor * 2, y)
+  doc.text('Em aberto', margin + colMes + colValor * 3, y)
   y += 3
   doc.setDrawColor(200)
   doc.line(margin, y, margin + contentWidth, y)
@@ -421,7 +424,8 @@ const desenharTabelaMensal = (doc, margin, y, contentWidth, pageHeight, dadosMen
     doc.text(d.label, margin, y)
     doc.text(fmtMoney(d.valor), margin + colMes, y)
     doc.text(fmtMoney(d.recuperado), margin + colMes + colValor, y)
-    doc.text(fmtMoney(d.aberto), margin + colMes + colValor * 2, y)
+    doc.text(fmtMoney(d.utilizacaoCaucao), margin + colMes + colValor * 2, y)
+    doc.text(fmtMoney(d.aberto), margin + colMes + colValor * 3, y)
     y += 6
   })
 
@@ -562,6 +566,8 @@ const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS
 // Classifica um débito nas categorias do card de recuperação. Mantida como função única para
 // que a mesma regra seja usada nos totais mensais e no detalhamento (tooltips) dos cards.
 const classifyDebt = (item) => {
+  if (item.seguroAcionado === 'pago_pela_seguradora') return 'pagoSeguradora'
+  if (item.status === 'pago_caucao') return 'utilizacaoCaucao'
   if (item.status === 'pago') return 'recuperado'
   if (item.status === 'juridico' || item.seguroAcionado === 'juridico') return 'juridico'
   if (item.seguroAcionado === 'acionado') return 'acionado'
@@ -574,6 +580,8 @@ const classifyDebt = (item) => {
 const emptyMonthTotals = () => ({
   inadimplente: 0,
   recuperado: 0,
+  utilizacaoCaucao: 0,
+  pagoSeguradora: 0,
   aprovadoSeguradora: 0,
   reprovado: 0,
   aguardarAcionar: 0,
@@ -602,9 +610,11 @@ const buildMonthlyTotals = (items, year) => {
   return map
 }
 
-const getPieSegments = (inadimplente, recuperado, aprovadoSeguradora, aguardarAcionar, juridico, acionado, reprovado = 0) => {
-  const total = inadimplente + recuperado + aprovadoSeguradora + aguardarAcionar + juridico + acionado + reprovado
+const getPieSegments = (inadimplente, recuperado, utilizacaoCaucao, pagoSeguradora, aprovadoSeguradora, aguardarAcionar, juridico, acionado, reprovado = 0) => {
+  const total = inadimplente + recuperado + utilizacaoCaucao + pagoSeguradora + aprovadoSeguradora + aguardarAcionar + juridico + acionado + reprovado
   const recoveredPercent = total > 0 ? Math.round((recuperado / total) * 100) : 0
+  const utilizationPercent = total > 0 ? Math.round((utilizacaoCaucao / total) * 100) : 0
+  const insurerPaidPercent = total > 0 ? Math.round((pagoSeguradora / total) * 100) : 0
   const approvedPercent = total > 0 ? Math.round((aprovadoSeguradora / total) * 100) : 0
   const reprovadoPercent = total > 0 ? Math.round((reprovado / total) * 100) : 0
   const waitingPercent = total > 0 ? Math.round((aguardarAcionar / total) * 100) : 0
@@ -613,13 +623,15 @@ const getPieSegments = (inadimplente, recuperado, aprovadoSeguradora, aguardarAc
   const inadimplentePercent = total > 0 ? Math.round((inadimplente / total) * 100) : 0
   return {
     recoveredPercent,
+    utilizationPercent,
+    insurerPaidPercent,
     approvedPercent,
     reprovadoPercent,
     waitingPercent,
     juridicoPercent,
     acionadoPercent,
     inadimplentePercent,
-    percentage: recoveredPercent,
+    percentage: recoveredPercent + utilizationPercent + insurerPaidPercent,
   }
 }
 
@@ -958,7 +970,7 @@ export default function Dashboard() {
   )
 
   const pendentes = useMemo(
-    () => inadimplencias.filter(d => d.status !== 'pago'),
+    () => inadimplencias.filter(d => d.status !== 'pago' && d.status !== 'pago_caucao' && d.seguroAcionado !== 'pago_pela_seguradora'),
     [inadimplencias]
   )
 
@@ -1163,7 +1175,7 @@ export default function Dashboard() {
   const monthCards = useMemo(() => MONTH_FULL_LABELS.map((label, index) => {
     const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
     const totals = yearMonthTotals[key] || emptyMonthTotals()
-    const total = totals.inadimplente + totals.recuperado + totals.aprovadoSeguradora + totals.aguardarAcionar + totals.juridico + totals.acionado + totals.reprovado
+    const total = totals.inadimplente + totals.recuperado + totals.utilizacaoCaucao + totals.pagoSeguradora + totals.aprovadoSeguradora + totals.aguardarAcionar + totals.juridico + totals.acionado + totals.reprovado
     const recoveredPercent = total > 0 ? Math.round((totals.recuperado / total) * 100) : 0
     const approvedPercent = total > 0 ? Math.round((totals.aprovadoSeguradora / total) * 100) : 0
     const reprovadoPercent = total > 0 ? Math.round((totals.reprovado / total) * 100) : 0
@@ -1177,6 +1189,8 @@ export default function Dashboard() {
       label,
       inadimplente: totals.inadimplente,
       recuperado: totals.recuperado,
+      utilizacaoCaucao: totals.utilizacaoCaucao,
+      pagoSeguradora: totals.pagoSeguradora,
       aprovadoSeguradora: totals.aprovadoSeguradora,
       reprovado: totals.reprovado,
       aguardarAcionar: totals.aguardarAcionar,
@@ -1249,7 +1263,7 @@ export default function Dashboard() {
   const inquilinosInadimplentesNoPeriodo = useMemo(() => {
     const ids = new Set()
     periodDebtsDeInquilinosAtivos
-      .filter(debito => debito.status !== 'pago')
+      .filter(debito => debito.status !== 'pago' && debito.status !== 'pago_caucao' && debito.seguroAcionado !== 'pago_pela_seguradora')
       .forEach(debito => {
         const key = getInquilinoRegistroKey(debito)
         if (key) ids.add(key)
@@ -1278,7 +1292,7 @@ export default function Dashboard() {
   const percentualInquilinosSemRegistro = Math.max(0, 100 - percentualInquilinosComRegistro)
 
   const periodPagas = useMemo(
-    () => periodDebts.filter(d => d.status === 'pago'),
+    () => periodDebts.filter(d => d.status === 'pago' || d.status === 'pago_caucao' || d.seguroAcionado === 'pago_pela_seguradora'),
     [periodDebts]
   )
 
@@ -1298,6 +1312,8 @@ export default function Dashboard() {
       return {
         inadimplente: acc.inadimplente + totals.inadimplente,
         recuperado: acc.recuperado + totals.recuperado,
+        utilizacaoCaucao: acc.utilizacaoCaucao + (totals.utilizacaoCaucao || 0),
+        pagoSeguradora: acc.pagoSeguradora + (totals.pagoSeguradora || 0),
         aprovadoSeguradora: acc.aprovadoSeguradora + (totals.aprovadoSeguradora || 0),
         reprovado: acc.reprovado + (totals.reprovado || 0),
         aguardarAcionar: acc.aguardarAcionar + (totals.aguardarAcionar || 0),
@@ -1331,6 +1347,8 @@ export default function Dashboard() {
   const pie = getPieSegments(
     selectedMonthTotals.inadimplente,
     selectedMonthTotals.recuperado,
+    selectedMonthTotals.utilizacaoCaucao,
+    selectedMonthTotals.pagoSeguradora,
     selectedMonthTotals.aprovadoSeguradora,
     selectedMonthTotals.aguardarAcionar,
     selectedMonthTotals.juridico,
@@ -1350,7 +1368,7 @@ export default function Dashboard() {
 
   // Detalha, por débito, quem compõe cada uma das categorias do card de recuperação (para os tooltips)
   const categoryBreakdown = useMemo(() => {
-    const acc = { recuperado: [], aprovadoSeguradora: [], reprovado: [], aguardarAcionar: [], juridico: [], acionado: [], inadimplente: [] }
+    const acc = { recuperado: [], utilizacaoCaucao: [], pagoSeguradora: [], aprovadoSeguradora: [], reprovado: [], aguardarAcionar: [], juridico: [], acionado: [], inadimplente: [] }
     periodDebts.forEach(d => {
       const value = getDebtValue(d)
       const name = inquilinoMap[d.inquilinoId]?.nome || d.inquilinoNome || 'Sem nome'
@@ -1725,6 +1743,7 @@ export default function Dashboard() {
     } else if (relatorioTipo === 'periodo') {
       const categoriaLabel = {
         recuperado: 'Pago',
+        pagoSeguradora: 'Pago pela seguradora',
         aprovadoSeguradora: 'Aprovado seguradora',
         reprovado: 'Pagamento reprovado',
         aguardarAcionar: 'Aguardar para acionar',
@@ -1734,12 +1753,14 @@ export default function Dashboard() {
       }
       const montarResumoStatus = (itens) => {
         const contagemStatus = itens.reduce((acc, item) => {
-          const categoria = classifyDebt(item)
+          const categoria = item.status === 'pago_caucao' ? 'utilizacaoCaucao' : classifyDebt(item)
           acc[categoria] = (acc[categoria] || 0) + getDebtValue(item)
           return acc
         }, {})
         return [
           { label: 'Pago', valor: contagemStatus.recuperado || 0, color: RECOVERY_COLORS.recuperado },
+          { label: 'Utilização caução/adiantamento', valor: contagemStatus.utilizacaoCaucao || 0, color: '#0f766e' },
+          { label: 'Pago pela seguradora', valor: contagemStatus.pagoSeguradora || 0, color: RECOVERY_COLORS.pagoSeguradora },
           { label: 'Aprovado seguradora', valor: contagemStatus.aprovadoSeguradora || 0, color: RECOVERY_COLORS.aprovadoSeguradora },
           { label: 'Pagamento reprovado', valor: contagemStatus.reprovado || 0, color: RECOVERY_COLORS.reprovado },
           { label: 'Aguardar para acionar', valor: contagemStatus.aguardarAcionar || 0, color: RECOVERY_COLORS.aguardarAcionar },
@@ -1756,8 +1777,11 @@ export default function Dashboard() {
         const dadosMensais = MONTH_FULL_LABELS.map((_, i) => {
           const key = `${relatorioAno}-${String(i + 1).padStart(2, '0')}`
           const t = totaisMensais[key] || emptyMonthTotals()
-          const total = t.inadimplente + t.recuperado + t.aprovadoSeguradora + t.aguardarAcionar + t.juridico + t.acionado + t.reprovado
-          return { label: MONTH_LABELS[i], valor: total, recuperado: t.recuperado, aberto: total - t.recuperado }
+          const utilizacaoCaucao = itens
+            .filter(d => getMonthKey(d) === key && d.status === 'pago_caucao')
+            .reduce((sum, d) => sum + getDebtValue(d), 0)
+          const total = t.inadimplente + t.recuperado + t.utilizacaoCaucao + t.pagoSeguradora + t.aprovadoSeguradora + t.aguardarAcionar + t.juridico + t.acionado + t.reprovado
+          return { label: MONTH_LABELS[i], valor: total, recuperado: t.recuperado, utilizacaoCaucao, aberto: total - t.recuperado - utilizacaoCaucao }
         })
         const doc = await gerarRelatorioAnualPDF('Inadimplência por Período', `Ano ${relatorioAno}`, resumoStatus, dadosMensais)
         doc.save(`inadimplencia-anual_${relatorioAno || 'ano'}.pdf`)
@@ -1765,7 +1789,7 @@ export default function Dashboard() {
         const itens = inadimplencias.filter(d => getMonthKey(d) === relatorioMes)
         const resumoStatus = montarResumoStatus(itens)
         const doc = await gerarRelatorioHistoricoPDF('Inadimplência por Período', getMonthLabel(relatorioMes), itens, item => [
-          `${inquilinoMap[item.inquilinoId]?.nome || item.inquilinoNome || 'Sem nome'}${getCodigoImovel(item) ? ` (${getCodigoImovel(item)})` : ''} — ${categoriaLabel[classifyDebt(item)]}`,
+          `${inquilinoMap[item.inquilinoId]?.nome || item.inquilinoNome || 'Sem nome'}${getCodigoImovel(item) ? ` (${getCodigoImovel(item)})` : ''} — ${item.status === 'pago_caucao' ? 'Utilização caução/adiantamento' : categoriaLabel[classifyDebt(item)]}`,
           `Total c/ Encargos: ${fmtMoney(getDebtValue(item))}` +
             (item.valorRecebido > 0 ? ` · Recebido: ${fmtMoney(item.valorRecebido)}` : ''),
         ], resumoStatus, { tipo: 'pizza', posicao: 'inicio' })
@@ -2241,11 +2265,35 @@ export default function Dashboard() {
                     cy="60"
                     r="40"
                     fill="none"
+                    stroke={RECOVERY_COLORS.pagoSeguradora}
+                    strokeWidth="24"
+                    strokeDasharray={`${(pie.insurerPaidPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.insurerPaidPercent / 100) * DONUT_CIRCUMFERENCE}`}
+                    strokeDashoffset="0"
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent) / 100) * 360} 60 60)`}
+                    strokeLinecap="butt"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="40"
+                    fill="none"
+                    stroke={RECOVERY_COLORS.utilizacaoCaucao}
+                    strokeWidth="24"
+                    strokeDasharray={`${(pie.utilizationPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.utilizationPercent / 100) * DONUT_CIRCUMFERENCE}`}
+                    strokeDashoffset="0"
+                    transform={`rotate(${90 + (pie.recoveredPercent / 100) * 360} 60 60)`}
+                    strokeLinecap="butt"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="40"
+                    fill="none"
                     stroke={RECOVERY_COLORS.aprovadoSeguradora}
                     strokeWidth="24"
                     strokeDasharray={`${(pie.approvedPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.approvedPercent / 100) * DONUT_CIRCUMFERENCE}`}
                     strokeDashoffset="0"
-                    transform={`rotate(${90 + (pie.recoveredPercent / 100) * 360} 60 60)`}
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent + pie.insurerPaidPercent) / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
                   />
                   <circle
@@ -2257,7 +2305,7 @@ export default function Dashboard() {
                     strokeWidth="24"
                     strokeDasharray={`${(pie.reprovadoPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.reprovadoPercent / 100) * DONUT_CIRCUMFERENCE}`}
                     strokeDashoffset="0"
-                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.approvedPercent) / 100) * 360} 60 60)`}
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent + pie.insurerPaidPercent + pie.approvedPercent) / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
                   />
                   <circle
@@ -2269,7 +2317,7 @@ export default function Dashboard() {
                     strokeWidth="24"
                     strokeDasharray={`${(pie.waitingPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.waitingPercent / 100) * DONUT_CIRCUMFERENCE}`}
                     strokeDashoffset="0"
-                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.approvedPercent + pie.reprovadoPercent) / 100) * 360} 60 60)`}
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent + pie.insurerPaidPercent + pie.approvedPercent + pie.reprovadoPercent) / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
                   />
                   <circle
@@ -2281,7 +2329,7 @@ export default function Dashboard() {
                     strokeWidth="24"
                     strokeDasharray={`${(pie.juridicoPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.juridicoPercent / 100) * DONUT_CIRCUMFERENCE}`}
                     strokeDashoffset="0"
-                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.approvedPercent + pie.reprovadoPercent + pie.waitingPercent) / 100) * 360} 60 60)`}
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent + pie.insurerPaidPercent + pie.approvedPercent + pie.reprovadoPercent + pie.waitingPercent) / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
                   />
                   <circle
@@ -2293,7 +2341,7 @@ export default function Dashboard() {
                     strokeWidth="24"
                     strokeDasharray={`${(pie.acionadoPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.acionadoPercent / 100) * DONUT_CIRCUMFERENCE}`}
                     strokeDashoffset="0"
-                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.approvedPercent + pie.reprovadoPercent + pie.waitingPercent + pie.juridicoPercent) / 100) * 360} 60 60)`}
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent + pie.insurerPaidPercent + pie.approvedPercent + pie.reprovadoPercent + pie.waitingPercent + pie.juridicoPercent) / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
                   />
                 </svg>
@@ -2317,6 +2365,34 @@ export default function Dashboard() {
                       </div>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.recuperado)}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-default items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                          <span className="shrink-0" style={{ width: 8, height: 8, borderRadius: '9999px', display: 'inline-block', background: RECOVERY_COLORS.pagoSeguradora }}></span>
+                          <span className="truncate">Pago pela seguradora</span>
+                        </span>
+                        <span className="shrink-0 font-medium">
+                          {fmtMoneyWithPercent(selectedMonthTotals.pagoSeguradora, pie.insurerPaidPercent)}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.pagoSeguradora)}</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex cursor-default items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                          <span className="shrink-0" style={{ width: 8, height: 8, borderRadius: '9999px', display: 'inline-block', background: RECOVERY_COLORS.utilizacaoCaucao }}></span>
+                          <span className="truncate">Utilização caução/adiantamento</span>
+                        </span>
+                        <span className="shrink-0 font-medium">
+                          {fmtMoneyWithPercent(selectedMonthTotals.utilizacaoCaucao, pie.utilizationPercent)}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.utilizacaoCaucao)}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -2420,6 +2496,8 @@ export default function Dashboard() {
                 <strong className="shrink-0">
                   {fmtMoney(
                     selectedMonthTotals.recuperado +
+                    selectedMonthTotals.utilizacaoCaucao +
+                    selectedMonthTotals.pagoSeguradora +
                     selectedMonthTotals.aprovadoSeguradora +
                     selectedMonthTotals.reprovado +
                     selectedMonthTotals.aguardarAcionar +
@@ -2447,10 +2525,12 @@ export default function Dashboard() {
               </div>
               <div className="month-grid month-grid-compact">
                 {monthCards.map(card => {
-                  const totalCard = card.inadimplente + card.recuperado + card.aprovadoSeguradora +
+                  const totalCard = card.inadimplente + card.recuperado + card.utilizacaoCaucao + card.pagoSeguradora + card.aprovadoSeguradora +
                     card.aguardarAcionar + card.juridico + card.acionado + card.reprovado
                   const segmentos = [
                     { key: 'recuperado', label: 'Recuperado', valor: card.recuperado, color: RECOVERY_COLORS.recuperado },
+                    { key: 'utilizacaoCaucao', label: 'Utilização caução/adiantamento', valor: card.utilizacaoCaucao, color: RECOVERY_COLORS.utilizacaoCaucao },
+                    { key: 'pagoSeguradora', label: 'Pago pela seguradora', valor: card.pagoSeguradora, color: RECOVERY_COLORS.pagoSeguradora },
                     { key: 'aprovadoSeguradora', label: 'Aprovado seguradora', valor: card.aprovadoSeguradora, color: RECOVERY_COLORS.aprovadoSeguradora },
                     { key: 'reprovado', label: 'Pagamento reprovado', valor: card.reprovado, color: RECOVERY_COLORS.reprovado },
                     { key: 'aguardarAcionar', label: 'Aguardar para acionar', valor: card.aguardarAcionar, color: RECOVERY_COLORS.aguardarAcionar },
