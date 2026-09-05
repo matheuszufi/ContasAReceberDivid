@@ -643,6 +643,8 @@ export default function Dashboard() {
   const [faixaAluguelStatus, setFaixaAluguelStatus] = useState('ativos')
   const [faixaAluguelPeriodStart, setFaixaAluguelPeriodStart] = useState('')
   const [faixaAluguelPeriodEnd, setFaixaAluguelPeriodEnd] = useState('')
+  const [tempoRecebimentoPeriodStart, setTempoRecebimentoPeriodStart] = useState('')
+  const [tempoRecebimentoPeriodEnd, setTempoRecebimentoPeriodEnd] = useState('')
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [topFilter, setTopFilter] = useState('valor')
@@ -889,15 +891,23 @@ export default function Dashboard() {
     .sort((a, b) => b.dataPagamento.localeCompare(a.dataPagamento)),
   [inadimplencias])
 
+  const inadimplenciasRecebidasFiltradas = useMemo(() => inadimplenciasRecebidas.filter(debito => {
+    const mesReferencia = getMonthKey(debito)
+    if (!mesReferencia) return false
+    if (tempoRecebimentoPeriodStart && mesReferencia < tempoRecebimentoPeriodStart) return false
+    if (tempoRecebimentoPeriodEnd && mesReferencia > tempoRecebimentoPeriodEnd) return false
+    return true
+  }), [inadimplenciasRecebidas, tempoRecebimentoPeriodStart, tempoRecebimentoPeriodEnd])
+
   const mediaDiasAtePagamento = useMemo(() => {
-    if (inadimplenciasRecebidas.length === 0) return 0
-    const totalDias = inadimplenciasRecebidas.reduce((total, debito) => total + debito.diasAtePagamento, 0)
-    return totalDias / inadimplenciasRecebidas.length
-  }, [inadimplenciasRecebidas])
+    if (inadimplenciasRecebidasFiltradas.length === 0) return 0
+    const totalDias = inadimplenciasRecebidasFiltradas.reduce((total, debito) => total + debito.diasAtePagamento, 0)
+    return totalDias / inadimplenciasRecebidasFiltradas.length
+  }, [inadimplenciasRecebidasFiltradas])
 
   const maiorDiasAtePagamento = useMemo(
-    () => Math.max(...inadimplenciasRecebidas.map(debito => debito.diasAtePagamento), 0),
-    [inadimplenciasRecebidas]
+    () => Math.max(...inadimplenciasRecebidasFiltradas.map(debito => debito.diasAtePagamento), 0),
+    [inadimplenciasRecebidasFiltradas]
   )
 
   const imoveisComGeoCount = useMemo(
@@ -3153,21 +3163,45 @@ export default function Dashboard() {
               </CardDescription>
             </div>
           </div>
-          {inadimplenciasRecebidas.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <Badge variant="secondary">
-                Média: {mediaDiasAtePagamento.toFixed(1).replace('.', ',')} dias
-              </Badge>
-              <Badge variant="secondary">
-                Maior prazo: {maiorDiasAtePagamento} dias
-              </Badge>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <label className="text-muted-foreground" htmlFor="tempo-recebimento-inicio">De</label>
+              <input
+                id="tempo-recebimento-inicio"
+                type="month"
+                value={tempoRecebimentoPeriodStart}
+                onChange={e => setTempoRecebimentoPeriodStart(e.target.value)}
+                className="h-7 rounded-md border px-1.5 text-xs"
+                aria-label="Mês inicial de referência do boleto"
+              />
+              <label className="text-muted-foreground" htmlFor="tempo-recebimento-fim">Até</label>
+              <input
+                id="tempo-recebimento-fim"
+                type="month"
+                value={tempoRecebimentoPeriodEnd}
+                onChange={e => setTempoRecebimentoPeriodEnd(e.target.value)}
+                className="h-7 rounded-md border px-1.5 text-xs"
+                aria-label="Mês final de referência do boleto"
+              />
             </div>
-          )}
+            {inadimplenciasRecebidasFiltradas.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <Badge variant="secondary">
+                  Média: {mediaDiasAtePagamento.toFixed(1).replace('.', ',')} dias
+                </Badge>
+                <Badge variant="secondary">
+                  Maior prazo: {maiorDiasAtePagamento} dias
+                </Badge>
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="p-2">
-          {inadimplenciasRecebidas.length === 0 ? (
+          {inadimplenciasRecebidasFiltradas.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">
-              Nenhuma inadimplência paga com vencimento e data de pagamento informados.
+              {inadimplenciasRecebidas.length === 0
+                ? 'Nenhuma inadimplência paga com vencimento e data de pagamento informados.'
+                : 'Nenhuma inadimplência recebida no período de referência selecionado.'}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -3178,7 +3212,7 @@ export default function Dashboard() {
                   <span>Pagamento</span>
                   <span className="text-right">Tempo</span>
                 </div>
-                {inadimplenciasRecebidas.map(debito => (
+                {inadimplenciasRecebidasFiltradas.map(debito => (
                   <div
                     key={debito.id}
                     className="grid grid-cols-[minmax(180px,1fr)_120px_120px_100px] items-center gap-2 px-2 py-2 text-xs"
