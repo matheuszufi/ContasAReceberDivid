@@ -241,6 +241,32 @@ body {
     color: var(--text-primary);
   }
 
+.month-grid-hint {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 10px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px dashed rgba(37, 99, 235, 0.35);
+    background: linear-gradient(90deg, rgba(37, 99, 235, 0.08), rgba(37, 99, 235, 0.03));
+    color: var(--accent-hover);
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+
+.month-grid-hint svg {
+    color: var(--accent-hover);
+    animation: month-grid-hint-pulse 1.8s ease-in-out infinite;
+  }
+
+@keyframes month-grid-hint-pulse {
+  0%, 100% { transform: translateY(0); opacity: 1; }
+  50% { transform: translateY(-2px); opacity: 0.65; }
+}
+
 .mc-wrapper {
     display: flex;
     align-items: stretch;
