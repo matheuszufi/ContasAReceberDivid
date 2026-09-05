@@ -53,6 +53,7 @@ import {
   ArrowRight,
   FileText,
   BarChart3,
+  MousePointerClick,
 } from 'lucide-react'
 
 // --- Mapa de imóveis (Leaflet + OpenStreetMap) ---
@@ -1357,12 +1358,12 @@ export default function Dashboard() {
   )
 
   const segurosExpirandoFianca = useMemo(
-    () => inquilinos.filter(i => i.garantia === 'seguro' && i.seguroFiancaMesFim === currentMonth),
+    () => inquilinos.filter(i => i.status === 'Ativo' && i.garantia === 'seguro' && i.seguroFiancaMesFim === currentMonth),
     [inquilinos]
   )
 
   const segurosExpirandoIncendio = useMemo(
-    () => inquilinos.filter(i => i.seguroIncendioMesFim === currentMonth),
+    () => inquilinos.filter(i => i.status === 'Ativo' && i.seguroIncendioMesFim === currentMonth),
     [inquilinos]
   )
 
@@ -1374,7 +1375,7 @@ export default function Dashboard() {
     })
 
     return inquilinos
-      .filter(inquilino => porInquilino[inquilino.id] > 0)
+      .filter(inquilino => inquilino.status === 'Ativo' && porInquilino[inquilino.id] > 0)
       .map(inquilino => {
         const utilizado = porInquilino[inquilino.id]
         const valorGarantia = parseFloat(inquilino.valorGarantia) || 0
@@ -2646,6 +2647,13 @@ export default function Dashboard() {
                     </div>
                   )
                 })}
+              </div>
+              <div className="mt-3 flex items-center justify-center gap-2 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-center text-xs text-sky-900 shadow-sm">
+                <MousePointerClick className="size-4 shrink-0 text-sky-600" />
+                <span>
+                  <strong className="font-semibold">Selecione um mês</strong>
+                  <span className="text-sky-700"> para visualizar os detalhes da inadimplência no período.</span>
+                </span>
               </div>
             </div>
 
