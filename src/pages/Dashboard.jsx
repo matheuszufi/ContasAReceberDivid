@@ -1367,18 +1367,26 @@ export default function Dashboard() {
     [inquilinos]
   )
 
-  // Inquilinos ativos que já utilizaram caução/adiantamento, com base no valor cadastrado no próprio inquilino
+  // Inquilinos ativos que já utilizaram caução/adiantamento, somando os pagamentos com essa forma
+  // em todos os meses (não só o período selecionado), com o total cadastrado no próprio inquilino
   const garantiasUtilizadas = useMemo(() => {
+    const utilizadoPorInquilino = {}
+    inadimplencias.forEach(debito => {
+      if (debito.status !== 'pago_caucao' || !debito.inquilinoId) return
+      utilizadoPorInquilino[debito.inquilinoId] = (utilizadoPorInquilino[debito.inquilinoId] || 0) + getDebtValue(debito)
+    })
+
     return inquilinos
-      .filter(i => i.status === 'Ativo' && (i.garantia === 'caucao' || i.garantia === 'adiantamento') && (parseFloat(i.valorGarantiaUtilizado) || 0) > 0)
+      .filter(i => i.status === 'Ativo' && (i.garantia === 'caucao' || i.garantia === 'adiantamento') && utilizadoPorInquilino[i.id] > 0)
       .map(i => {
         const total = parseFloat(i.valorGarantia) || 0
-        const utilizado = parseFloat(i.valorGarantiaUtilizado) || 0
-        const aberto = i.valorGarantiaRestante != null ? parseFloat(i.valorGarantiaRestante) || 0 : Math.max(0, total - utilizado)
+        const utilizado = utilizadoPorInquilino[i.id] || 0
+        const aberto = Math.max(0, total - utilizado)
         return { id: i.id, nome: i.nome, total, utilizado, aberto }
       })
       .sort((a, b) => b.utilizado - a.utilizado)
-  }, [inquilinos])
+  }, [inadimplencias, inquilinos])
+
 
   // Detalha, por débito, quem compõe cada uma das categorias do card de recuperação (para os tooltips)
   const categoryBreakdown = useMemo(() => {
