@@ -72,14 +72,14 @@ export default function Login() {
         </div>
         <h2>Financeiro</h2>
         <p className="auth-sub">Entre com sua conta para continuar</p>
-        {error && <div className="error-msg">{error}</div>}
+        {error && <div className="error-msg" role="alert" aria-live="polite">{error}</div>}
         <div className="form-group">
-          <label>Email</label>
-          <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="seu@email.com" disabled={isLocked} />
+          <label htmlFor="login-email">Email</label>
+          <input id="login-email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="seu@email.com" autoComplete="email" disabled={isLocked} />
         </div>
         <div className="form-group">
-          <label>Senha</label>
-          <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" required placeholder="••••••••" disabled={isLocked} />
+          <label htmlFor="login-password">Senha</label>
+          <input id="login-password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required placeholder="••••••••" autoComplete="current-password" disabled={isLocked} />
         </div>
         <button type="submit" className="btn btn-primary btn-block" disabled={isLocked}>
           {isLocked ? `Bloqueado (${formatRemainingTime(lockRemainingMs)})` : 'Entrar'}

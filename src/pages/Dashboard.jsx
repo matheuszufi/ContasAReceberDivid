@@ -388,7 +388,10 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(7)
         doc.setTextColor(...hexToRgb(statusInfo.color))
-        doc.text(statusInfo.label, pageWidth - margin, y, { align: 'right' })
+        const statusTexto = statusInfo.paymentDate
+          ? `${statusInfo.label} · Pago em ${statusInfo.paymentDate}`
+          : statusInfo.label
+        doc.text(statusTexto, pageWidth - margin, y, { align: 'right' })
         doc.setTextColor(0)
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(8)
@@ -2152,6 +2155,7 @@ export default function Dashboard() {
           return {
             label: statusBadgeLabel[categoria] || 'Aberto',
             color: RELATORIO_PERIODO_COLORS[categoria] || RELATORIO_PERIODO_COLORS.inadimplente,
+            paymentDate: item.dataPagamento ? fmtDataCurta(item.dataPagamento) : null,
           }
         }
 

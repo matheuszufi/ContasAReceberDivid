@@ -203,7 +203,7 @@ body {
     max-width: 250px;
     padding: 18px 12px 14px;
     border-radius: 12px;
-    background: radial-gradient(circle, #ffffff 0%, #f1f5f9 100%);
+    /* background: radial-gradient(circle, #ffffff 0%, #f1f5f9 100%); */
   }
 
 .recovery-donut .donut-svg {
