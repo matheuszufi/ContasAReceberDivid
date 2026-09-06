@@ -170,6 +170,8 @@ export default function Inadimplentes() {
   const statusFilterRef = useRef(null)
   const statusFilterPanelRef = useRef(null)
   const [statusFilterRect, setStatusFilterRect] = useState(null)
+  const [sortBy, setSortBy] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
   const [colFilters, setColFilters] = useState({
     inquilino: '',
     imovel: '',
@@ -193,6 +195,17 @@ export default function Inadimplentes() {
       inquilino: '', imovel: '', garantia: '', seguroAcionado: '',
       mesReferencia: '', status: DEFAULT_STATUS_FILTRO,
     })
+
+  const toggleSort = (field) => {
+    if (sortBy === field) {
+      setSortDir(dir => dir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortBy(field)
+      setSortDir('asc')
+    }
+  }
+
+  const sortArrow = (field) => sortBy === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
 
   useEffect(() => {
     if (!statusFilterOpen) return
@@ -496,6 +509,38 @@ export default function Inadimplentes() {
     ? filteredBase.filter(d => (getMonth(d) || 'sem-mes') === mesSelecionado)
     : filteredBase
 
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    if (!sortBy) return 0
+
+    const garantiaA = getGarantia(a)
+    const garantiaB = getGarantia(b)
+    const statusA = STATUS_OPCOES.find(o => o.value === a.status)?.label || 'Selecione'
+    const statusB = STATUS_OPCOES.find(o => o.value === b.status)?.label || 'Selecione'
+    const seguroA = SEGURO_ACIONADO_OPCOES.find(o => o.value === (a.seguroAcionado || 'nao_acionado'))?.label || 'Não Acionado'
+    const seguroB = SEGURO_ACIONADO_OPCOES.find(o => o.value === (b.seguroAcionado || 'nao_acionado'))?.label || 'Não Acionado'
+    const values = {
+      inquilino: [getInquilinoNome(a), getInquilinoNome(b)],
+      imovel: [getCodigoImovel(a), getCodigoImovel(b)],
+      total: [Number(a.valorTotal || a.valorOriginal || 0), Number(b.valorTotal || b.valorOriginal || 0)],
+      recebido: [Number(a.valorRecebido || 0), Number(b.valorRecebido || 0)],
+      mesReferencia: [a.mesReferencia || '', b.mesReferencia || ''],
+      vencimento: [a.dataVencimento || '', b.dataVencimento || ''],
+      pagamento: [a.dataPagamento || '', b.dataPagamento || ''],
+      garantia: [garantiaA.label, garantiaB.label],
+      seguroAcionado: [seguroA, seguroB],
+      dataSeguro: [a.dataSeguro || '', b.dataSeguro || ''],
+      status: [statusA, statusB],
+      ultimaCobranca: [a.ultimaCobranca || '', b.ultimaCobranca || ''],
+    }[sortBy]
+
+    if (!values) return 0
+    const [valueA, valueB] = values
+    const comparison = typeof valueA === 'number'
+      ? valueA - valueB
+      : String(valueA).localeCompare(String(valueB), 'pt-BR', { sensitivity: 'base', numeric: true })
+    return sortDir === 'asc' ? comparison : -comparison
+  })
+
   // Opções únicas para os selects de filtro (calculadas a partir da lista atual)
   const mesRefOptions = [...new Set(baseSemStatus.map(d => d.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a))
   const garantiaOptions = [...new Set(baseSemStatus.map(d => getGarantia(d).key))]
@@ -684,18 +729,31 @@ export default function Inadimplentes() {
             <table className="inadimplentes-table">
               <thead>
                 <tr>
-                  <th>Inquilino</th>
-                  <th>Imóvel</th>
-                  <th>Total c/ Encargos</th>
-                  <th>Valor Recebido</th>
-                  <th>Mês Ref.</th>
-                  <th>Vencimento Boleto</th>
-                  <th>Data Pagamento</th>
-                  <th>Garantia</th>
-                  <th>Seguro Acionado</th>
-                  <th>Data Seguro</th>
-                  <th>Status</th>
-                  <th>Última Cobrança</th>
+                  {[
+                    ['inquilino', 'Inquilino'],
+                    ['imovel', 'Imóvel'],
+                    ['total', 'Total c/ Encargos'],
+                    ['recebido', 'Valor Recebido'],
+                    ['mesReferencia', 'Mês Ref.'],
+                    ['vencimento', 'Vencimento Boleto'],
+                    ['pagamento', 'Data Pagamento'],
+                    ['garantia', 'Garantia'],
+                    ['seguroAcionado', 'Seguro Acionado'],
+                    ['dataSeguro', 'Data Seguro'],
+                    ['status', 'Status'],
+                    ['ultimaCobranca', 'Última Cobrança'],
+                  ].map(([field, label]) => (
+                    <th key={field}>
+                      <button
+                        type="button"
+                        className="sortable-header"
+                        onClick={() => toggleSort(field)}
+                        aria-label={`Ordenar por ${label}`}
+                      >
+                        {label}<span aria-hidden="true">{sortArrow(field)}</span>
+                      </button>
+                    </th>
+                  ))}
                   <th>Ações</th>
                 </tr>
                 <tr className="filter-row">
@@ -805,7 +863,7 @@ export default function Inadimplentes() {
                       </div>
                     </td>
                   </tr>
-                ) : filtered.map(d => (
+                ) : sortedFiltered.map(d => (
                   <tr key={d.id}>
                     <td>
                       <strong

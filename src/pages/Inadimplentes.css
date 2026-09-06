@@ -107,6 +107,22 @@ body {
     white-space: nowrap;
   }
 
+.sortable-header {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+  }
+
+.sortable-header:hover { color: var(--accent-hover); }
+
 .inadimplentes-table thead tr.filter-row th {
     position: sticky;
     top: 33px;
