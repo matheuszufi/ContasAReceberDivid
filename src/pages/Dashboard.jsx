@@ -3036,7 +3036,7 @@ export default function Dashboard() {
                 const campoStyle = HISTORICO_CAMPO_STYLE[item.campo] || HISTORICO_CAMPO_STYLE.status
                 return (
                   <div key={item.id} className="group flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
-                    <div className="flex min-w-0 flex-1 basis-56 items-center gap-2.5">
+                    <div className="flex min-w-0 flex-1 basis-56 flex-col items-start gap-1">
                       <span
                         className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
                         style={{ background: campoStyle.bg, color: campoStyle.color, border: `1px solid ${campoStyle.border}` }}
@@ -3129,7 +3129,7 @@ export default function Dashboard() {
                 const tipoStyle = EVENTO_TIPO_STYLE[item.tipo] || EVENTO_TIPO_STYLE.Outros
                 return (
                   <div key={item.id} className="group flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
-                    <div className="flex min-w-0 flex-1 basis-56 items-start gap-2.5">
+                    <div className="flex min-w-0 flex-1 basis-56 flex-col items-start gap-1">
                       <span
                         className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
                         style={{ background: tipoStyle.bg, color: tipoStyle.color, border: `1px solid ${tipoStyle.border}` }}
