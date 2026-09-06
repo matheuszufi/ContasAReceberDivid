@@ -116,6 +116,20 @@ const RECOVERY_COLORS = {
   acionado: '#3b83f68f',
 }
 
+// Cores do relatório em PDF de "Inadimplência por Período": tons de verde para itens positivos
+// (pagos/aprovados) e tons de vermelho para itens negativos (em aberto/reprovados/jurídico)
+const RELATORIO_PERIODO_COLORS = {
+  recuperado: '#16a34a',
+  utilizacaoCaucao: '#15803d',
+  pagoSeguradora: '#22c55e',
+  aprovadoSeguradora: '#97de4a',
+  reprovado: '#fb3636',
+  aguardarAcionar: '#c8c1b5',
+  juridico: '#b91c1c',
+  acionado: '#ffec7f',
+  inadimplente: '#ffffff',
+}
+
 // Ícones de indicação por campo alterado, usados no card "Histórico de Alterações"
 const HISTORICO_CAMPO_STYLE = {
   status:         { bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd' },
@@ -209,7 +223,14 @@ const getMonthLabel = (monthKey) => {
 // texto por item, onde a primeira linha é destacada em negrito. `resumoStatus`, se informado, é uma
 // lista de { label, valor, color } exibida ao final como totais + gráfico de barras.
 const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarItem, resumoStatus, opcoesGrafico = {}) => {
-  const { tipo: tipoGrafico = 'barra', posicao: posicaoGrafico = 'fim' } = opcoesGrafico
+  const {
+    tipo: tipoGrafico = 'barra',
+    posicao: posicaoGrafico = 'fim',
+    getItemStatus = null,
+    dadosMensais = null,
+    mesDestaqueKey = null,
+    indicadores = null,
+  } = opcoesGrafico
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
@@ -233,19 +254,61 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
   doc.line(margin, y, pageWidth - margin, y)
   y += 7
 
+  if (indicadores && indicadores.length > 0) {
+    y = desenharIndicadores(doc, margin, y, contentWidth, indicadores)
+  }
+
   const graficoNoInicio = posicaoGrafico === 'inicio'
-  if (graficoNoInicio && resumoStatus && resumoStatus.length > 0) {
+  const doisGraficosLadoALado = graficoNoInicio && tipoGrafico === 'pizza' &&
+    resumoStatus?.length > 0 && dadosMensais?.length > 0
+
+  if (doisGraficosLadoALado) {
+    const colGap = 6
+    const colWidth = (contentWidth - colGap) / 2
+    const colEsquerdaX = margin
+    const colDireitaX = margin + colWidth + colGap
+
+    if (y > pageHeight - margin - 65) { doc.addPage(); y = margin }
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(12)
-    doc.text('Resumo por Status', margin, y)
+    doc.text('Resumo por Status', colEsquerdaX, y)
+    doc.text('Evolução Mensal (comparativo do ano)', colDireitaX, y)
     y += 8
-    y = tipoGrafico === 'pizza'
-      ? desenharResumoPizza(doc, margin, y, contentWidth, resumoStatus)
-      : desenharResumoBarras(doc, margin, y, contentWidth, pageHeight, resumoStatus)
+
+    const yFimEsquerda = desenharResumoPizzaColuna(doc, colEsquerdaX, y, colWidth, resumoStatus)
+    const yFimDireita = desenharGraficoMensal(doc, colDireitaX, y, colWidth, dadosMensais, mesDestaqueKey)
+    y = Math.max(yFimEsquerda, yFimDireita)
+
     doc.setDrawColor(200)
     doc.line(margin, y, pageWidth - margin, y)
     y += 7
+  } else {
+    if (graficoNoInicio && resumoStatus && resumoStatus.length > 0) {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(12)
+      doc.text('Resumo por Status', margin, y)
+      y += 8
+      y = tipoGrafico === 'pizza'
+        ? desenharResumoPizza(doc, margin, y, contentWidth, resumoStatus)
+        : desenharResumoBarras(doc, margin, y, contentWidth, pageHeight, resumoStatus)
+      doc.setDrawColor(200)
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 7
+    }
+
+    if (dadosMensais && dadosMensais.length > 0) {
+      if (y > pageHeight - margin - 60) { doc.addPage(); y = margin }
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(12)
+      doc.text('Evolução Mensal (comparativo do ano)', margin, y)
+      y += 8
+      y = desenharGraficoMensal(doc, margin, y, contentWidth, dadosMensais, mesDestaqueKey)
+      doc.setDrawColor(200)
+      doc.line(margin, y, pageWidth - margin, y)
+      y += 7
+    }
   }
+
 
   if (itens.length === 0) {
     doc.setFont('helvetica', 'normal')
@@ -253,17 +316,29 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
     doc.text('Nenhum registro encontrado no período selecionado.', margin, y)
   }
 
+  const badgeWidth = getItemStatus ? 38 : 0
+
   itens.forEach((item, idx) => {
     const linhas = formatarItem(item)
+    const statusInfo = getItemStatus ? getItemStatus(item) : null
     if (y > pageHeight - margin - 10) {
       doc.addPage()
       y = margin
     }
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
-    doc.splitTextToSize(linhas[0], contentWidth).forEach(w => {
+    doc.splitTextToSize(linhas[0], contentWidth - badgeWidth).forEach((w, i) => {
       if (y > pageHeight - margin) { doc.addPage(); y = margin }
       doc.text(w, margin, y)
+      if (i === 0 && statusInfo) {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(7)
+        doc.setTextColor(...hexToRgb(statusInfo.color))
+        doc.text(statusInfo.label, pageWidth - margin, y, { align: 'right' })
+        doc.setTextColor(0)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(8)
+      }
       y += 3.8
     })
     doc.setFont('helvetica', 'normal')
@@ -322,7 +397,7 @@ const desenharFatiaPizza = (doc, cx, cy, r, anguloInicial, anguloFinal, color) =
 
 // Desenha o gráfico de pizza + legenda do resumo por status, retornando o novo "y" após o desenho
 const desenharResumoPizza = (doc, margin, y, contentWidth, resumoStatus) => {
-  const raio = 24
+  const raio = 17
   const cx = margin + raio + 4
   const cy = y + raio
   const total = resumoStatus.reduce((s, r) => s + r.valor, 0) || 1
@@ -336,20 +411,52 @@ const desenharResumoPizza = (doc, margin, y, contentWidth, resumoStatus) => {
   doc.setDrawColor(255)
   doc.circle(cx, cy, raio, 'S')
 
-  const legendaX = margin + raio * 2 + 16
+  const legendaX = margin + raio * 2 + 12
   let legendaY = y + 3
-  doc.setFontSize(9)
+  doc.setFontSize(7.5)
   resumoStatus.forEach(r => {
     doc.setFillColor(...hexToRgb(r.color))
-    doc.rect(legendaX, legendaY - 3, 4, 4, 'F')
+    doc.rect(legendaX, legendaY - 2.6, 3.2, 3.2, 'F')
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(0)
     const percentual = Math.round((r.valor / total) * 100)
-    doc.text(`${r.label}: ${fmtNumeroPdf(r.valor)} (${percentual}%)`, legendaX + 6, legendaY)
-    legendaY += 6
+    doc.text(`${r.label}: ${fmtNumeroPdf(r.valor)} (${percentual}%)`, legendaX + 5, legendaY)
+    legendaY += 4.8
   })
 
   return y + Math.max(raio * 2 + 6, legendaY - y + 4)
+}
+
+// Variante do resumo em pizza com a legenda abaixo (em vez de ao lado), usada quando o gráfico
+// fica lado a lado com outro (ex: Evolução Mensal), retornando o novo "y" após o desenho
+const desenharResumoPizzaColuna = (doc, x, y, width, resumoStatus) => {
+  const raio = Math.min(15, width / 2 - 4)
+  const cx = x + width / 2
+  const cy = y + raio
+  const total = resumoStatus.reduce((s, r) => s + r.valor, 0) || 1
+
+  let anguloAtual = 0
+  resumoStatus.filter(r => r.valor > 0).forEach(r => {
+    const fatia = (r.valor / total) * Math.PI * 2
+    desenharFatiaPizza(doc, cx, cy, raio, anguloAtual, anguloAtual + fatia, r.color)
+    anguloAtual += fatia
+  })
+  doc.setDrawColor(255)
+  doc.circle(cx, cy, raio, 'S')
+
+  let legendaY = y + raio * 2 + 6
+  doc.setFontSize(6.5)
+  resumoStatus.forEach(r => {
+    doc.setFillColor(...hexToRgb(r.color))
+    doc.rect(x, legendaY - 2.4, 3, 3, 'F')
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(0)
+    const percentual = Math.round((r.valor / total) * 100)
+    doc.text(`${r.label}: ${fmtNumeroPdf(r.valor)} (${percentual}%)`, x + 4.5, legendaY, { maxWidth: width - 4.5 })
+    legendaY += 4.3
+  })
+
+  return legendaY
 }
 
 // Desenha o gráfico de barras do resumo por status e retorna o novo "y" após o desenho
@@ -378,31 +485,76 @@ const desenharResumoBarras = (doc, margin, y, contentWidth, pageHeight, resumoSt
   return y
 }
 
+// Desenha uma linha de indicadores (KPIs) em cards, usada para dar uma visão executiva rápida no topo do relatório
+const desenharIndicadores = (doc, margin, y, contentWidth, indicadores) => {
+  const cols = 3
+  const gap = 3
+  const boxWidth = (contentWidth - gap * (cols - 1)) / cols
+  const boxHeight = 13
+  const rowGap = 3
+
+  indicadores.forEach((ind, i) => {
+    const col = i % cols
+    const row = Math.floor(i / cols)
+    const x = margin + col * (boxWidth + gap)
+    const boxY = y + row * (boxHeight + rowGap)
+
+    doc.setDrawColor(222)
+    doc.setFillColor(249, 250, 251)
+    doc.roundedRect(x, boxY, boxWidth, boxHeight, 1.2, 1.2, 'FD')
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(6)
+    doc.setTextColor(100)
+    doc.text(ind.label, x + boxWidth / 2, boxY + 4.6, { align: 'center' })
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8.5)
+    doc.setTextColor(...hexToRgb(ind.color || '#1e293b'))
+    doc.text(ind.valor, x + boxWidth / 2, boxY + 9.8, { align: 'center' })
+    doc.setTextColor(0)
+  })
+
+  const totalRows = Math.ceil(indicadores.length / cols)
+  return y + totalRows * boxHeight + (totalRows - 1) * rowGap + 6
+}
+
 // Desenha um gráfico de barras cronológico (um valor por mês), usado no relatório anual. Se
 // `destaqueKey` for informado, a barra correspondente é destacada em outra cor para comparação
 const desenharGraficoMensal = (doc, margin, y, contentWidth, dadosMensais, destaqueKey = null) => {
-  const alturaGrafico = 45
+  const alturaGrafico = 30
+  const topPadding = 5
+  const alturaBarras = alturaGrafico - topPadding
   const gap = 2
   const barWidth = (contentWidth - gap * (dadosMensais.length - 1)) / dadosMensais.length
   const maxValor = Math.max(1, ...dadosMensais.map(d => d.valor))
   const baseY = y + alturaGrafico
+  const fmtValorBarra = (v) => v >= 1000
+    ? `${(v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}k`
+    : Math.round(v).toLocaleString('pt-BR')
 
   doc.setDrawColor(220)
   doc.line(margin, baseY, margin + contentWidth, baseY)
 
   dadosMensais.forEach((d, i) => {
     const x = margin + i * (barWidth + gap)
-    const alturaBarra = (d.valor / maxValor) * alturaGrafico
+    const alturaBarra = (d.valor / maxValor) * alturaBarras
     const destacado = destaqueKey && d.key === destaqueKey
     doc.setFillColor(...(destacado ? [249, 115, 22] : [59, 130, 246]))
     if (alturaBarra > 0) doc.rect(x, baseY - alturaBarra, barWidth, alturaBarra, 'F')
+    if (d.valor > 0) {
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(5.5)
+      doc.setTextColor(60)
+      doc.text(fmtValorBarra(d.valor), x + barWidth / 2, baseY - alturaBarra - 1.2, { align: 'center' })
+    }
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6.5)
+    doc.setFontSize(6)
     doc.setTextColor(0)
-    doc.text(d.label, x + barWidth / 2, baseY + 4, { align: 'center' })
+    doc.text(d.label, x + barWidth / 2, baseY + 3.5, { align: 'center' })
   })
 
-  return baseY + 8
+  return baseY + 6
 }
 
 // Desenha a tabela de detalhamento mensal do relatório anual
@@ -437,7 +589,7 @@ const desenharTabelaMensal = (doc, margin, y, contentWidth, pageHeight, dadosMen
 }
 
 // Monta o PDF do relatório anual: pizza com os percentuais do ano + gráfico cronológico por mês
-const gerarRelatorioAnualPDF = async (titulo, periodoLabel, resumoStatus, dadosMensais) => {
+const gerarRelatorioAnualPDF = async (titulo, periodoLabel, resumoStatus, dadosMensais, indicadores = null) => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
@@ -460,6 +612,10 @@ const gerarRelatorioAnualPDF = async (titulo, periodoLabel, resumoStatus, dadosM
   doc.setDrawColor(200)
   doc.line(margin, y, pageWidth - margin, y)
   y += 9
+
+  if (indicadores && indicadores.length > 0) {
+    y = desenharIndicadores(doc, margin, y, contentWidth, indicadores)
+  }
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(12)
@@ -1800,16 +1956,6 @@ export default function Dashboard() {
       ])
       doc.save(`historico-seguradoras_${relatorioInicio || 'inicio'}_${relatorioFim || 'fim'}.pdf`)
     } else if (relatorioTipo === 'periodo') {
-      const categoriaLabel = {
-        recuperado: 'Pago',
-        pagoSeguradora: 'Pago pela seguradora',
-        aprovadoSeguradora: 'Aprovado seguradora',
-        reprovado: 'Pagamento reprovado',
-        aguardarAcionar: 'Aguardar para acionar',
-        juridico: 'Jurídico',
-        acionado: 'Acionado',
-        inadimplente: 'Aberto',
-      }
       const montarResumoStatus = (itens) => {
         const contagemStatus = itens.reduce((acc, item) => {
           const categoria = item.status === 'pago_caucao' ? 'utilizacaoCaucao' : classifyDebt(item)
@@ -1817,21 +1963,40 @@ export default function Dashboard() {
           return acc
         }, {})
         return [
-          { label: 'Pago', valor: contagemStatus.recuperado || 0, color: RECOVERY_COLORS.recuperado },
-          { label: 'Utilização caução/adiantamento', valor: contagemStatus.utilizacaoCaucao || 0, color: '#0f766e' },
-          { label: 'Pago pela seguradora', valor: contagemStatus.pagoSeguradora || 0, color: RECOVERY_COLORS.pagoSeguradora },
-          { label: 'Aprovado seguradora', valor: contagemStatus.aprovadoSeguradora || 0, color: RECOVERY_COLORS.aprovadoSeguradora },
-          { label: 'Pagamento reprovado', valor: contagemStatus.reprovado || 0, color: RECOVERY_COLORS.reprovado },
-          { label: 'Aguardar para acionar', valor: contagemStatus.aguardarAcionar || 0, color: RECOVERY_COLORS.aguardarAcionar },
-          { label: 'Jurídico', valor: contagemStatus.juridico || 0, color: RECOVERY_COLORS.juridico },
-          { label: 'Acionado', valor: contagemStatus.acionado || 0, color: RECOVERY_COLORS.acionado },
-          { label: 'Aberto', valor: contagemStatus.inadimplente || 0, color: '#f97316' },
+          { label: 'Pago', valor: contagemStatus.recuperado || 0, color: RELATORIO_PERIODO_COLORS.recuperado },
+          { label: 'Utilização caução/adiantamento', valor: contagemStatus.utilizacaoCaucao || 0, color: RELATORIO_PERIODO_COLORS.utilizacaoCaucao },
+          { label: 'Pago pela seguradora', valor: contagemStatus.pagoSeguradora || 0, color: RELATORIO_PERIODO_COLORS.pagoSeguradora },
+          { label: 'Aprovado seguradora', valor: contagemStatus.aprovadoSeguradora || 0, color: RELATORIO_PERIODO_COLORS.aprovadoSeguradora },
+          { label: 'Pagamento reprovado', valor: contagemStatus.reprovado || 0, color: RELATORIO_PERIODO_COLORS.reprovado },
+          { label: 'Aguardar para acionar', valor: contagemStatus.aguardarAcionar || 0, color: RELATORIO_PERIODO_COLORS.aguardarAcionar },
+          { label: 'Jurídico', valor: contagemStatus.juridico || 0, color: RELATORIO_PERIODO_COLORS.juridico },
+          { label: 'Acionado', valor: contagemStatus.acionado || 0, color: RELATORIO_PERIODO_COLORS.acionado },
+          { label: 'Aberto', valor: contagemStatus.inadimplente || 0, color: RELATORIO_PERIODO_COLORS.inadimplente },
+        ]
+      }
+
+      // Monta os indicadores (KPIs) exibidos no topo do relatório: positivos em verde, negativos em vermelho
+      const categoriasPositivas = ['Pago', 'Utilização caução/adiantamento', 'Pago pela seguradora', 'Aprovado seguradora']
+      const montarIndicadores = (itens, resumoStatus) => {
+        const totalGeral = resumoStatus.reduce((s, r) => s + r.valor, 0)
+        const totalPositivo = resumoStatus.filter(r => categoriasPositivas.includes(r.label)).reduce((s, r) => s + r.valor, 0)
+        const totalNegativo = totalGeral - totalPositivo
+        const percentPositivo = totalGeral > 0 ? Math.round((totalPositivo / totalGeral) * 100) : 0
+        const ticketMedio = itens.length > 0 ? totalGeral / itens.length : 0
+        return [
+          { label: 'Total do Período', valor: fmtMoney(totalGeral), color: '#1e293b' },
+          { label: 'Recuperado', valor: fmtMoney(totalPositivo), color: '#16a34a' },
+          { label: 'Em Aberto', valor: fmtMoney(totalNegativo), color: '#dc2626' },
+          { label: '% Recuperado', valor: `${percentPositivo}%`, color: percentPositivo >= 50 ? '#16a34a' : '#dc2626' },
+          { label: 'Qtd. Registros', valor: String(itens.length), color: '#1e293b' },
+          { label: 'Ticket Médio', valor: fmtMoney(ticketMedio), color: '#1e293b' },
         ]
       }
 
       if (relatorioModoPeriodo === 'ano') {
         const itens = inadimplencias.filter(d => getMonthKey(d)?.startsWith(relatorioAno))
         const resumoStatus = montarResumoStatus(itens)
+        const indicadores = montarIndicadores(itens, resumoStatus)
         const totaisMensais = buildMonthlyTotals(inadimplencias, relatorioAno)
         const dadosMensais = MONTH_FULL_LABELS.map((_, i) => {
           const key = `${relatorioAno}-${String(i + 1).padStart(2, '0')}`
@@ -1842,16 +2007,48 @@ export default function Dashboard() {
           const total = t.inadimplente + t.recuperado + t.utilizacaoCaucao + t.pagoSeguradora + t.aprovadoSeguradora + t.aguardarAcionar + t.juridico + t.acionado + t.reprovado
           return { label: MONTH_LABELS[i], valor: total, recuperado: t.recuperado, utilizacaoCaucao, aberto: total - t.recuperado - utilizacaoCaucao }
         })
-        const doc = await gerarRelatorioAnualPDF('Inadimplência por Período', `Ano ${relatorioAno}`, resumoStatus, dadosMensais)
+        const doc = await gerarRelatorioAnualPDF('Inadimplência por Período', `Ano ${relatorioAno}`, resumoStatus, dadosMensais, indicadores)
         doc.save(`inadimplencia-anual_${relatorioAno || 'ano'}.pdf`)
       } else {
         const itens = inadimplencias.filter(d => getMonthKey(d) === relatorioMes)
         const resumoStatus = montarResumoStatus(itens)
+        const indicadores = montarIndicadores(itens, resumoStatus)
+
+        // Compara o mês do relatório com a evolução de todos os meses do mesmo ano
+        const anoRelatorioMes = relatorioMes.split('-')[0]
+        const totaisMensaisAno = buildMonthlyTotals(inadimplencias, anoRelatorioMes)
+        const dadosMensais = MONTH_LABELS.map((label, i) => {
+          const key = `${anoRelatorioMes}-${String(i + 1).padStart(2, '0')}`
+          const t = totaisMensaisAno[key] || emptyMonthTotals()
+          const valor = t.inadimplente + t.recuperado + t.utilizacaoCaucao + t.pagoSeguradora + t.aprovadoSeguradora + t.aguardarAcionar + t.juridico + t.acionado + t.reprovado
+          return { key, label, valor }
+        })
+
+        // Rótulo curto + cor por status, exibidos no canto direito de cada inadimplência
+        const statusBadgeLabel = {
+          recuperado: 'Pago',
+          utilizacaoCaucao: 'Caução/Adiant.',
+          pagoSeguradora: 'Pago Seguradora',
+          aprovadoSeguradora: 'Aprovado Seg.',
+          reprovado: 'Reprovado',
+          aguardarAcionar: 'Aguard. Acionar',
+          juridico: 'Jurídico',
+          acionado: 'Acionado',
+          inadimplente: 'Aberto',
+        }
+        const getItemStatus = (item) => {
+          const categoria = item.status === 'pago_caucao' ? 'utilizacaoCaucao' : classifyDebt(item)
+          return {
+            label: statusBadgeLabel[categoria] || 'Aberto',
+            color: RELATORIO_PERIODO_COLORS[categoria] || RELATORIO_PERIODO_COLORS.inadimplente,
+          }
+        }
+
         const doc = await gerarRelatorioHistoricoPDF('Inadimplência por Período', getMonthLabel(relatorioMes), itens, item => [
-          `${inquilinoMap[item.inquilinoId]?.nome || item.inquilinoNome || 'Sem nome'}${getCodigoImovel(item) ? ` (${getCodigoImovel(item)})` : ''} — ${item.status === 'pago_caucao' ? 'Utilização caução/adiantamento' : categoriaLabel[classifyDebt(item)]}`,
+          `${inquilinoMap[item.inquilinoId]?.nome || item.inquilinoNome || 'Sem nome'}${getCodigoImovel(item) ? ` (${getCodigoImovel(item)})` : ''}`,
           `Total c/ Encargos: ${fmtMoney(getDebtValue(item))}` +
             (item.valorRecebido > 0 ? ` · Recebido: ${fmtMoney(item.valorRecebido)}` : ''),
-        ], resumoStatus, { tipo: 'pizza', posicao: 'inicio' })
+        ], resumoStatus, { tipo: 'pizza', posicao: 'inicio', getItemStatus, dadosMensais, mesDestaqueKey: relatorioMes, indicadores })
         doc.save(`inadimplencia-periodo_${relatorioMes || 'mes'}.pdf`)
       }
     }
