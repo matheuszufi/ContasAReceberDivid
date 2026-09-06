@@ -1,4 +1,15 @@
 /* From Uiverse.io by RafaM-dev */
+
+/* .loading-screen (App.jsx) não vinha de nenhum CSS realmente importado no bundle, então o loader
+   nunca era centralizado de fato; a regra fica aqui porque Loader.css é sempre carregado com o componente */
+.loading-screen {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .loader {
   display: flex;
   justify-content: center;

@@ -260,22 +260,22 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
       y = margin
     }
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9.5)
+    doc.setFontSize(8)
     doc.splitTextToSize(linhas[0], contentWidth).forEach(w => {
       if (y > pageHeight - margin) { doc.addPage(); y = margin }
       doc.text(w, margin, y)
-      y += 5
+      y += 3.8
     })
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
+    doc.setFontSize(7.5)
     linhas.slice(1).forEach(linha => {
       doc.splitTextToSize(linha, contentWidth).forEach(w => {
         if (y > pageHeight - margin) { doc.addPage(); y = margin }
         doc.text(w, margin, y)
-        y += 5
+        y += 3.8
       })
     })
-    y += 3
+    y += 2
     if (idx < itens.length - 1) {
       doc.setDrawColor(230)
       doc.line(margin, y - 1.5, pageWidth - margin, y - 1.5)
@@ -355,31 +355,32 @@ const desenharResumoPizza = (doc, margin, y, contentWidth, resumoStatus) => {
 // Desenha o gráfico de barras do resumo por status e retorna o novo "y" após o desenho
 const desenharResumoBarras = (doc, margin, y, contentWidth, pageHeight, resumoStatus) => {
   const totalGeral = resumoStatus.reduce((s, r) => s + r.valor, 0) || 1
-  const labelWidth = 44
-  const valueWidth = 30
+  const labelWidth = 40
+  const valueWidth = 26
   const barWidth = contentWidth - labelWidth - valueWidth
-  const barHeight = 6
+  const barHeight = 4
 
   resumoStatus.forEach(r => {
-    if (y > pageHeight - margin - 12) { doc.addPage(); y = margin }
+    if (y > pageHeight - margin - 9) { doc.addPage(); y = margin }
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9)
-    doc.text(r.label, margin, y + 4.2)
-    const largura = Math.max(1.5, (r.valor / totalGeral) * barWidth)
+    doc.setFontSize(7.5)
+    doc.text(r.label, margin, y + 3.2)
+    const largura = Math.max(1.2, (r.valor / totalGeral) * barWidth)
     doc.setFillColor(...hexToRgb(r.color))
     doc.rect(margin + labelWidth, y, largura, barHeight, 'F')
     doc.setDrawColor(210)
     doc.rect(margin + labelWidth, y, barWidth, barHeight)
     doc.setFont('helvetica', 'bold')
-    doc.text(`${fmtNumeroPdf(r.valor)} (${Math.round((r.valor / totalGeral) * 100)}%)`, margin + labelWidth + barWidth + 4, y + 4.2)
-    y += barHeight + 6
+    doc.text(`${fmtNumeroPdf(r.valor)} (${Math.round((r.valor / totalGeral) * 100)}%)`, margin + labelWidth + barWidth + 3, y + 3.2)
+    y += barHeight + 4
   })
 
   return y
 }
 
-// Desenha um gráfico de barras cronológico (um valor por mês), usado no relatório anual
-const desenharGraficoMensal = (doc, margin, y, contentWidth, dadosMensais) => {
+// Desenha um gráfico de barras cronológico (um valor por mês), usado no relatório anual. Se
+// `destaqueKey` for informado, a barra correspondente é destacada em outra cor para comparação
+const desenharGraficoMensal = (doc, margin, y, contentWidth, dadosMensais, destaqueKey = null) => {
   const alturaGrafico = 45
   const gap = 2
   const barWidth = (contentWidth - gap * (dadosMensais.length - 1)) / dadosMensais.length
@@ -392,7 +393,8 @@ const desenharGraficoMensal = (doc, margin, y, contentWidth, dadosMensais) => {
   dadosMensais.forEach((d, i) => {
     const x = margin + i * (barWidth + gap)
     const alturaBarra = (d.valor / maxValor) * alturaGrafico
-    doc.setFillColor(59, 130, 246)
+    const destacado = destaqueKey && d.key === destaqueKey
+    doc.setFillColor(...(destacado ? [249, 115, 22] : [59, 130, 246]))
     if (alturaBarra > 0) doc.rect(x, baseY - alturaBarra, barWidth, alturaBarra, 'F')
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(6.5)
@@ -1748,11 +1750,13 @@ export default function Dashboard() {
         const key = item.valorNovoKey
         if (item.campo === 'status') {
           if (key === 'pago') return 'Pago'
+          if (key === 'pago_caucao') return 'Utilização caução/adiantamento'
           if (key === 'juridico') return 'Jurídico'
           if (key === 'seguro_aprovado') return 'Aprovado'
           return 'Aberto'
         }
         if (item.campo === 'seguroAcionado') {
+          if (key === 'pago_pela_seguradora') return 'Pago pela seguradora'
           if (key === 'pagamento_aprovado') return 'Aprovado'
           if (key === 'aguardar_para_acionar') return 'Aguardar para acionar'
           if (key === 'acionado') return 'Acionado'
@@ -1761,13 +1765,16 @@ export default function Dashboard() {
         }
         return 'Aberto'
       }
+      // Soma o valor (c/ encargos, ou recebido quando houver) de cada categoria, em vez de apenas contar ocorrências
       const contagemStatus = itens.reduce((acc, item) => {
         const rotulo = classificarStatus(item)
-        acc[rotulo] = (acc[rotulo] || 0) + 1
+        acc[rotulo] = (acc[rotulo] || 0) + getDebtValue(item)
         return acc
       }, {})
       const resumoStatus = [
         { label: 'Pago', valor: contagemStatus['Pago'] || 0, color: '#16a34a' },
+        { label: 'Utilização caução/adiantamento', valor: contagemStatus['Utilização caução/adiantamento'] || 0, color: '#0f766e' },
+        { label: 'Pago pela seguradora', valor: contagemStatus['Pago pela seguradora'] || 0, color: RECOVERY_COLORS.pagoSeguradora },
         { label: 'Aprovado', valor: contagemStatus['Aprovado'] || 0, color: '#22c55e' },
         { label: 'Aguardar para acionar', valor: contagemStatus['Aguardar para acionar'] || 0, color: '#64748b' },
         { label: 'Acionado', valor: contagemStatus['Acionado'] || 0, color: '#3b82f6' },
