@@ -2076,8 +2076,9 @@ export default function Dashboard() {
       )}
       </AnimatePresence>
 
-      <motion.div variants={revealVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
+      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
       <Card className="mb-3">
+        <motion.div variants={staggerItemVariants}>
         <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
             <MapPin className="size-4 text-muted-foreground" />
@@ -2117,14 +2118,18 @@ export default function Dashboard() {
             </Tabs>
           </div>
         </CardHeader>
+        </motion.div>
+        <motion.div variants={staggerItemVariants}>
         <CardContent className="p-2">
           <MapaImoveis imoveis={imoveisMapaFiltrados} />
         </CardContent>
+        </motion.div>
       </Card>
       </motion.div>
 
-      <motion.div variants={revealVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
+      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
       <Card className="mb-3">
+        <motion.div variants={staggerItemVariants}>
         <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-2">
           <CardTitle className="text-sm">Ocupações por Mês</CardTitle>
           <div className="flex shrink-0 items-center gap-1">
@@ -2137,12 +2142,14 @@ export default function Dashboard() {
             </Button>
           </div>
         </CardHeader>
+        </motion.div>
+        <motion.div variants={staggerItemVariants}>
         <CardContent className="px-2">
-          <div className="flex gap-1 overflow-x-auto">
+          <motion.div className="flex gap-1 overflow-x-auto" variants={staggerContainerVariants}>
             {MONTH_LABELS.map((label, index) => {
               const saldo = ocupacoesPorMes[index] - desocupacoesPorMes[index]
               return (
-                <div key={label} className="min-w-[72px] flex-1 border bg-muted/20 px-1.5 py-1">
+                <motion.div key={label} variants={staggerItemVariants} className="min-w-[72px] flex-1 border bg-muted/20 px-1.5 py-1">
                   <p className="text-[9px] font-medium text-muted-foreground">{label}</p>
                   <div className="mt-0.5 flex items-center justify-between gap-1.5">
                     <div className="flex items-center gap-1" title="Ocupações no mês">
@@ -2159,11 +2166,12 @@ export default function Dashboard() {
                   >
                     Saldo: {saldo > 0 ? `+${saldo}` : saldo}
                   </p>
-                </div>
+                </motion.div>
               )
             })}
-          </div>
+          </motion.div>
         </CardContent>
+        </motion.div>
       </Card>
       </motion.div>
 
@@ -2345,8 +2353,9 @@ export default function Dashboard() {
         </motion.div>
       </motion.div>
 
-      <motion.div variants={revealVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
+      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
       <Card className="mb-3">
+        <motion.div variants={staggerItemVariants}>
         <CardHeader className="flex w-full flex-row items-center justify-between gap-3 border-b py-2">
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             <CardTitle className="shrink-0 text-sm">Inadimplência por Período</CardTitle>
@@ -2367,6 +2376,8 @@ export default function Dashboard() {
             </Button>
           </div>
         </CardHeader>
+        </motion.div>
+        <motion.div variants={staggerItemVariants}>
         <div className="flex flex-wrap items-center gap-2 border-b px-2 py-2">
           <select
             value={colFilters.modelo}
@@ -2394,6 +2405,8 @@ export default function Dashboard() {
             </Button>
           )}
         </div>
+        </motion.div>
+        <motion.div variants={staggerItemVariants}>
         <CardContent className="p-2">
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-[0.5fr_0.8fr_300px]">
             <div className="flex min-w-0 flex-col border bg-card p-2">
@@ -2782,11 +2795,13 @@ export default function Dashboard() {
             </div>
           </div>
         </CardContent>
+        </motion.div>
       </Card>
       </motion.div>
 
-      <motion.div variants={revealVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
+      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
       <Card className="mb-3">
+        <motion.div variants={staggerItemVariants}>
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
           <div>
             <CardTitle className="text-sm">Percentual de Inquilinos Inadimplentes</CardTitle>
@@ -2833,6 +2848,8 @@ export default function Dashboard() {
             <Badge variant="secondary" className="shrink-0 text-xs">{totalInquilinos} inquilino{totalInquilinos === 1 ? '' : 's'}</Badge>
           </div>
         </CardHeader>
+        </motion.div>
+        <motion.div variants={staggerItemVariants}>
         <CardContent className="grid grid-cols-1 gap-4 p-3 xl:grid-cols-2">
           {totalInquilinos === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">
@@ -2934,6 +2951,7 @@ export default function Dashboard() {
             </>
           )}
         </CardContent>
+        </motion.div>
       </Card>
       </motion.div>
 
@@ -3332,8 +3350,9 @@ export default function Dashboard() {
         </motion.div>
       </motion.div>
 
-      <motion.div variants={revealVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
+      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
       <Card className="mb-3">
+        <motion.div variants={staggerItemVariants}>
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
           <div className="flex items-center gap-2">
             <BarChart3 className="size-4 text-blue-600" />
@@ -3390,15 +3409,17 @@ export default function Dashboard() {
             </Tabs>
           </div>
         </CardHeader>
+        </motion.div>
+        <motion.div variants={staggerItemVariants}>
         <CardContent className="p-3">
           {faixasAluguel.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">
               Nenhum inquilino com valor de aluguel cadastrado para o filtro selecionado.
             </p>
           ) : (
-            <div className="flex flex-col gap-2" aria-label="Gráfico de quantidade de aluguéis por faixa de preço">
+            <motion.div className="flex flex-col gap-2" variants={staggerContainerVariants} aria-label="Gráfico de quantidade de aluguéis por faixa de preço">
               {faixasAluguel.map(faixa => (
-                <div key={faixa.inicio} className="grid grid-cols-[minmax(110px,150px)_1fr_44px] items-center gap-2 text-xs">
+                <motion.div key={faixa.inicio} variants={staggerItemVariants} className="grid grid-cols-[minmax(110px,150px)_1fr_44px] items-center gap-2 text-xs">
                   <span className="truncate text-muted-foreground" title={formatFaixaAluguel(faixa.inicio, faixa.fim)}>
                     {formatFaixaAluguel(faixa.inicio, faixa.fim)}
                   </span>
@@ -3409,16 +3430,18 @@ export default function Dashboard() {
                     />
                   </div>
                   <strong className="text-right text-foreground">{faixa.quantidade}</strong>
-                </div>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
         </CardContent>
+        </motion.div>
       </Card>
       </motion.div>
 
-      <motion.div variants={revealVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
+      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
       <Card className="mb-3">
+        <motion.div variants={staggerItemVariants}>
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
           <div className="flex items-center gap-2">
             <Clock className="size-4 text-emerald-600" />
@@ -3462,6 +3485,8 @@ export default function Dashboard() {
             )}
           </div>
         </CardHeader>
+        </motion.div>
+        <motion.div variants={staggerItemVariants}>
         <CardContent className="p-2">
           {inadimplenciasRecebidasFiltradas.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">
@@ -3479,8 +3504,9 @@ export default function Dashboard() {
                   <span className="text-right">Tempo</span>
                 </div>
                 {inadimplenciasRecebidasFiltradas.map(debito => (
-                  <div
+                  <motion.div
                     key={debito.id}
+                    variants={staggerItemVariants}
                     className="grid grid-cols-[minmax(180px,1fr)_120px_120px_100px] items-center gap-2 px-2 py-2 text-xs"
                   >
                     <span className="truncate font-medium" title={debito.inquilinoNome || 'Sem nome'}>
@@ -3491,12 +3517,13 @@ export default function Dashboard() {
                     <strong className="text-right text-emerald-700">
                       {debito.diasAtePagamento} {debito.diasAtePagamento === 1 ? 'dia' : 'dias'}
                     </strong>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
           )}
         </CardContent>
+        </motion.div>
       </Card>
       </motion.div>
 
