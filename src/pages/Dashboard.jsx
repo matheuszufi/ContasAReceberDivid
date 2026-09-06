@@ -1883,8 +1883,8 @@ export default function Dashboard() {
       </div>
 
       {!inquilinosCarregado && (
-        <div className="mb-3 flex flex-wrap gap-2">
-          <Card className="flex-1 border-amber-300" style={{ background: '#fffbeb' }}>
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Card className="w-full border-amber-300 sm:flex-1" style={{ background: '#fffbeb' }}>
             <CardHeader className="">
               <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b45309' }}>
                 <div className="h-4 w-4 animate-pulse rounded bg-amber-300/60" />
@@ -1902,7 +1902,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-          <Card className="flex-1 border-orange-300" style={{ background: '#fff7ed' }}>
+          <Card className="w-full border-orange-300 sm:flex-1" style={{ background: '#fff7ed' }}>
             <CardHeader className="">
               <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#c2410c' }}>
                 <div className="h-4 w-4 animate-pulse rounded bg-orange-300/60" />
@@ -1920,7 +1920,7 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-          <Card className="flex-1 border-red-300" style={{ background: '#fef2f2' }}>
+          <Card className="w-full border-red-300 sm:flex-1" style={{ background: '#fef2f2' }}>
             <CardHeader className="">
               <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b91c1c' }}>
                 <div className="h-4 w-4 animate-pulse rounded bg-red-300/60" />
@@ -1942,9 +1942,9 @@ export default function Dashboard() {
       )}
 
       {inquilinosCarregado && (segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0 || garantiasUtilizadas.length > 0) && (
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
           {segurosExpirandoFianca.length > 0 && (
-            <Card className="flex-1 border-amber-300" style={{ background: '#fffbeb' }}>
+            <Card className="w-full border-amber-300 sm:flex-1" style={{ background: '#fffbeb' }}>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b45309' }}>
                   <TriangleAlert className="size-4" />
@@ -1964,7 +1964,7 @@ export default function Dashboard() {
             </Card>
           )}
           {segurosExpirandoIncendio.length > 0 && (
-            <Card className="flex-1 border-orange-300" style={{ background: '#fff7ed' }}>
+            <Card className="w-full border-orange-300 sm:flex-1" style={{ background: '#fff7ed' }}>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#c2410c' }}>
                   <TriangleAlert className="size-4" />
@@ -1984,7 +1984,7 @@ export default function Dashboard() {
             </Card>
           )}
           {garantiasUtilizadas.length > 0 && (
-            <Card className="flex-1 border-red-300" style={{ background: '#fef2f2' }}>
+            <Card className="w-full border-red-300 sm:flex-1" style={{ background: '#fef2f2' }}>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b91c1c' }}>
                   <Wallet className="size-4" />
