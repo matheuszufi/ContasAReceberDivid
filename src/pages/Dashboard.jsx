@@ -1520,9 +1520,50 @@ export default function Dashboard() {
   }, [periodDebtsDeInquilinosAtivos])
 
   const totalInquilinos = inquilinosAtivosNoPeriodo.length
-  const percentualInquilinosInadimplentes = totalInquilinos > 0
-    ? Math.round((inquilinosInadimplentesNoPeriodo / totalInquilinos) * 100)
-    : 0
+  const mediaTaxasInadimplencia = useMemo(() => {
+    if (periodMode !== 'ano' || selectedMonth) return null
+
+    const taxas = periodMonthKeys.reduce((acc, monthKey) => {
+      const inquilinosAtivosNoMes = inquilinos.filter(inquilino => {
+        const entrada = inquilino.dataEntrada?.slice(0, 7)
+        const saida = inquilino.dataSaida?.slice(0, 7)
+        if (entrada && entrada > monthKey) return false
+        if (saida && saida < monthKey) return false
+        return true
+      })
+      const keysAtivosNoMes = new Set(inquilinosAtivosNoMes.flatMap(inquilino => [
+        `id:${inquilino.id}`,
+        ...(inquilino.nome ? [`nome:${normalizeText(inquilino.nome)}`] : []),
+      ]))
+      const debitosDoMes = periodDebts.filter(debito => getMonthKey(debito) === monthKey && keysAtivosNoMes.has(getInquilinoRegistroKey(debito)))
+      if (debitosDoMes.length === 0 || inquilinosAtivosNoMes.length === 0) return acc
+
+      const comRegistro = new Set(debitosDoMes.map(getInquilinoRegistroKey).filter(Boolean))
+      const emAberto = new Set(
+        debitosDoMes
+          .filter(debito => debito.status !== 'pago' && debito.status !== 'pago_caucao' && debito.seguroAcionado !== 'pago_pela_seguradora')
+          .map(getInquilinoRegistroKey)
+          .filter(Boolean)
+      )
+      acc.push({
+        comRegistro: comRegistro.size / inquilinosAtivosNoMes.length,
+        emAberto: emAberto.size / inquilinosAtivosNoMes.length,
+      })
+      return acc
+    }, [])
+
+    if (taxas.length === 0) return null
+    return {
+      comRegistro: taxas.reduce((sum, taxa) => sum + taxa.comRegistro, 0) / taxas.length,
+      emAberto: taxas.reduce((sum, taxa) => sum + taxa.emAberto, 0) / taxas.length,
+    }
+  }, [periodMode, selectedMonth, periodMonthKeys, periodDebts, inquilinos])
+
+  const percentualInquilinosInadimplentes = mediaTaxasInadimplencia
+    ? Math.round(mediaTaxasInadimplencia.emAberto * 100)
+    : totalInquilinos > 0
+      ? Math.round((inquilinosInadimplentesNoPeriodo / totalInquilinos) * 100)
+      : 0
   const percentualInquilinosSemInadimplencia = Math.max(0, 100 - percentualInquilinosInadimplentes)
 
   const inquilinosComRegistroNoPeriodo = useMemo(() => {
@@ -1534,9 +1575,11 @@ export default function Dashboard() {
     return ids.size
   }, [periodDebtsDeInquilinosAtivos])
 
-  const percentualInquilinosComRegistro = totalInquilinos > 0
-    ? Math.round((inquilinosComRegistroNoPeriodo / totalInquilinos) * 100)
-    : 0
+  const percentualInquilinosComRegistro = mediaTaxasInadimplencia
+    ? Math.round(mediaTaxasInadimplencia.comRegistro * 100)
+    : totalInquilinos > 0
+      ? Math.round((inquilinosComRegistroNoPeriodo / totalInquilinos) * 100)
+      : 0
   const percentualInquilinosSemRegistro = Math.max(0, 100 - percentualInquilinosComRegistro)
 
   const periodPagas = useMemo(
@@ -3192,7 +3235,9 @@ export default function Dashboard() {
           <div>
             <CardTitle className="text-sm">Percentual de Inquilinos Inadimplentes</CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
-              Comparação entre inquilinos inadimplentes e o total de inquilinos em {selectedPeriodLabel.toLowerCase()}.
+              {mediaTaxasInadimplencia
+                ? `Média das taxas mensais de inadimplência em ${selectedPeriodLabel.toLowerCase()}.`
+                : `Comparação entre inquilinos inadimplentes e o total de inquilinos em ${selectedPeriodLabel.toLowerCase()}.`}
             </CardDescription>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
