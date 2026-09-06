@@ -2550,15 +2550,36 @@ export default function Dashboard() {
                   <polyline
                     points={chronLinePoints}
                     fill="none"
-                    stroke="#2563eb"
+                    stroke="#6a90e1"
                     strokeWidth="2"
                     vectorEffect="non-scaling-stroke"
                   />
-                  {inquilinosAtivosChronData.map((item, index) => (
-                    <circle key={item.monthKey} cx={chronPointX(index)} cy={chronPointY(item.count)} r="2.2" fill="#2563eb">
-                      <title>{`${item.label}: ${item.count} inquilino(s) ativo(s)`}</title>
-                    </circle>
-                  ))}
+                  {inquilinosAtivosChronData.map((item, index) => {
+                    const pointX = chronPointX(index)
+                    const pointY = chronPointY(item.count)
+                    const isLastPoint = index === inquilinosAtivosChronData.length - 1
+                    return (
+                      <g key={item.monthKey}>
+                        <circle cx={pointX} cy={pointY} r="2.6" fill="#7ea0ea" stroke="#ffffff" strokeWidth="1.2" vectorEffect="non-scaling-stroke">
+                          <title>{`${item.label}: ${item.count} inquilino(s) ativo(s)`}</title>
+                        </circle>
+                        <text
+                          x={isLastPoint ? pointX - 4 : pointX + 4}
+                          y={Math.max(8, pointY - 4)}
+                          textAnchor={isLastPoint ? 'end' : 'start'}
+                          fill="#1d4ed8"
+                          fontSize="6.5"
+                          fontWeight="400"
+                          paintOrder="stroke"
+                          stroke="#ffffff"
+                          strokeWidth="2.5"
+                          strokeLinejoin="round"
+                        >
+                          {item.count}
+                        </text>
+                      </g>
+                    )
+                  })}
                 </svg>
                 <div className="mt-1 flex text-[9px] text-muted-foreground">
                   {inquilinosAtivosChronData.map((item, index, arr) => {
