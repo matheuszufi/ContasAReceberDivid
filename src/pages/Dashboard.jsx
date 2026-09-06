@@ -2739,9 +2739,12 @@ export default function Dashboard() {
         <motion.div variants={staggerItemVariants}>
         <CardContent className="p-2">
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-[0.5fr_0.8fr_300px]">
-            <div className="flex min-w-0 flex-col border bg-card p-2">
-              <div className="mb-2">
-                <h4 className="text-sm font-medium">Recuperação de Inadimplência</h4>
+            <div className="recovery-panel flex min-w-0 flex-col border bg-card p-2">
+              <div className="recovery-panel-header mb-2">
+                <div>
+                  <h4 className="text-sm font-medium">Recuperação de Inadimplência</h4>
+                  <p className="text-xs text-muted-foreground">Quanto do total foi recuperado no período</p>
+                </div>
                 <p className="text-xs text-muted-foreground">{selectedPeriodLabel}</p>
               </div>
               <AnimatePresence mode="wait">
@@ -2752,7 +2755,7 @@ export default function Dashboard() {
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.22, ease: 'easeOut' }}
               >
-              <div className="donut-chart" aria-label="Gráfico de pizza de recuperação">
+              <div className="recovery-donut donut-chart" aria-label="Gráfico de pizza de recuperação">
                 <svg viewBox="0 0 120 120" className="donut-svg">
                   <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="24" />
                   <circle
@@ -2852,13 +2855,13 @@ export default function Dashboard() {
                     strokeLinecap="butt"
                   />
                 </svg>
-                <div className="donut-center">
+                <div className="recovery-donut-center donut-center">
                   <strong>{pie.percentage}%</strong>
                   <span>recuperado</span>
                 </div>
               </div>
               <TooltipProvider>
-                <div className="mt-2 space-y-1.5 text-xs">
+                <div className="recovery-legend mt-2 space-y-1.5 text-xs">
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex cursor-default items-center justify-between gap-2">
@@ -2998,7 +3001,7 @@ export default function Dashboard() {
               </TooltipProvider>
 
               <Separator className="my-2" />
-              <div className="flex items-center justify-between gap-2 text-xs">
+              <div className="recovery-total flex items-center justify-between gap-2 text-xs">
                 <span className="text-muted-foreground">Total</span>
                 <strong className="shrink-0">
                   {fmtMoney(
