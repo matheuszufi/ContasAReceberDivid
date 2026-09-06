@@ -523,6 +523,7 @@ export default function Imoveis() {
 
   return (
     <Layout title="Imóveis" subtitle="Lista e gerenciamento de todos os imóveis">
+      <div className="imoveis-page">
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Button onClick={() => navigate('/imoveis/cadastrar')}>
           <Plus /> Cadastrar Imóvel
@@ -659,6 +660,7 @@ export default function Imoveis() {
         </div>
         </CardContent>
       </Card>
+      </div>
     </Layout>
   )
 }

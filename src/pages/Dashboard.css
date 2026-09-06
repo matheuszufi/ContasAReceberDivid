@@ -292,3 +292,8 @@ body {
 .page-body:has(.dashboard-page) {
     padding: 10px 12px;
   }
+
+/* Reproduz a densidade de um zoom de 80% do navegador, só para o conteúdo do dashboard */
+.dashboard-page {
+    zoom: 0.8;
+  }

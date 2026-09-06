@@ -773,6 +773,7 @@ export default function Proprietarios() {
 
   return (
     <Layout title="Proprietários" subtitle="Gestão de proprietários de imóveis">
+      <div className="proprietarios-page">
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Button onClick={() => navigate('/proprietarios/cadastrar')}>
           <Plus /> Cadastrar Proprietário
@@ -1029,6 +1030,7 @@ export default function Proprietarios() {
         </div>
       )}
 
+      </div>
     </Layout>
   )
 }

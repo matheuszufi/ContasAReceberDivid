@@ -502,6 +502,7 @@ export default function Inadimplentes() {
 
   return (
     <Layout title="Inadimplentes" subtitle="Controle de clientes com débitos pendentes">
+      <div className="inadimplentes-page">
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Button onClick={() => navigate('/inadimplentes/cadastrar')}>
           <Plus /> Registrar Débito
@@ -1026,6 +1027,7 @@ export default function Inadimplentes() {
           </div>
         </div>
       )}
+      </div>
     </Layout>
   )
 }

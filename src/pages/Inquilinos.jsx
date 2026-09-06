@@ -1171,6 +1171,7 @@ export default function Inquilinos() {
 
   return (
     <Layout title="Inquilinos" subtitle="Gestão de inquilinos cadastrados">
+      <div className="inquilinos-page">
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <Button onClick={() => navigate('/inquilinos/cadastrar')}>
           <Plus /> Cadastrar Inquilino
@@ -1474,6 +1475,7 @@ export default function Inquilinos() {
           </div>
         </div>
       )}
+      </div>
     </Layout>
   )
 }

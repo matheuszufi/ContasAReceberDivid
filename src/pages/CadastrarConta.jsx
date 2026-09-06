@@ -72,6 +72,7 @@ export default function CadastrarConta() {
 
   return (
     <Layout title="Cadastrar Contas" subtitle="Registre os tipos de conta que poderão ser anexados aos imóveis">
+      <div className="cadastrar-conta-page">
       <form onSubmit={handleSubmit}>
         {error && <div className="error-msg">{error}</div>}
 
@@ -171,6 +172,7 @@ export default function CadastrarConta() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </Layout>
   )

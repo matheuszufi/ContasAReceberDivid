@@ -225,6 +225,7 @@ export default function SeguroFianca() {
 
   return (
     <Layout title="Seguro Fiança" subtitle="Inquilinos com seguro fiança incluído nas contas">
+      <div className="seguro-fianca-page">
       <div className="mb-6">
         <div className="relative w-full max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -537,6 +538,7 @@ export default function SeguroFianca() {
         </div>
         </CardContent>
       </Card>
+      </div>
     </Layout>
   )
 }

@@ -105,6 +105,11 @@ body {
 
 .empty-state p { margin: 0; font-size: 13px; }
 
+/* Reproduz a densidade de um zoom de 80% do navegador, só para o conteúdo desta página */
+.cadastrar-conta-page {
+    zoom: 0.8;
+  }
+
 .form-section {
     background: var(--card);
     border: 1px solid var(--border);

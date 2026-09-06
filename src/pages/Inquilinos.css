@@ -63,6 +63,11 @@ body {
 
 .btn-secondary:hover { background: var(--border); }
 
+/* Reproduz a densidade de um zoom de 80% do navegador, só para o conteúdo desta página */
+.inquilinos-page {
+    zoom: 0.8;
+  }
+
 .table-container {
     overflow-x: auto;
     overflow-y: visible;

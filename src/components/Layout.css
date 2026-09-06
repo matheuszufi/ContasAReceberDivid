@@ -47,10 +47,11 @@ body {
     position: fixed;
     top: 0;
     left: 0;
-    height: 100vh;
+    height: 125vh; /* compensa o zoom: 0.8 para ocupar 100vh na tela */
     z-index: 100;
     overflow: hidden;
     box-shadow: var(--shadow-lg);
+    zoom: 0.8;
   }
 
 .sidebar-brand {
@@ -123,7 +124,7 @@ body {
 .logout-item:hover { background: rgba(239, 68, 68, 0.12) !important; color: #fca5a5 !important; }
 
 .main-content {
-    margin-left: var(--sidebar-width);
+    margin-left: calc(var(--sidebar-width) * 0.8);
     flex: 1;
     display: flex;
     flex-direction: column;

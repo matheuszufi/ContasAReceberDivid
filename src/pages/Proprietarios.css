@@ -37,6 +37,11 @@ body {
     max-width: 100%;
   }
 
+/* Reproduz a densidade de um zoom de 80% do navegador, só para o conteúdo desta página */
+.proprietarios-page {
+    zoom: 0.8;
+  }
+
 .table-container {
     overflow-x: auto;
     overflow-y: visible;

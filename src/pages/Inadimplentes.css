@@ -69,6 +69,11 @@ body {
 
 .nav-item.active { background: var(--sidebar-active); color: #fff; font-weight: 600; }
 
+/* Reproduz a densidade de um zoom de 80% do navegador, só para o conteúdo desta página */
+.inadimplentes-page {
+    zoom: 0.8;
+  }
+
 .table-container {
     overflow-x: auto;
     overflow-y: visible;

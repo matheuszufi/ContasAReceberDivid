@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ref, onValue, update, remove } from 'firebase/database'
 import { jsPDF } from 'jspdf'
 import { gsap } from 'gsap'
+import { motion, AnimatePresence } from 'framer-motion'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { normalizeText } from '@/lib/utils'
@@ -634,6 +635,35 @@ const getPieSegments = (inadimplente, recuperado, utilizacaoCaucao, pagoSegurado
     inadimplentePercent,
     percentage: recoveredPercent + utilizationPercent + insurerPaidPercent,
   }
+}
+
+// Variantes de animação do Framer Motion reaproveitadas pelo conteúdo do dashboard.
+// A animação de entrada da página em si já é feita pelo GSAP (ver dashboardPageRef);
+// o Framer Motion cobre o restante: reveal ao rolar, hover/tap e transições de conteúdo dinâmico.
+const revealVariants = {
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: 'easeOut' } },
+}
+const staggerContainerVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.07 } },
+}
+const staggerItemVariants = {
+  hidden: { opacity: 0, y: 14 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+  exit: { opacity: 0, y: -10, transition: { duration: 0.15 } },
+}
+const cardHoverMotion = {
+  whileHover: { y: -3, boxShadow: '0 10px 24px -14px rgba(15, 23, 42, 0.25)' },
+  whileTap: { scale: 0.98 },
+  transition: { type: 'spring', stiffness: 350, damping: 24 },
+}
+const listRowMotion = {
+  layout: true,
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+  transition: { duration: 0.2 },
 }
 
 export default function Dashboard() {
@@ -1825,6 +1855,7 @@ export default function Dashboard() {
     <Layout title="Dashboard" subtitle="Visão geral do sistema de gestão">
       <div className="dashboard-page" ref={dashboardPageRef}>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-3">
+        <motion.div className="min-w-0" {...cardHoverMotion}>
         <Card className="min-w-0">
           <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center  bg-blue-500/10 text-blue-600">
@@ -1836,6 +1867,8 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
+        <motion.div {...cardHoverMotion}>
         <Card>
           <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-emerald-500/10 text-emerald-600">
@@ -1847,6 +1880,8 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
+        <motion.div {...cardHoverMotion}>
         <Card>
           <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-amber-500/10 text-amber-600">
@@ -1858,6 +1893,8 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
+        <motion.div {...cardHoverMotion}>
         <Card>
           <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-violet-500/10 text-violet-600">
@@ -1869,6 +1906,8 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
+        <motion.div {...cardHoverMotion}>
         <Card>
           <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-cyan-500/10 text-cyan-600">
@@ -1880,11 +1919,21 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
       </div>
 
+      <AnimatePresence mode="wait">
       {!inquilinosCarregado && (
-        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Card className="w-full border-amber-300 sm:flex-1" style={{ background: '#fffbeb' }}>
+        <motion.div
+          key="alertas-skeleton"
+          className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap"
+          variants={staggerContainerVariants}
+          initial="hidden"
+          animate="visible"
+          exit="hidden"
+        >
+          <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
+          <Card className="w-full border-amber-300" style={{ background: '#fffbeb' }}>
             <CardHeader className="">
               <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b45309' }}>
                 <div className="h-4 w-4 animate-pulse rounded bg-amber-300/60" />
@@ -1902,7 +1951,9 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-          <Card className="w-full border-orange-300 sm:flex-1" style={{ background: '#fff7ed' }}>
+          </motion.div>
+          <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
+          <Card className="w-full border-orange-300" style={{ background: '#fff7ed' }}>
             <CardHeader className="">
               <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#c2410c' }}>
                 <div className="h-4 w-4 animate-pulse rounded bg-orange-300/60" />
@@ -1920,7 +1971,9 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-          <Card className="w-full border-red-300 sm:flex-1" style={{ background: '#fef2f2' }}>
+          </motion.div>
+          <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
+          <Card className="w-full border-red-300" style={{ background: '#fef2f2' }}>
             <CardHeader className="">
               <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b91c1c' }}>
                 <div className="h-4 w-4 animate-pulse rounded bg-red-300/60" />
@@ -1938,13 +1991,22 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
 
       {inquilinosCarregado && (segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0 || garantiasUtilizadas.length > 0) && (
-        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <motion.div
+          key="alertas-reais"
+          className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap"
+          variants={staggerContainerVariants}
+          initial="hidden"
+          animate="visible"
+          exit="hidden"
+        >
           {segurosExpirandoFianca.length > 0 && (
-            <Card className="w-full border-amber-300 sm:flex-1" style={{ background: '#fffbeb' }}>
+            <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
+            <Card className="w-full border-amber-300" style={{ background: '#fffbeb' }}>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b45309' }}>
                   <TriangleAlert className="size-4" />
@@ -1962,9 +2024,11 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
           )}
           {segurosExpirandoIncendio.length > 0 && (
-            <Card className="w-full border-orange-300 sm:flex-1" style={{ background: '#fff7ed' }}>
+            <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
+            <Card className="w-full border-orange-300" style={{ background: '#fff7ed' }}>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#c2410c' }}>
                   <TriangleAlert className="size-4" />
@@ -1982,9 +2046,11 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
           )}
           {garantiasUtilizadas.length > 0 && (
-            <Card className="w-full border-red-300 sm:flex-1" style={{ background: '#fef2f2' }}>
+            <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
+            <Card className="w-full border-red-300" style={{ background: '#fef2f2' }}>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b91c1c' }}>
                   <Wallet className="size-4" />
@@ -2004,10 +2070,13 @@ export default function Dashboard() {
                 </div>
               </CardContent>
             </Card>
+            </motion.div>
           )}
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
+      <motion.div variants={revealVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
       <Card className="mb-3">
         <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-2">
@@ -2052,7 +2121,9 @@ export default function Dashboard() {
           <MapaImoveis imoveis={imoveisMapaFiltrados} />
         </CardContent>
       </Card>
+      </motion.div>
 
+      <motion.div variants={revealVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
       <Card className="mb-3">
         <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-2">
           <CardTitle className="text-sm">Ocupações por Mês</CardTitle>
@@ -2094,8 +2165,16 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+      </motion.div>
 
-      <div className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-3">
+      <motion.div
+        className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-3"
+        variants={staggerContainerVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+      >
+        <motion.div variants={staggerItemVariants}>
         <Card>
           <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2">
             <CardTitle className="text-sm">Inquilinos Ativos ao Longo do Tempo</CardTitle>
@@ -2162,7 +2241,9 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+        </motion.div>
 
+        <motion.div variants={staggerItemVariants}>
         <Card className="min-w-0">
           <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
             <div>
@@ -2222,7 +2303,9 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+        </motion.div>
 
+        <motion.div variants={staggerItemVariants}>
         <Card className="min-h-0">
           <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
             <div>
@@ -2259,8 +2342,10 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
+        </motion.div>
+      </motion.div>
 
+      <motion.div variants={revealVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
       <Card className="mb-3">
         <CardHeader className="flex w-full flex-row items-center justify-between gap-3 border-b py-2">
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
@@ -2698,7 +2783,9 @@ export default function Dashboard() {
           </div>
         </CardContent>
       </Card>
+      </motion.div>
 
+      <motion.div variants={revealVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
       <Card className="mb-3">
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
           <div>
@@ -2848,9 +2935,17 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+      </motion.div>
 
       {/* ── Histórico de Alterações e Histórico Seguradoras, lado a lado ── */}
-      <div className="mb-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
+      <motion.div
+        className="mb-3 grid grid-cols-1 gap-2 xl:grid-cols-2"
+        variants={staggerContainerVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+      >
+      <motion.div variants={staggerItemVariants}>
       <Card>
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
           <div className="flex items-center gap-2">
@@ -2940,8 +3035,10 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+      </motion.div>
 
       {/* ── Histórico de Eventos da Timeline ── */}
+      <motion.div variants={staggerItemVariants}>
       <Card>
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
           <div className="flex items-center gap-2">
@@ -3036,9 +3133,17 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
-      </div>
+      </motion.div>
+      </motion.div>
 
-      <div className="mb-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
+      <motion.div
+        className="mb-3 grid grid-cols-1 gap-2 xl:grid-cols-2"
+        variants={staggerContainerVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+      >
+        <motion.div variants={staggerItemVariants}>
         <Card>
           <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
             <div>
@@ -3132,7 +3237,9 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
+        </motion.div>
 
+        <motion.div variants={staggerItemVariants}>
         <Card>
           <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -3222,8 +3329,10 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-      </div>
+        </motion.div>
+      </motion.div>
 
+      <motion.div variants={revealVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
       <Card className="mb-3">
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
           <div className="flex items-center gap-2">
@@ -3306,7 +3415,9 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+      </motion.div>
 
+      <motion.div variants={revealVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
       <Card className="mb-3">
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
           <div className="flex items-center gap-2">
@@ -3387,10 +3498,24 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+      </motion.div>
 
+      <AnimatePresence>
       {relatorioTipo && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 20, width: '100%', maxWidth: 380 }}>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+        >
+          <motion.div
+            initial={{ opacity: 0, y: 12, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.97 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            style={{ background: '#fff', borderRadius: 12, padding: 20, width: '100%', maxWidth: 380 }}
+          >
             <h3 style={{ margin: '0 0 4px' }}>Gerar Relatório</h3>
             <p style={{ margin: '0 0 16px', fontSize: 12, color: '#64748b' }}>
               {relatorioTipo === 'alteracoes' && 'Histórico de Alterações — selecione o período (deixe em branco para incluir todos os registros).'}
@@ -3469,9 +3594,10 @@ export default function Dashboard() {
                 <FileText className="size-3.5" /> Gerar PDF
               </Button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
+      </AnimatePresence>
       </div>
     </Layout>
   )
