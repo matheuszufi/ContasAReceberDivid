@@ -2068,20 +2068,29 @@ export default function Dashboard() {
         </CardHeader>
         <CardContent className="px-2">
           <div className="flex gap-1 overflow-x-auto">
-            {MONTH_LABELS.map((label, index) => (
-              <div key={label} className="min-w-[72px] flex-1 border bg-muted/20 px-1.5 py-1">
-                <p className="text-[9px] font-medium text-muted-foreground">{label}</p>
-                <div className="mt-0.5 flex items-center justify-between gap-1.5">
-                  <div className="flex items-center gap-1" title="Ocupações no mês">
-                    <Home className="size-3 text-muted-foreground" />
-                    <strong className="text-xs leading-none">{ocupacoesPorMes[index]}</strong>
+            {MONTH_LABELS.map((label, index) => {
+              const saldo = ocupacoesPorMes[index] - desocupacoesPorMes[index]
+              return (
+                <div key={label} className="min-w-[72px] flex-1 border bg-muted/20 px-1.5 py-1">
+                  <p className="text-[9px] font-medium text-muted-foreground">{label}</p>
+                  <div className="mt-0.5 flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1" title="Ocupações no mês">
+                      <Home className="size-3 text-muted-foreground" />
+                      <strong className="text-xs leading-none">{ocupacoesPorMes[index]}</strong>
+                    </div>
+                    <div className="text-[9px] text-muted-foreground" title="Desocupações no mês">
+                      <strong className="text-[11px] text-foreground">{desocupacoesPorMes[index]}</strong> D
+                    </div>
                   </div>
-                  <div className="text-[9px] text-muted-foreground" title="Desocupações no mês">
-                    <strong className="text-[11px] text-foreground">{desocupacoesPorMes[index]}</strong> D
-                  </div>
+                  <p
+                    className={`mt-0.5 text-[9px] font-medium ${saldo > 0 ? 'text-emerald-600' : saldo < 0 ? 'text-red-600' : 'text-muted-foreground'}`}
+                    title="Diferença entre entradas e saídas no mês"
+                  >
+                    Saldo: {saldo > 0 ? `+${saldo}` : saldo}
+                  </p>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </CardContent>
       </Card>
