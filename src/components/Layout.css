@@ -132,7 +132,6 @@ body {
     min-width: 0; /* permite que o conteúdo encolha em vez de empurrar a página para os lados */
     max-width: 100%;
     overflow-x: hidden;
-    padding-top: 56px;
   }
 
 .page-header {
@@ -142,11 +141,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    position: fixed;
+    position: sticky;
     top: 0;
-    left: calc(var(--sidebar-width) * 0.8);
-    right: 0;
-    width: auto;
     z-index: 50;
     gap: 12px;
   }
@@ -218,6 +214,13 @@ body {
   .main-content {
     margin-left: 0;
     padding-top: 56px;
+  }
+
+  .page-header {
+    position: fixed;
+    left: 0;
+    right: 0;
+    width: auto;
   }
 
   .sidebar-toggle-btn {
