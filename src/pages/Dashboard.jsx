@@ -2414,6 +2414,14 @@ export default function Dashboard() {
                 <h4 className="text-sm font-medium">Recuperação de Inadimplência</h4>
                 <p className="text-xs text-muted-foreground">{selectedPeriodLabel}</p>
               </div>
+              <AnimatePresence mode="wait">
+              <motion.div
+                key={selectedPeriodLabel}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+              >
               <div className="donut-chart" aria-label="Gráfico de pizza de recuperação">
                 <svg viewBox="0 0 120 120" className="donut-svg">
                   <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="24" />
@@ -2676,6 +2684,8 @@ export default function Dashboard() {
                   )}
                 </strong>
               </div>
+              </motion.div>
+              </AnimatePresence>
             </div>
 
             <div className="flex min-w-0 flex-col border bg-card p-2">
@@ -2773,11 +2783,27 @@ export default function Dashboard() {
                 </Tabs>
               </div>
               <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
+                <AnimatePresence mode="wait">
                 {topInadimplentes.length === 0 ? (
-                  <p className="py-6 text-center text-xs text-muted-foreground">Nenhum inadimplente no período.</p>
+                  <motion.p
+                    key="vazio"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="py-6 text-center text-xs text-muted-foreground"
+                  >Nenhum inadimplente no período.</motion.p>
                 ) : (
-                  topInadimplentes.map((item, index) => (
-                    <div key={item.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50">
+                  <motion.div
+                    key={selectedPeriodLabel + topFilter}
+                    variants={staggerContainerVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                  {topInadimplentes.map((item, index) => (
+                    <motion.div key={item.id} variants={staggerItemVariants} className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50">
                       <div className="flex min-w-0 items-center gap-2">
                         <Badge variant={index === 0 ? 'default' : 'secondary'} className="h-5 w-5 justify-center rounded-full p-0 text-[10px]">
                           {index === 0 ? <Trophy className="size-3" /> : `#${index + 1}`}
@@ -2788,9 +2814,11 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <strong className="shrink-0 text-xs">{fmtMoney(item.total)}</strong>
-                    </div>
-                  ))
+                    </motion.div>
+                  ))}
+                  </motion.div>
                 )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
