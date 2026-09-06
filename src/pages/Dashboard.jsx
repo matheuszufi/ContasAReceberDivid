@@ -1367,6 +1367,19 @@ export default function Dashboard() {
     [inquilinos]
   )
 
+  // Inquilinos ativos que já utilizaram caução/adiantamento, com base no valor cadastrado no próprio inquilino
+  const garantiasUtilizadas = useMemo(() => {
+    return inquilinos
+      .filter(i => i.status === 'Ativo' && (i.garantia === 'caucao' || i.garantia === 'adiantamento') && (parseFloat(i.valorGarantiaUtilizado) || 0) > 0)
+      .map(i => {
+        const total = parseFloat(i.valorGarantia) || 0
+        const utilizado = parseFloat(i.valorGarantiaUtilizado) || 0
+        const aberto = i.valorGarantiaRestante != null ? parseFloat(i.valorGarantiaRestante) || 0 : Math.max(0, total - utilizado)
+        return { id: i.id, nome: i.nome, total, utilizado, aberto }
+      })
+      .sort((a, b) => b.utilizado - a.utilizado)
+  }, [inquilinos])
+
   // Detalha, por débito, quem compõe cada uma das categorias do card de recuperação (para os tooltips)
   const categoryBreakdown = useMemo(() => {
     const acc = { recuperado: [], utilizacaoCaucao: [], pagoSeguradora: [], aprovadoSeguradora: [], reprovado: [], aguardarAcionar: [], juridico: [], acionado: [], inadimplente: [] }
@@ -1899,10 +1912,28 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+          <Card className="flex-1 border-red-300" style={{ background: '#fef2f2' }}>
+            <CardHeader className="">
+              <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b91c1c' }}>
+                <div className="h-4 w-4 animate-pulse rounded bg-red-300/60" />
+                <div className="h-4 w-56 animate-pulse rounded bg-red-300/60" />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="">
+              <div className="flex flex-col gap-2">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="h-3 w-28 animate-pulse rounded bg-red-200/70" />
+                    <div className="h-3 w-16 animate-pulse rounded bg-red-200/70" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      {inquilinosCarregado && (segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0) && (
+      {inquilinosCarregado && (segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0 || garantiasUtilizadas.length > 0) && (
         <div className="mb-3 flex flex-wrap gap-2">
           {segurosExpirandoFianca.length > 0 && (
             <Card className="flex-1 border-amber-300" style={{ background: '#fffbeb' }}>
@@ -1938,6 +1969,28 @@ export default function Dashboard() {
                     <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
                       <span className="font-small">{i.nome}</span>
                       <span className="text-muted-foreground">Seguro Incêndio</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+          {garantiasUtilizadas.length > 0 && (
+            <Card className="flex-1 border-red-300" style={{ background: '#fef2f2' }}>
+              <CardHeader className="">
+                <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b91c1c' }}>
+                  <Wallet className="size-4" />
+                  Caução/Adiantamento utilizado ({garantiasUtilizadas.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="">
+                <div className="flex flex-col gap-1">
+                  {garantiasUtilizadas.map(i => (
+                    <div key={i.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-xs">
+                      <span className="font-small">{i.nome}</span>
+                      <span className="text-muted-foreground">
+                        Total: {fmtMoney(i.total)}{' · '}Utilizado: <strong className="text-red-700">{fmtMoney(i.utilizado)}</strong>{' · '}Em aberto: {fmtMoney(i.aberto)}
+                      </span>
                     </div>
                   ))}
                 </div>
