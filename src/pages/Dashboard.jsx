@@ -218,6 +218,35 @@ const getMonthLabel = (monthKey) => {
     .replace(/^./, c => c.toUpperCase())
 }
 
+// Desenha um pequeno cartão de indicador (barra colorida + label + valor em destaque), usado para
+// as taxas de inadimplência exibidas ao lado do gráfico Evolução Mensal
+const desenharMiniIndicador = (doc, x, y, width, height, label, valor, color) => {
+  doc.setFillColor(248, 250, 252)
+  doc.roundedRect(x, y, width, height, 1.2, 1.2, 'F')
+  doc.setFillColor(...hexToRgb(color))
+  doc.roundedRect(x, y, 1.4, height, 0.7, 0.7, 'F')
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(6.5)
+  doc.setTextColor(100)
+  doc.text(label, x + 4, y + height / 2 - 1.4)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.setTextColor(...hexToRgb(color))
+  doc.text(valor, x + 4, y + height / 2 + 3.1)
+  doc.setTextColor(0)
+}
+
+// Desenha o título de uma seção do relatório com um pequeno acento colorido à esquerda
+const desenharTituloSecao = (doc, x, y, texto, color = '#2563eb') => {
+  doc.setFillColor(...hexToRgb(color))
+  doc.roundedRect(x, y - 3.6, 2.2, 4.6, 0.6, 0.6, 'F')
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(12)
+  doc.setTextColor(30)
+  doc.text(texto, x + 4.5, y)
+  doc.setTextColor(0)
+}
+
 // Gera um PDF simples e paginado a partir de uma lista de itens, usado pelos relatórios de
 // "Histórico de Alterações" e "Histórico Seguradoras". `formatarItem` retorna um array de linhas de
 // texto por item, onde a primeira linha é destacada em negrito. `resumoStatus`, se informado, é uma
@@ -230,6 +259,7 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
     dadosMensais = null,
     mesDestaqueKey = null,
     indicadores = null,
+    taxasInadimplencia = null,
   } = opcoesGrafico
   const doc = new jsPDF({ unit: 'mm', format: 'a4' })
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -269,24 +299,38 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
     const colDireitaX = margin + colWidth + colGap
 
     if (y > pageHeight - margin - 65) { doc.addPage(); y = margin }
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(12)
-    doc.text('Resumo por Status', colEsquerdaX, y)
-    doc.text('Evolução Mensal (comparativo do ano)', colDireitaX, y)
+    desenharTituloSecao(doc, colEsquerdaX, y, 'Resumo por Status', '#2563eb')
+    desenharTituloSecao(doc, colDireitaX, y, 'Evolução Mensal (comparativo do ano)', '#2563eb')
     y += 8
 
     const yFimEsquerda = desenharResumoPizzaColuna(doc, colEsquerdaX, y, colWidth, resumoStatus)
     const yFimDireita = desenharGraficoMensal(doc, colDireitaX, y, colWidth, dadosMensais, mesDestaqueKey)
-    y = Math.max(yFimEsquerda, yFimDireita)
+    let yFinalDireita = yFimDireita
 
-    doc.setDrawColor(200)
+    // Centraliza verticalmente os cartões de taxa no espaço entre o fim do gráfico e o fim da
+    // coluna esquerda (mesma altura em que a lista de inquilinos começa)
+    if (taxasInadimplencia && taxasInadimplencia.length > 0) {
+      const boxHeight = 11
+      const boxGap = 3
+      const blocoAltura = taxasInadimplencia.length * boxHeight + (taxasInadimplencia.length - 1) * boxGap
+      const espacoDisponivel = yFimEsquerda - yFimDireita
+      const startY = espacoDisponivel > blocoAltura
+        ? yFimDireita + (espacoDisponivel - blocoAltura) / 2
+        : yFimDireita + 2
+      taxasInadimplencia.forEach((taxa, i) => {
+        const boxY = startY + i * (boxHeight + boxGap)
+        desenharMiniIndicador(doc, colDireitaX, boxY, colWidth, boxHeight, taxa.label, taxa.valor, taxa.color)
+      })
+      yFinalDireita = Math.max(yFimDireita, startY + blocoAltura)
+    }
+    y = Math.max(yFimEsquerda, yFinalDireita)
+
+    doc.setDrawColor(210)
     doc.line(margin, y, pageWidth - margin, y)
-    y += 7
+    y += 8
   } else {
     if (graficoNoInicio && resumoStatus && resumoStatus.length > 0) {
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(12)
-      doc.text('Resumo por Status', margin, y)
+      desenharTituloSecao(doc, margin, y, 'Resumo por Status', '#2563eb')
       y += 8
       y = tipoGrafico === 'pizza'
         ? desenharResumoPizza(doc, margin, y, contentWidth, resumoStatus)
@@ -298,11 +342,16 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
 
     if (dadosMensais && dadosMensais.length > 0) {
       if (y > pageHeight - margin - 60) { doc.addPage(); y = margin }
-      doc.setFont('helvetica', 'bold')
-      doc.setFontSize(12)
-      doc.text('Evolução Mensal (comparativo do ano)', margin, y)
+      desenharTituloSecao(doc, margin, y, 'Evolução Mensal (comparativo do ano)', '#2563eb')
       y += 8
       y = desenharGraficoMensal(doc, margin, y, contentWidth, dadosMensais, mesDestaqueKey)
+      if (taxasInadimplencia && taxasInadimplencia.length > 0) {
+        const boxWidth = (contentWidth - 6) / taxasInadimplencia.length
+        taxasInadimplencia.forEach((taxa, i) => {
+          desenharMiniIndicador(doc, margin + i * (boxWidth + 6), y, boxWidth, 11, taxa.label, taxa.valor, taxa.color)
+        })
+        y += 14
+      }
       doc.setDrawColor(200)
       doc.line(margin, y, pageWidth - margin, y)
       y += 7
@@ -317,6 +366,7 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
   }
 
   const badgeWidth = getItemStatus ? 38 : 0
+  const indent = getItemStatus ? 3.5 : 0
 
   itens.forEach((item, idx) => {
     const linhas = formatarItem(item)
@@ -327,9 +377,13 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
     }
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
-    doc.splitTextToSize(linhas[0], contentWidth - badgeWidth).forEach((w, i) => {
+    doc.splitTextToSize(linhas[0], contentWidth - badgeWidth - indent).forEach((w, i) => {
       if (y > pageHeight - margin) { doc.addPage(); y = margin }
-      doc.text(w, margin, y)
+      if (i === 0 && statusInfo) {
+        doc.setFillColor(...hexToRgb(statusInfo.color))
+        doc.roundedRect(margin, y - 2.6, 2, 2, 0.4, 0.4, 'F')
+      }
+      doc.text(w, margin + indent, y)
       if (i === 0 && statusInfo) {
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(7)
@@ -343,13 +397,15 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
     })
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7.5)
+    doc.setTextColor(90)
     linhas.slice(1).forEach(linha => {
-      doc.splitTextToSize(linha, contentWidth).forEach(w => {
+      doc.splitTextToSize(linha, contentWidth - indent).forEach(w => {
         if (y > pageHeight - margin) { doc.addPage(); y = margin }
-        doc.text(w, margin, y)
+        doc.text(w, margin + indent, y)
         y += 3.8
       })
     })
+    doc.setTextColor(0)
     y += 2
     if (idx < itens.length - 1) {
       doc.setDrawColor(230)
@@ -2024,6 +2080,60 @@ export default function Dashboard() {
           return { key, label, valor }
         })
 
+        // Taxas de inadimplência do mês, com o mesmo cálculo dos gráficos "Inadimplência em Aberto" e
+        // "Histórico de Inadimplência" do card "Percentual de Inquilinos Inadimplentes", considerando
+        // apenas inquilinos com contrato vigente no mês do relatório
+        const inquilinosAtivosNoMes = inquilinos.filter(inquilino => {
+          const entrada = inquilino.dataEntrada?.slice(0, 7)
+          const saida = inquilino.dataSaida?.slice(0, 7)
+          if (entrada && entrada > relatorioMes) return false
+          if (saida && saida < relatorioMes) return false
+          return true
+        })
+        const inquilinoKeysAtivosNoMes = new Set(
+          inquilinosAtivosNoMes.flatMap(inquilino => [
+            `id:${inquilino.id}`,
+            ...(inquilino.nome ? [`nome:${normalizeText(inquilino.nome)}`] : []),
+          ])
+        )
+        const itensDeAtivosNoMes = itens.filter(d => inquilinoKeysAtivosNoMes.has(getInquilinoRegistroKey(d)))
+
+        // "Histórico de Inadimplência": qualquer inquilino com registro no mês, pago ou em aberto
+        const inquilinosComRegistroNoMesSet = new Set()
+        itensDeAtivosNoMes.forEach(d => {
+          const key = getInquilinoRegistroKey(d)
+          if (key) inquilinosComRegistroNoMesSet.add(key)
+        })
+
+        // "Inadimplência em Aberto": inquilinos com débito ainda não pago no mês
+        const inquilinosInadimplentesNoMesSet = new Set()
+        itensDeAtivosNoMes
+          .filter(d => d.status !== 'pago' && d.status !== 'pago_caucao' && d.seguroAcionado !== 'pago_pela_seguradora')
+          .forEach(d => {
+            const key = getInquilinoRegistroKey(d)
+            if (key) inquilinosInadimplentesNoMesSet.add(key)
+          })
+
+        const totalInquilinosMes = inquilinosAtivosNoMes.length
+        const percentualComRegistroMes = totalInquilinosMes > 0
+          ? Math.round((inquilinosComRegistroNoMesSet.size / totalInquilinosMes) * 100)
+          : 0
+        const percentualAbertoMes = totalInquilinosMes > 0
+          ? Math.round((inquilinosInadimplentesNoMesSet.size / totalInquilinosMes) * 100)
+          : 0
+        const taxasInadimplencia = [
+          {
+            label: 'Taxa de Inadimplência do Mês',
+            valor: `${percentualComRegistroMes}% (${inquilinosComRegistroNoMesSet.size}/${totalInquilinosMes} inquilinos)`,
+            color: percentualComRegistroMes <= 20 ? '#16a34a' : percentualComRegistroMes <= 50 ? '#f59e0b' : '#dc2626',
+          },
+          {
+            label: 'Taxa de Inadimplência do Mês em Aberto',
+            valor: `${percentualAbertoMes}% (${inquilinosInadimplentesNoMesSet.size}/${totalInquilinosMes} inquilinos)`,
+            color: percentualAbertoMes <= 20 ? '#16a34a' : percentualAbertoMes <= 50 ? '#f59e0b' : '#dc2626',
+          },
+        ]
+
         // Rótulo curto + cor por status, exibidos no canto direito de cada inadimplência
         const statusBadgeLabel = {
           recuperado: 'Pago',
@@ -2063,7 +2173,7 @@ export default function Dashboard() {
           ...(item.seguroAcionado === 'pago_pela_seguradora'
             ? [`Pago pela seguradora${item.dataSeguro ? ` em ${fmtDataCurta(item.dataSeguro)}` : ''}`]
             : []),
-        ], resumoStatus, { tipo: 'pizza', posicao: 'inicio', getItemStatus, dadosMensais, mesDestaqueKey: relatorioMes, indicadores })
+        ], resumoStatus, { tipo: 'pizza', posicao: 'inicio', getItemStatus, dadosMensais, mesDestaqueKey: relatorioMes, indicadores, taxasInadimplencia })
         doc.save(`inadimplencia-periodo_${relatorioMes || 'mes'}.pdf`)
       }
     }
