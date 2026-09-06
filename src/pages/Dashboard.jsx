@@ -127,7 +127,7 @@ const RELATORIO_PERIODO_COLORS = {
   aguardarAcionar: '#c8c1b5',
   juridico: '#b91c1c',
   acionado: '#ffec7f',
-  inadimplente: '#ffffff',
+  inadimplente: '#ffd7d7',
 }
 
 // Ícones de indicação por campo alterado, usados no card "Histórico de Alterações"
@@ -2044,10 +2044,25 @@ export default function Dashboard() {
           }
         }
 
-        const doc = await gerarRelatorioHistoricoPDF('Inadimplência por Período', getMonthLabel(relatorioMes), itens, item => [
+        // Ordena a listagem: pagos/positivos primeiro, negativos/em aberto por último
+        const ordemStatus = {
+          recuperado: 0, utilizacaoCaucao: 1, pagoSeguradora: 2, aprovadoSeguradora: 3,
+          aguardarAcionar: 4, acionado: 5, juridico: 6, reprovado: 7, inadimplente: 8,
+        }
+        const itensOrdenados = [...itens].sort((a, b) => {
+          const categoriaA = a.status === 'pago_caucao' ? 'utilizacaoCaucao' : classifyDebt(a)
+          const categoriaB = b.status === 'pago_caucao' ? 'utilizacaoCaucao' : classifyDebt(b)
+          return ordemStatus[categoriaA] - ordemStatus[categoriaB]
+        })
+
+        const doc = await gerarRelatorioHistoricoPDF('Inadimplência por Período', getMonthLabel(relatorioMes), itensOrdenados, item => [
           `${inquilinoMap[item.inquilinoId]?.nome || item.inquilinoNome || 'Sem nome'}${getCodigoImovel(item) ? ` (${getCodigoImovel(item)})` : ''}`,
           `Total c/ Encargos: ${fmtMoney(getDebtValue(item))}` +
             (item.valorRecebido > 0 ? ` · Recebido: ${fmtMoney(item.valorRecebido)}` : ''),
+          ...(item.status === 'pago_caucao' ? ['Descontado da caução/adiantamento'] : []),
+          ...(item.seguroAcionado === 'pago_pela_seguradora'
+            ? [`Pago pela seguradora${item.dataSeguro ? ` em ${fmtDataCurta(item.dataSeguro)}` : ''}`]
+            : []),
         ], resumoStatus, { tipo: 'pizza', posicao: 'inicio', getItemStatus, dadosMensais, mesDestaqueKey: relatorioMes, indicadores })
         doc.save(`inadimplencia-periodo_${relatorioMes || 'mes'}.pdf`)
       }
