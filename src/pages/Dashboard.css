@@ -60,7 +60,7 @@ body {
 .month-card {
     background: var(--card);
     border: 1.5px solid var(--border);
-    /* border-radius: 12px; */
+    border-radius: 10px;
     padding: 6px 8px;
     cursor: pointer;
     text-align: left;
@@ -69,6 +69,7 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    position: relative;
   }
 
 .month-card:hover {
@@ -81,6 +82,17 @@ body {
     border-color: var(--accent);
     background: rgba(59, 130, 246, 0.08);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  }
+
+.month-card.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--accent-hover);
   }
 
 .month-card strong {
@@ -194,8 +206,8 @@ body {
 }
 
 .month-grid.month-grid-compact .month-card {
-    /* border-radius: 12px; */
-    padding: 8px 10px;
+    border-radius: 10px;
+    padding: 9px 10px 9px 12px;
     justify-content: flex-start;
     min-height: 96px;
   }
@@ -203,41 +215,58 @@ body {
 .month-grid.month-grid-compact .month-card .mc-top-row {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 6px;
+    align-items: baseline;
+    margin-bottom: 7px;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--border);
     gap: 6px;
   }
 
 .month-grid.month-grid-compact .month-card .mc-top-row span {
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: 700;
     color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
   }
 
 .month-grid.month-grid-compact .month-card .mc-top-row strong {
-    font-size: 13px;
+    font-size: 13.5px;
   }
 
 .month-grid.month-grid-compact .month-card .mc-values-row {
     display: grid;
-    gap: 4px;
+    gap: 5px;
   }
 
 .month-grid.month-grid-compact .month-card .mc-value-group {
     display: flex;
+    align-items: center;
     justify-content: space-between;
     gap: 6px;
   }
 
 .month-grid.month-grid-compact .month-card .mc-value-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     font-size: 10px;
     color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.3px;
   }
 
+.month-grid.month-grid-compact .month-card .mc-value-label::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    flex-shrink: 0;
+    background: var(--dot-color, var(--text-secondary));
+  }
+
 .month-grid.month-grid-compact .month-card .mc-value-group strong {
-    font-size: 10px;
+    font-size: 10.5px;
     color: var(--text-primary);
   }
 
@@ -270,7 +299,7 @@ body {
 .mc-wrapper {
     display: flex;
     align-items: stretch;
-    gap: 4px;
+    gap: 6px;
   }
 
 .mc-wrapper .month-card {
@@ -279,13 +308,18 @@ body {
   }
 
 .mc-progress {
-    width: 4px;
+    width: 6px;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-radius: 2px;
+    border-radius: 999px;
     background: var(--border);
+    transition: transform 0.18s ease;
+  }
+
+.mc-wrapper:hover .mc-progress {
+    transform: scaleX(1.15);
   }
 
 /* Dashboard mais compacto: menos respiro ao redor do conteúdo, sem afetar outras páginas */

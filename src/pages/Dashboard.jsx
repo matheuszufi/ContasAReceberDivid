@@ -3060,16 +3060,16 @@ export default function Dashboard() {
                         </div>
                         <div className="mc-values-row">
                           <div className="mc-value-group">
-                            <span className="mc-value-label">Recuperado</span>
+                            <span className="mc-value-label" style={{ '--dot-color': RECOVERY_COLORS.recuperado }}>Recuperado</span>
                             <strong>
                               {fmtMoney(card.recuperado)}{' '}
                               <span className="text-muted-foreground font-normal">({card.recoveredPercent}%)</span>
                             </strong>
                           </div>
                           <div className="mc-value-group">
-                            <span className="mc-value-label">Em aberto</span>
                             {/* "Em aberto" aqui é todo débito não pago, incluindo os que já
                                 estão com seguradora acionada ou em processo jurídico */}
+                            <span className="mc-value-label" style={{ '--dot-color': '#f97316' }}>Em aberto</span>
                             <strong>
                               {fmtMoney(
                                 card.inadimplente + card.aprovadoSeguradora + card.reprovado +
