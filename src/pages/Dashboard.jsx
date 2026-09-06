@@ -2023,10 +2023,11 @@ export default function Dashboard() {
           { label: 'Utilização caução/adiantamento', valor: contagemStatus.utilizacaoCaucao || 0, color: RELATORIO_PERIODO_COLORS.utilizacaoCaucao },
           { label: 'Pago pela seguradora', valor: contagemStatus.pagoSeguradora || 0, color: RELATORIO_PERIODO_COLORS.pagoSeguradora },
           { label: 'Aprovado seguradora', valor: contagemStatus.aprovadoSeguradora || 0, color: RELATORIO_PERIODO_COLORS.aprovadoSeguradora },
-          { label: 'Pagamento reprovado', valor: contagemStatus.reprovado || 0, color: RELATORIO_PERIODO_COLORS.reprovado },
           { label: 'Aguardar para acionar', valor: contagemStatus.aguardarAcionar || 0, color: RELATORIO_PERIODO_COLORS.aguardarAcionar },
-          { label: 'Jurídico', valor: contagemStatus.juridico || 0, color: RELATORIO_PERIODO_COLORS.juridico },
           { label: 'Acionado', valor: contagemStatus.acionado || 0, color: RELATORIO_PERIODO_COLORS.acionado },
+          // Agrupadas ao final para facilitar a leitura visual das categorias negativas
+          { label: 'Pagamento reprovado', valor: contagemStatus.reprovado || 0, color: RELATORIO_PERIODO_COLORS.reprovado },
+          { label: 'Jurídico', valor: contagemStatus.juridico || 0, color: RELATORIO_PERIODO_COLORS.juridico },
           { label: 'Aberto', valor: contagemStatus.inadimplente || 0, color: RELATORIO_PERIODO_COLORS.inadimplente },
         ]
       }
