@@ -3875,7 +3875,9 @@ export default function Dashboard() {
       </Card>
       </motion.div>
 
-      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
+      {/* animate direto (sem whileInView) porque o gatilho por IntersectionObserver falha
+          de forma intermitente no Safari/iOS, deixando o card preso em opacity:0 */}
+      <motion.div variants={staggerContainerVariants} initial="hidden" animate="visible">
       <Card className="mb-3">
         <motion.div variants={staggerItemVariants}>
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
