@@ -903,8 +903,9 @@ export default function Dashboard() {
   const [faixaAluguelStatus, setFaixaAluguelStatus] = useState('ativos')
   const [faixaAluguelPeriodStart, setFaixaAluguelPeriodStart] = useState('')
   const [faixaAluguelPeriodEnd, setFaixaAluguelPeriodEnd] = useState('')
-  const [tempoRecebimentoPeriodStart, setTempoRecebimentoPeriodStart] = useState(currentMonth)
-  const [tempoRecebimentoPeriodEnd, setTempoRecebimentoPeriodEnd] = useState(currentMonth)
+  // Em branco por padrão para exibir todo o histórico já recebido, sem depender do mês atual
+  const [tempoRecebimentoPeriodStart, setTempoRecebimentoPeriodStart] = useState('')
+  const [tempoRecebimentoPeriodEnd, setTempoRecebimentoPeriodEnd] = useState('')
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [topFilter, setTopFilter] = useState('valor')
@@ -1142,7 +1143,11 @@ export default function Dashboard() {
   const maiorQuantidadeFaixaAluguel = Math.max(...faixasAluguel.map(faixa => faixa.quantidade), 0)
 
   const inadimplenciasRecebidas = useMemo(() => inadimplencias
-    .filter(debito => debito.status === 'pago' && debito.dataVencimento && debito.dataPagamento)
+    .filter(debito => (
+      debito.status === 'pago' ||
+      debito.status === 'pago_caucao' ||
+      debito.seguroAcionado === 'pago_pela_seguradora'
+    ) && debito.dataVencimento && debito.dataPagamento)
     .map(debito => ({
       ...debito,
       diasAtePagamento: calcularDiasEntreDatas(debito.dataVencimento, debito.dataPagamento),
@@ -1152,10 +1157,10 @@ export default function Dashboard() {
   [inadimplencias])
 
   const inadimplenciasRecebidasFiltradas = useMemo(() => inadimplenciasRecebidas.filter(debito => {
-    const mesReferencia = getMonthKey(debito)
-    if (!mesReferencia) return false
-    if (tempoRecebimentoPeriodStart && mesReferencia < tempoRecebimentoPeriodStart) return false
-    if (tempoRecebimentoPeriodEnd && mesReferencia > tempoRecebimentoPeriodEnd) return false
+    const mesVencimento = debito.dataVencimento?.slice(0, 7)
+    if (!mesVencimento) return false
+    if (tempoRecebimentoPeriodStart && mesVencimento < tempoRecebimentoPeriodStart) return false
+    if (tempoRecebimentoPeriodEnd && mesVencimento > tempoRecebimentoPeriodEnd) return false
     return true
   }), [inadimplenciasRecebidas, tempoRecebimentoPeriodStart, tempoRecebimentoPeriodEnd])
 
@@ -3319,7 +3324,7 @@ export default function Dashboard() {
                     <span className="size-2.5 shrink-0 rounded-full bg-orange-500" />
                     Inquilinos inadimplentes
                   </span>
-                  <strong>{inquilinosInadimplentesNoPeriodo} ({percentualInquilinosInadimplentes}%)</strong>
+                  <strong>{mediaTaxasInadimplencia ? `Média mensal: ${percentualInquilinosInadimplentes}%` : `${inquilinosInadimplentesNoPeriodo} (${percentualInquilinosInadimplentes}%)`}</strong>
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="flex items-center gap-1.5 text-muted-foreground">
@@ -3367,7 +3372,7 @@ export default function Dashboard() {
                       <span className="size-2.5 shrink-0 rounded-full bg-blue-600" />
                       Com registro de inadimplência
                     </span>
-                    <strong>{inquilinosComRegistroNoPeriodo} ({percentualInquilinosComRegistro}%)</strong>
+                    <strong>{mediaTaxasInadimplencia ? `Média mensal: ${percentualInquilinosComRegistro}%` : `${inquilinosComRegistroNoPeriodo} (${percentualInquilinosComRegistro}%)`}</strong>
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex items-center gap-1.5 text-muted-foreground">
@@ -3921,8 +3926,8 @@ export default function Dashboard() {
         <CardContent className="p-2">
           {inadimplenciasRecebidasFiltradas.length === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground">
-              {inadimplenciasRecebidas.length === 0
-                ? 'Nenhuma inadimplência paga com vencimento e data de pagamento informados.'
+                {inadimplenciasRecebidas.length === 0
+                ? 'Nenhuma inadimplência recuperada com vencimento e data de pagamento informados.'
                 : 'Nenhuma inadimplência recebida no período de referência selecionado.'}
             </p>
           ) : (
@@ -3934,22 +3939,30 @@ export default function Dashboard() {
                   <span>Pagamento</span>
                   <span className="text-right">Tempo</span>
                 </div>
-                {inadimplenciasRecebidasFiltradas.map(debito => (
-                  <motion.div
-                    key={debito.id}
-                    variants={staggerItemVariants}
-                    className="grid grid-cols-[minmax(180px,1fr)_120px_120px_100px] items-center gap-2 px-2 py-2 text-xs"
-                  >
-                    <span className="truncate font-medium" title={debito.inquilinoNome || 'Sem nome'}>
-                      {debito.inquilinoNome || 'Sem nome'}
-                    </span>
-                    <span className="text-muted-foreground">{formatarDataCurta(debito.dataVencimento)}</span>
-                    <span className="text-muted-foreground">{formatarDataCurta(debito.dataPagamento)}</span>
-                    <strong className="text-right text-emerald-700">
-                      {debito.diasAtePagamento} {debito.diasAtePagamento === 1 ? 'dia' : 'dias'}
-                    </strong>
-                  </motion.div>
-                ))}
+                {/* key força o Framer Motion a reanimar a lista (senão itens ficam com opacity:0 ao trocar o filtro) */}
+                <motion.div
+                  key={`${tempoRecebimentoPeriodStart}_${tempoRecebimentoPeriodEnd}`}
+                  variants={staggerContainerVariants}
+                  initial="hidden"
+                  animate="visible"
+                >
+                  {inadimplenciasRecebidasFiltradas.map(debito => (
+                    <motion.div
+                      key={debito.id}
+                      variants={staggerItemVariants}
+                      className="grid grid-cols-[minmax(180px,1fr)_120px_120px_100px] items-center gap-2 px-2 py-2 text-xs"
+                    >
+                      <span className="truncate font-medium" title={debito.inquilinoNome || 'Sem nome'}>
+                        {debito.inquilinoNome || 'Sem nome'}
+                      </span>
+                      <span className="text-muted-foreground">{formatarDataCurta(debito.dataVencimento)}</span>
+                      <span className="text-muted-foreground">{formatarDataCurta(debito.dataPagamento)}</span>
+                      <strong className="text-right text-emerald-700">
+                        {debito.diasAtePagamento} {debito.diasAtePagamento === 1 ? 'dia' : 'dias'}
+                      </strong>
+                    </motion.div>
+                  ))}
+                </motion.div>
               </div>
             </div>
           )}
