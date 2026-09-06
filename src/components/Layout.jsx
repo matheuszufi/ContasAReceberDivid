@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth'
+import logo from '../assets/images/divid-logo.png'
 import './Layout.css'
 
 const navSections = [
@@ -121,6 +122,7 @@ export default function Layout({ children, title, subtitle }) {
               <h1>{title}</h1>
               {subtitle && <p>{subtitle}</p>}
             </div>
+            <img className="page-header-mobile-logo" src={logo} alt="Divid" />
           </header>
         )}
         <div className="page-body">
