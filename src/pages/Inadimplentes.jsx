@@ -153,33 +153,62 @@ const DEFAULT_STATUS_FILTRO = STATUS_OPCOES.filter(o => !isStatusRecuperado(o.va
 const isDefaultStatusFiltro = (arr) =>
   arr.length === DEFAULT_STATUS_FILTRO.length && DEFAULT_STATUS_FILTRO.every(v => arr.includes(v))
 
+// Guarda os filtros/ordenação da planilha do jeito que o usuário deixou, para restaurar na próxima visita
+const FILTROS_STORAGE_KEY = 'inadimplentes_filtros_v1'
+
+const DEFAULT_COL_FILTERS = {
+  inquilino: '',
+  imovel: '',
+  garantia: '',
+  seguroAcionado: '',
+  mesReferencia: '',
+  status: DEFAULT_STATUS_FILTRO,
+}
+
+const loadFiltrosSalvos = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem(FILTROS_STORAGE_KEY) || 'null')
+    return saved && typeof saved === 'object' ? saved : {}
+  } catch {
+    return {}
+  }
+}
+
 export default function Inadimplentes() {
   const navigate = useNavigate()
+  // Lido uma vez por montagem (não no carregamento do módulo), para refletir o que foi salvo
+  // mesmo ao voltar para esta página por navegação interna (sem recarregar o app)
+  const [filtrosIniciais] = useState(loadFiltrosSalvos)
   const [debitos, setDebitos] = useState([])
   const [inquilinos, setInquilinos] = useState([])
   const [imoveis, setImoveis] = useState([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [mesSelecionado, setMesSelecionado] = useState(null)
+  const [search, setSearch] = useState(() => filtrosIniciais.search || '')
+  const [mesSelecionado, setMesSelecionado] = useState(() => filtrosIniciais.mesSelecionado ?? null)
   const [showRankingModal, setShowRankingModal] = useState(false)
   const [editingGarantiaId, setEditingGarantiaId] = useState(null)
-  const [cardsDataInicio, setCardsDataInicio] = useState('')
-  const [cardsDataFim, setCardsDataFim] = useState('')
+  const [cardsDataInicio, setCardsDataInicio] = useState(() => filtrosIniciais.cardsDataInicio || '')
+  const [cardsDataFim, setCardsDataFim] = useState(() => filtrosIniciais.cardsDataFim || '')
   const [segurosCatalogo, setSegurosCatalogo] = useState([])
   const [statusFilterOpen, setStatusFilterOpen] = useState(false)
   const statusFilterRef = useRef(null)
   const statusFilterPanelRef = useRef(null)
   const [statusFilterRect, setStatusFilterRect] = useState(null)
-  const [sortBy, setSortBy] = useState(null)
-  const [sortDir, setSortDir] = useState('asc')
-  const [colFilters, setColFilters] = useState({
-    inquilino: '',
-    imovel: '',
-    garantia: '',
-    seguroAcionado: '',
-    mesReferencia: '',
-    status: DEFAULT_STATUS_FILTRO,
-  })
+  const [sortBy, setSortBy] = useState(() => filtrosIniciais.sortBy ?? null)
+  const [sortDir, setSortDir] = useState(() => filtrosIniciais.sortDir || 'asc')
+  const [colFilters, setColFilters] = useState(() => ({
+    ...DEFAULT_COL_FILTERS,
+    ...(filtrosIniciais.colFilters || {}),
+  }))
+
+  // Persiste os filtros/ordenação assim que o usuário os altera, para restaurar na próxima visita
+  useEffect(() => {
+    try {
+      localStorage.setItem(FILTROS_STORAGE_KEY, JSON.stringify({
+        search, mesSelecionado, cardsDataInicio, cardsDataFim, sortBy, sortDir, colFilters,
+      }))
+    } catch {}
+  }, [search, mesSelecionado, cardsDataInicio, cardsDataFim, sortBy, sortDir, colFilters])
 
   const setColFilter = (field, value) =>
     setColFilters(prev => ({ ...prev, [field]: value }))
@@ -191,10 +220,7 @@ export default function Inadimplentes() {
     }))
 
   const limparColFilters = () =>
-    setColFilters({
-      inquilino: '', imovel: '', garantia: '', seguroAcionado: '',
-      mesReferencia: '', status: DEFAULT_STATUS_FILTRO,
-    })
+    setColFilters({ ...DEFAULT_COL_FILTERS })
 
   const toggleSort = (field) => {
     if (sortBy === field) {
