@@ -1039,6 +1039,7 @@ export default function ImoveisTodos() {
  
   return (
     <Layout title="Planilha Imóveis" subtitle="Omie — Planilha de Pagamentos Mensais">
+      <div className="imoveis-todos-page">
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -2486,6 +2487,7 @@ export default function ImoveisTodos() {
           </div>
         </div>
       )}
+      </div>
     </Layout>
   )
 }

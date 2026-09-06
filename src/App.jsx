@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './auth'
 import { firebaseError } from './firebase'
+import Loader from './components/Loader'
 
 // Cada página é carregada sob demanda (code-splitting por rota), para que o CSS de
 // cada uma fique isolado no seu próprio chunk e não seja baixado/aplicado nas outras páginas
@@ -30,7 +31,7 @@ const AlteracoesPlanilha       = lazy(() => import('./pages/AlteracoesPlanilha')
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
-  if (loading) return <div className="loading-screen">Carregando...</div>
+  if (loading) return <div className="loading-screen"><Loader /></div>
   return user ? children : <Navigate to="/" replace />
 }
 
@@ -72,7 +73,7 @@ export default function App() {
   }
 
   return (
-    <Suspense fallback={<div className="loading-screen">Carregando...</div>}>
+    <Suspense fallback={<div className="loading-screen"><Loader /></div>}>
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/dashboard"                  element={<PrivateRoute><Dashboard /></PrivateRoute>} />
