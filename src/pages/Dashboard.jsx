@@ -3226,8 +3226,8 @@ export default function Dashboard() {
               </CardDescription>
             </div>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-            <div className="flex items-center gap-1.5">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+            <div className="flex flex-wrap items-center gap-1.5">
               <label className="sr-only" htmlFor="faixa-aluguel-period-start">Mês inicial</label>
               <input
                 id="faixa-aluguel-period-start"
@@ -3263,8 +3263,8 @@ export default function Dashboard() {
                 </Button>
               )}
             </div>
-            <Tabs value={faixaAluguelStatus} onValueChange={setFaixaAluguelStatus}>
-              <TabsList>
+            <Tabs value={faixaAluguelStatus} onValueChange={setFaixaAluguelStatus} className="w-full sm:w-auto">
+              <TabsList className="w-full flex-wrap sm:w-fit">
                 <TabsTrigger value="ativos">Ativos</TabsTrigger>
                 <TabsTrigger value="inativos">Inativos</TabsTrigger>
                 <TabsTrigger value="todos">Ativos + Inativos</TabsTrigger>
