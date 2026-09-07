@@ -3924,52 +3924,48 @@ export default function Dashboard() {
           </div>
         </CardHeader>
         </motion.div>
-        <motion.div variants={staggerItemVariants}>
-        <CardContent className="p-2">
-          {inadimplenciasRecebidasFiltradas.length === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">
-                {inadimplenciasRecebidas.length === 0
-                ? 'Nenhuma inadimplência recuperada com vencimento e data de pagamento informados.'
-                : 'Nenhuma inadimplência recebida no período de referência selecionado.'}
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <div className="min-w-[620px] divide-y">
-                <div className="grid grid-cols-[minmax(180px,1fr)_120px_120px_100px] gap-2 px-2 py-1.5 text-[11px] font-semibold text-muted-foreground">
-                  <span>Inquilino</span>
-                  <span>Vencimento</span>
-                  <span>Pagamento</span>
-                  <span className="text-right">Tempo</span>
-                </div>
-                {/* key força o Framer Motion a reanimar a lista (senão itens ficam com opacity:0 ao trocar o filtro) */}
-                <motion.div
-                  key={`${tempoRecebimentoPeriodStart}_${tempoRecebimentoPeriodEnd}`}
-                  variants={staggerContainerVariants}
-                  initial="hidden"
-                  animate="visible"
-                >
-                  {inadimplenciasRecebidasFiltradas.map(debito => (
-                    <motion.div
-                      key={debito.id}
-                      variants={staggerItemVariants}
-                      className="grid grid-cols-[minmax(180px,1fr)_120px_120px_100px] items-center gap-2 px-2 py-2 text-xs"
-                    >
-                      <span className="truncate font-medium" title={debito.inquilinoNome || 'Sem nome'}>
-                        {debito.inquilinoNome || 'Sem nome'}
-                      </span>
-                      <span className="text-muted-foreground">{formatarDataCurta(debito.dataVencimento)}</span>
-                      <span className="text-muted-foreground">{formatarDataCurta(debito.dataPagamento)}</span>
-                      <strong className="text-right text-emerald-700">
-                        {debito.diasAtePagamento} {debito.diasAtePagamento === 1 ? 'dia' : 'dias'}
-                      </strong>
-                    </motion.div>
-                  ))}
-                </motion.div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-        </motion.div>
+       <motion.div variants={staggerItemVariants}>
+<CardContent className="p-2">
+  {inadimplenciasRecebidasFiltradas.length === 0 ? (
+    <p className="py-6 text-center text-xs text-muted-foreground">
+      {inadimplenciasRecebidas.length === 0
+        ? 'Nenhuma inadimplência recuperada com vencimento e data de pagamento informados.'
+        : 'Nenhuma inadimplência recebida no período de referência selecionado.'}
+    </p>
+  ) : (
+    <div className="flex flex-col divide-y">
+      {/* cabeçalho só aparece a partir do breakpoint sm, onde cabe a tabela completa */}
+      <div className="hidden grid-cols-[minmax(180px,1fr)_110px_110px_90px] gap-2 px-2 py-1.5 text-[11px] font-semibold text-muted-foreground sm:grid">
+        <span>Inquilino</span>
+        <span>Vencimento</span>
+        <span>Pagamento</span>
+        <span className="text-right">Tempo</span>
+      </div>
+      {inadimplenciasRecebidasFiltradas.map(debito => (
+        <div
+          key={debito.id}
+          className="grid grid-cols-2 gap-x-2 gap-y-1 px-2 py-2 text-xs sm:grid-cols-[minmax(180px,1fr)_110px_110px_90px] sm:items-center sm:gap-y-0"
+        >
+          <span className="col-span-2 truncate font-medium sm:col-span-1" title={debito.inquilinoNome || 'Sem nome'}>
+            {debito.inquilinoNome || 'Sem nome'}
+          </span>
+          <span className="text-muted-foreground">
+            <span className="text-[10px] uppercase text-muted-foreground/70 sm:hidden">Venc.: </span>
+            {formatarDataCurta(debito.dataVencimento)}
+          </span>
+          <span className="text-muted-foreground">
+            <span className="text-[10px] uppercase text-muted-foreground/70 sm:hidden">Pgto.: </span>
+            {formatarDataCurta(debito.dataPagamento)}
+          </span>
+          <strong className="text-right text-emerald-700">
+            {debito.diasAtePagamento} {debito.diasAtePagamento === 1 ? 'dia' : 'dias'}
+          </strong>
+        </div>
+      ))}
+    </div>
+  )}
+</CardContent>
+</motion.div>
       </Card>
       </motion.div>
 
