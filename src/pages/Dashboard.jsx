@@ -3941,27 +3941,31 @@ export default function Dashboard() {
         <span>Pagamento</span>
         <span className="text-right">Tempo</span>
       </div>
-      {inadimplenciasRecebidasFiltradas.map(debito => (
-        <div
-          key={debito.id}
-          className="grid grid-cols-2 gap-x-2 gap-y-1 px-2 py-2 text-xs sm:grid-cols-[minmax(180px,1fr)_110px_110px_90px] sm:items-center sm:gap-y-0"
-        >
-          <span className="col-span-2 truncate font-medium sm:col-span-1" title={debito.inquilinoNome || 'Sem nome'}>
-            {debito.inquilinoNome || 'Sem nome'}
-          </span>
-          <span className="text-muted-foreground">
-            <span className="text-[10px] uppercase text-muted-foreground/70 sm:hidden">Venc.: </span>
-            {formatarDataCurta(debito.dataVencimento)}
-          </span>
-          <span className="text-muted-foreground">
-            <span className="text-[10px] uppercase text-muted-foreground/70 sm:hidden">Pgto.: </span>
-            {formatarDataCurta(debito.dataPagamento)}
-          </span>
-          <strong className="text-right text-emerald-700">
-            {debito.diasAtePagamento} {debito.diasAtePagamento === 1 ? 'dia' : 'dias'}
-          </strong>
-        </div>
-      ))}
+    {inadimplenciasRecebidasFiltradas.map(debito => (
+  <div
+    key={debito.id}
+    className="grid grid-cols-2 gap-x-2 gap-y-1 px-2 py-2 text-xs sm:grid-cols-[minmax(180px,1fr)_110px_110px_90px] sm:items-center sm:gap-y-0"
+  >
+    <div className="flex flex-col gap-0.5 sm:contents">
+      <span className="truncate font-medium" title={debito.inquilinoNome || 'Sem nome'}>
+        {debito.inquilinoNome || 'Sem nome'}
+      </span>
+      <span className="text-muted-foreground">
+        <span className="text-[10px] uppercase text-muted-foreground/70 sm:hidden">Venc.: </span>
+        {formatarDataCurta(debito.dataVencimento)}
+      </span>
+    </div>
+    <div className="flex flex-col items-end gap-0.5 sm:contents">
+      <span className="text-muted-foreground text-right sm:text-left">
+        <span className="text-[10px] uppercase text-muted-foreground/70 sm:hidden">Pgto.: </span>
+        {formatarDataCurta(debito.dataPagamento)}
+      </span>
+      <strong className="text-right text-emerald-700">
+        {debito.diasAtePagamento} {debito.diasAtePagamento === 1 ? 'dia' : 'dias'}
+      </strong>
+    </div>
+  </div>
+))}
     </div>
   )}
 </CardContent>
