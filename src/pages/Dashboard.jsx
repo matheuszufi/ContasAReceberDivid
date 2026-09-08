@@ -15,6 +15,18 @@ import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import './Dashboard.css'
 
 // Carrega uma imagem para uso com doc.addImage do jsPDF
@@ -1400,6 +1412,25 @@ export default function Dashboard() {
     [inquilinosAtivosChronData]
   )
 
+  const inquilinosAtivosChronSummary = useMemo(() => {
+    if (!inquilinosAtivosChronData.length) {
+      return { avg: 0, last: 0, prev: 0, delta: 0 }
+    }
+
+    const avg = Math.round(
+      inquilinosAtivosChronData.reduce((sum, item) => sum + item.count, 0) / inquilinosAtivosChronData.length
+    )
+    const last = inquilinosAtivosChronData[inquilinosAtivosChronData.length - 1]?.count || 0
+    const prev = inquilinosAtivosChronData[inquilinosAtivosChronData.length - 2]?.count ?? last
+
+    return {
+      avg,
+      last,
+      prev,
+      delta: last - prev,
+    }
+  }, [inquilinosAtivosChronData])
+
   const chronPointX = (index) => {
     const n = inquilinosAtivosChronData.length
     return n <= 1 ? 150 : (index / (n - 1)) * 300
@@ -2564,195 +2595,271 @@ export default function Dashboard() {
         whileInView="visible"
         viewport={{ once: true, amount: 0.15 }}
       >
-        <motion.div variants={staggerItemVariants}>
-        <Card>
-          <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2">
-            <CardTitle className="text-sm">Inquilinos Ativos ao Longo do Tempo</CardTitle>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <input
-                type="date"
-                value={inquilinosAtivosPeriodStart}
-                max={inquilinosAtivosPeriodEnd || undefined}
-                onChange={e => setInquilinosAtivosPeriodStart(e.target.value)}
-                className="h-7 rounded-md border px-1.5 text-[11px]"
-                aria-label="Data inicial"
-              />
-              <span className="text-[11px] text-muted-foreground">até</span>
-              <input
-                type="date"
-                value={inquilinosAtivosPeriodEnd}
-                min={inquilinosAtivosPeriodStart || undefined}
-                onChange={e => setInquilinosAtivosPeriodEnd(e.target.value)}
-                className="h-7 rounded-md border px-1.5 text-[11px]"
-                aria-label="Data final"
-              />
-              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={limparFiltroInquilinosAtivosPeriodo}>
-                Limpar
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="px-2 py-2">
-            {inquilinosAtivosChronData.length === 0 ? (
-              <p className="py-6 text-center text-xs text-muted-foreground">Selecione um período válido.</p>
-            ) : (
-              <>
-                <svg viewBox="0 0 300 100" className="h-32 w-full" preserveAspectRatio="none" aria-label="Gráfico de inquilinos ativos ao longo do tempo">
-                  <line x1="0" y1="96" x2="300" y2="96" stroke="var(--border)" strokeWidth="1" />
-                  {chronAreaPoints && <polygon points={chronAreaPoints} fill="#2563eb1a" />}
-                  <polyline
-                    points={chronLinePoints}
-                    fill="none"
-                    stroke="#6a90e1"
-                    strokeWidth="2"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                  {inquilinosAtivosChronData.map((item, index) => {
-                    const pointX = chronPointX(index)
-                    const pointY = chronPointY(item.count)
-                    const isLastPoint = index === inquilinosAtivosChronData.length - 1
-                    return (
-                      <g key={item.monthKey}>
-                        <circle cx={pointX} cy={pointY} r="2.6" fill="#7ea0ea" stroke="#ffffff" strokeWidth="1.2" vectorEffect="non-scaling-stroke">
-                          <title>{`${item.label}: ${item.count} inquilino(s) ativo(s)`}</title>
-                        </circle>
-                        <text
-                          x={isLastPoint ? pointX - 4 : pointX + 4}
-                          y={Math.max(8, pointY - 4)}
-                          textAnchor={isLastPoint ? 'end' : 'start'}
-                          fill="#1d4ed8"
-                          fontSize="6.5"
-                          fontWeight="400"
-                          paintOrder="stroke"
-                          stroke="#ffffff"
-                          strokeWidth="2.5"
-                          strokeLinejoin="round"
-                        >
-                          {item.count}
-                        </text>
-                      </g>
-                    )
-                  })}
-                </svg>
-                <div className="mt-1 flex text-[9px] text-muted-foreground">
-                  {inquilinosAtivosChronData.map((item, index, arr) => {
-                    // evita labels amontoados quando o período abrange muitos meses
-                    const step = Math.max(1, Math.ceil(arr.length / 8))
-                    const showLabel = index % step === 0 || index === arr.length - 1
-                    return (
-                      <span key={item.monthKey} className="flex-1 truncate text-center" title={item.label}>
-                        {showLabel ? item.label : ''}
-                      </span>
-                    )
-                  })}
+        <motion.div variants={staggerItemVariants} className="h-full">
+          <Card className="flex h-full flex-col overflow-hidden rounded-2xl border border-sky-100 bg-[radial-gradient(circle_at_top,_rgba(191,219,254,0.35),_rgba(255,255,255,0)_30%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] shadow-sm">
+            <CardHeader className="flex w-full flex-col gap-2 border-b border-sky-100 bg-white/80 px-3 py-2.5 backdrop-blur-sm">
+              <div className="flex w-full items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex size-8 items-center justify-center rounded-xl bg-sky-100 text-sky-700 shadow-sm">
+                    <Users className="size-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <CardTitle className="truncate text-sm">Inquilinos Ativos</CardTitle>
+                    <p className="truncate text-[10px] text-muted-foreground">
+                      {inquilinosAtivosChronData.length ? `${inquilinosAtivosChronData[0].label} a ${inquilinosAtivosChronData[inquilinosAtivosChronData.length - 1].label}` : 'Selecione um período'}
+                    </p>
+                  </div>
                 </div>
-                <p className="mt-1 text-center text-[11px] text-muted-foreground">
-                  Pico no período: <strong className="text-foreground">{chronMaxCount}</strong> inquilino(s) ativo(s)
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-        </motion.div>
+                <Badge
+                  variant="secondary"
+                  className="inline-flex h-7 shrink-0 items-center justify-center rounded-full bg-sky-100 px-2.5 text-[11px] font-semibold leading-none tracking-tight text-sky-700 tabular-nums whitespace-nowrap"
+                >
+                  {inquilinosAtivosChronSummary.last} ativos
+                </Badge>
+              </div>
 
-        <motion.div variants={staggerItemVariants}>
-        <Card className="min-w-0">
-          <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
-            <div>
-              <CardTitle className="text-sm">Lucro por Mês</CardTitle>
-              <CardDescription className="text-[11px]">Taxa Adm + Taxa de Contrato em {lucroAno}.</CardDescription>
-            </div>
-            <div className="flex shrink-0 items-center gap-1">
-              <Button variant="outline" size="icon" className="size-6" onClick={() => setLucroAno(String(Number(lucroAno) - 1))} aria-label="Ano anterior">
-                <ChevronLeft className="size-3.5" />
-              </Button>
-              <Badge variant="secondary" className="h-6 min-w-11 justify-center px-2 text-xs">{lucroAno}</Badge>
-              <Button variant="outline" size="icon" className="size-6" onClick={() => setLucroAno(String(Number(lucroAno) + 1))} aria-label="Próximo ano">
-                <ChevronRight className="size-3.5" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="min-w-0 px-2 py-2">
-            {maxLucroValor <= 0 ? (
-              <p className="py-6 text-center text-xs text-muted-foreground">Nenhum lucro calculado para {lucroAno}.</p>
-            ) : (
-              <>
-                <div className="mb-2 flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1.5">
-                  <Trophy className="size-3.5 shrink-0 text-emerald-600" />
-                  <p className="text-xs">
-                    <strong>{MONTH_LABELS[Number(maxLucroMes.mes.slice(-2)) - 1]}/{lucroAno}</strong> maior lucro:{' '}
-                    <strong className="text-emerald-700">{fmtMoney(maxLucroMes.total)}</strong>
-                  </p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <input
+                  type="date"
+                  value={inquilinosAtivosPeriodStart}
+                  max={inquilinosAtivosPeriodEnd || undefined}
+                  onChange={e => setInquilinosAtivosPeriodStart(e.target.value)}
+                  className="h-7 rounded-md border border-slate-200 bg-white px-1.5 text-[11px] shadow-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  aria-label="Data inicial"
+                />
+                <span className="text-[11px] text-muted-foreground">até</span>
+                <input
+                  type="date"
+                  value={inquilinosAtivosPeriodEnd}
+                  min={inquilinosAtivosPeriodStart || undefined}
+                  onChange={e => setInquilinosAtivosPeriodEnd(e.target.value)}
+                  className="h-7 rounded-md border border-slate-200 bg-white px-1.5 text-[11px] shadow-sm outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                  aria-label="Data final"
+                />
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={limparFiltroInquilinosAtivosPeriodo}>
+                  Limpar
+                </Button>
+              </div>
+            </CardHeader>
+
+            <CardContent className="flex flex-1 flex-col gap-2 p-3">
+              {inquilinosAtivosChronData.length === 0 ? (
+                <div className="flex min-h-[155px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/80 px-4 py-6 text-center">
+                  <Users className="mb-2 size-6 text-slate-400" />
+                  <p className="text-sm font-medium text-slate-700">Período indisponível</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Selecione uma faixa de datas válida para visualizar o histórico.</p>
                 </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm">
+                      <p className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground">Pico</p>
+                      <p className="mt-0.5 text-sm font-semibold text-sky-700">{chronMaxCount}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm">
+                      <p className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground">Média</p>
+                      <p className="mt-0.5 text-sm font-semibold text-slate-800">{inquilinosAtivosChronSummary.avg}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm">
+                      <p className="text-[9px] uppercase tracking-[0.08em] text-muted-foreground">Último</p>
+                      <p className="mt-0.5 text-sm font-semibold text-emerald-700">{inquilinosAtivosChronSummary.last}</p>
+                    </div>
+                  </div>
 
-                <div className="flex min-w-0 items-end gap-1">
-                  {lucroPorMes.map((m, index) => {
-                    const isMax = m.total > 0 && m.total === maxLucroValor
-                    const alturaPercentual = m.total > 0 ? Math.max((m.total / maxLucroValor) * 100, 4) : 0
-                    return (
-                      <div
-                        key={m.mes}
-                        className="flex min-w-0 flex-1 flex-col items-center gap-1"
-                        title={`${MONTH_LABELS[index]} de ${lucroAno}: ${fmtMoney(m.total)}`}
-                      >
-                        <span className="h-3 max-w-full truncate text-[9px] font-medium text-muted-foreground">
-                          {m.total > 0 ? fmtMoneyCompact(m.total) : ''}
-                        </span>
-                        <div className="flex w-full items-end justify-center" style={{ height: 80 }}>
-                          <div
-                            className={`w-full rounded-t-sm transition-all ${isMax ? 'bg-emerald-500' : 'bg-blue-400/70'}`}
-                            style={{ height: `${alturaPercentual}%` }}
-                          />
-                        </div>
-                        <span className={`max-w-full truncate text-[10px] ${isMax ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
-                          {MONTH_LABELS[index]}
+                  <div className="rounded-2xl border border-sky-100 bg-white/80 p-2 shadow-sm">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                        <TrendingUp className="size-3 text-emerald-600" />
+                        <span>
+                          {inquilinosAtivosChronSummary.delta >= 0 ? '+' : ''}
+                          {inquilinosAtivosChronSummary.delta} vs. anterior
                         </span>
                       </div>
-                    )
-                  })}
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                      <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700">
+                        {inquilinosAtivosChronSummary.last > inquilinosAtivosChronSummary.prev ? 'Alta' : 'Estável'}
+                      </span>
+                    </div>
+
+                    <div className="h-28 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={inquilinosAtivosChronData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="inquilinosAtivosAreaFill" x1="0" x2="0" y1="0" y2="1">
+                              <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.45} />
+                              <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.06} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+                          <XAxis
+                            dataKey="label"
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={8}
+                            tick={{ fontSize: 9, fill: '#64748b' }}
+                            interval={Math.max(0, Math.ceil(inquilinosAtivosChronData.length / 6) - 1)}
+                          />
+                          <YAxis hide domain={[0, 'dataMax + 1']} allowDecimals={false} />
+                          <RechartsTooltip
+                            cursor={{ stroke: '#93c5fd', strokeWidth: 1, strokeDasharray: '4 4' }}
+                            contentStyle={{
+                              borderRadius: 12,
+                              border: '1px solid #dbeafe',
+                              backgroundColor: '#ffffff',
+                              boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
+                              fontSize: 11,
+                            }}
+                            formatter={(value) => [`${value} ativos`, 'Inquilinos']}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="count"
+                            stroke="#2563eb"
+                            strokeWidth={2.5}
+                            fill="url(#inquilinosAtivosAreaFill)"
+                            dot={{ r: 3, fill: '#ffffff', stroke: '#2563eb', strokeWidth: 1.8 }}
+                            activeDot={{ r: 5, fill: '#2563eb', stroke: '#ffffff', strokeWidth: 2 }}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </motion.div>
 
-        <motion.div variants={staggerItemVariants}>
-        <Card className="min-h-0">
-          <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
-            <div>
-              <CardTitle className="text-sm">Top Proprietários</CardTitle>
-              <CardDescription className="text-[11px]">Taxa Adm + Taxa de Contrato no mês</CardDescription>
-            </div>
-            <input
-              type="month"
-              value={rankingMes}
-              onChange={e => setRankingMes(e.target.value)}
-              className="h-7 min-w-0 rounded-md border px-1.5 text-[11px]"
-              aria-label="Mês do ranking de proprietários"
-            />
-          </CardHeader>
-          <CardContent className="min-h-0 px-2 py-2">
-            {rankingProprietarios.length === 0 ? (
-              <p className="py-6 text-center text-xs text-muted-foreground">
-                Nenhum proprietário com lucro em {formatMonthKeyShort(rankingMes)}.
-              </p>
-            ) : (
-              <div className="flex max-h-[190px] flex-col gap-1 overflow-y-auto pr-1">
-                {rankingProprietarios.map((proprietario, index) => (
-                  <div key={proprietario.id} className="flex items-center justify-between gap-2 rounded-md px-2 py-2 hover:bg-muted/50">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Badge variant={index === 0 ? 'default' : 'secondary'} className="h-5 w-5 shrink-0 justify-center rounded-full p-0 text-[10px]">
-                        {index === 0 ? <Trophy className="size-3" /> : `#${index + 1}`}
-                      </Badge>
-                      <p className="truncate text-xs font-medium">{proprietario.nome}</p>
-                    </div>
-                    <strong className="shrink-0 text-xs text-emerald-700">{fmtMoney(proprietario.total)}</strong>
-                  </div>
-                ))}
+        <motion.div variants={staggerItemVariants} className="h-full">
+          <Card className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-emerald-100 bg-gradient-to-b from-emerald-50/20 via-white to-white shadow-sm">
+            <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b border-emerald-100 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <div className="flex size-8 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 shadow-sm">
+                  <TrendingUp className="size-3.5" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm">Lucro por Mês</CardTitle>
+                  <CardDescription className="text-[11px]">Taxa Adm + Taxa de Contrato em {lucroAno}.</CardDescription>
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button variant="outline" size="icon" className="size-6" onClick={() => setLucroAno(String(Number(lucroAno) - 1))} aria-label="Ano anterior">
+                  <ChevronLeft className="size-3.5" />
+                </Button>
+                <Badge variant="secondary" className="h-6 min-w-11 justify-center px-2 text-xs">{lucroAno}</Badge>
+                <Button variant="outline" size="icon" className="size-6" onClick={() => setLucroAno(String(Number(lucroAno) + 1))} aria-label="Próximo ano">
+                  <ChevronRight className="size-3.5" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="flex min-w-0 flex-1 flex-col gap-2 p-3">
+              {maxLucroValor <= 0 ? (
+                <p className="py-6 text-center text-xs text-muted-foreground">Nenhum lucro calculado para {lucroAno}.</p>
+              ) : (
+                <>
+                  <div className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-1.5 shadow-sm">
+                    <Trophy className="size-3.5 shrink-0 text-emerald-600" />
+                    <p className="text-[11px] leading-none">
+                      <strong>{MONTH_LABELS[Number(maxLucroMes.mes.slice(-2)) - 1]}/{lucroAno}</strong> maior lucro:{' '}
+                      <strong className="text-emerald-700">{fmtMoney(maxLucroMes.total)}</strong>
+                    </p>
+                  </div>
+
+                  <div className="mt-auto h-32 w-full rounded-2xl border border-slate-200 bg-slate-50/80 p-2 shadow-inner">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={lucroPorMes} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                        <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+                        <XAxis
+                          dataKey="mes"
+                          tickFormatter={(monthKey) => MONTH_LABELS[Number(monthKey.slice(-2)) - 1]}
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fontSize: 9, fill: '#64748b' }}
+                        />
+                        <YAxis hide domain={[0, maxLucroValor || 1]} allowDecimals={false} />
+                        <RechartsTooltip
+                          cursor={{ fill: 'rgba(14, 165, 233, 0.08)' }}
+                          contentStyle={{
+                            borderRadius: 12,
+                            border: '1px solid #dcfce7',
+                            backgroundColor: '#ffffff',
+                            boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
+                            fontSize: 11,
+                          }}
+                          formatter={(value) => [fmtMoney(Number(value)), 'Lucro']}
+                          labelFormatter={(monthKey) => `${MONTH_LABELS[Number(monthKey.slice(-2)) - 1]}/${lucroAno}`}
+                        />
+                        <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+                          {lucroPorMes.map((entry) => {
+                            const isMax = entry.total > 0 && entry.total === maxLucroValor
+                            return (
+                              <Cell
+                                key={entry.mes}
+                                fill={isMax ? '#10b981' : '#38bdf8'}
+                                stroke={isMax ? '#059669' : '#0ea5e9'}
+                                strokeWidth={isMax ? 1 : 0}
+                              />
+                            )
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={staggerItemVariants} className="h-full">
+          <Card className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-violet-100 bg-gradient-to-b from-violet-50/20 via-white to-white shadow-sm">
+            <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b border-violet-100 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <div className="flex size-8 items-center justify-center rounded-xl bg-violet-100 text-violet-700 shadow-sm">
+                  <Trophy className="size-3.5" />
+                </div>
+                <div>
+                  <CardTitle className="text-sm">Top Proprietários</CardTitle>
+                  <CardDescription className="text-[11px]">Taxa Adm + Taxa de Contrato no mês</CardDescription>
+                </div>
+              </div>
+              <input
+                type="month"
+                value={rankingMes}
+                onChange={e => setRankingMes(e.target.value)}
+                className="h-7 min-w-0 rounded-md border border-slate-200 bg-white px-1.5 text-[11px] shadow-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                aria-label="Mês do ranking de proprietários"
+              />
+            </CardHeader>
+            <CardContent className="flex min-h-0 flex-1 flex-col gap-2 p-3">
+              {rankingProprietarios.length === 0 ? (
+                <p className="py-6 text-center text-xs text-muted-foreground">
+                  Nenhum proprietário com lucro em {formatMonthKeyShort(rankingMes)}.
+                </p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between rounded-xl border border-violet-200 bg-violet-50 px-2 py-1.5 text-[11px] shadow-sm">
+                    <span className="text-violet-700">Mês em destaque</span>
+                    <strong className="text-violet-900">{formatMonthKeyShort(rankingMes)}</strong>
+                  </div>
+
+                  <div className="flex max-h-[190px] flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
+                    {rankingProprietarios.map((proprietario, index) => (
+                      <div key={proprietario.id} className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-2 shadow-sm transition hover:border-violet-200 hover:bg-violet-50/40">
+                        <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ${index === 0 ? 'bg-amber-400 text-amber-950' : index === 1 ? 'bg-slate-200 text-slate-700' : index === 2 ? 'bg-orange-200 text-orange-900' : 'bg-violet-100 text-violet-700'}`}>
+                          {index === 0 ? <Trophy className="size-3" /> : index + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[11px] font-medium text-slate-800">{proprietario.nome}</p>
+                          <p className="text-[9px] text-muted-foreground">Ranking #{index + 1}</p>
+                        </div>
+                        <strong className="shrink-0 text-[11px] font-semibold text-emerald-700">{fmtMoney(proprietario.total)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </motion.div>
       </motion.div>
 
