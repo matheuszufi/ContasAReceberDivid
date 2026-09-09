@@ -900,6 +900,8 @@ export default function Dashboard() {
   const now = new Date()
   const currentYear = String(now.getFullYear())
   const currentMonth = `${currentYear}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const previousMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const previousMonth = `${previousMonthDate.getFullYear()}-${String(previousMonthDate.getMonth() + 1).padStart(2, '0')}`
 
   const [imoveis, setImoveis] = useState([])
   const [inquilinos, setInquilinos] = useState([])
@@ -915,9 +917,8 @@ export default function Dashboard() {
   const [faixaAluguelStatus, setFaixaAluguelStatus] = useState('ativos')
   const [faixaAluguelPeriodStart, setFaixaAluguelPeriodStart] = useState('')
   const [faixaAluguelPeriodEnd, setFaixaAluguelPeriodEnd] = useState('')
-  // Em branco por padrão para exibir todo o histórico já recebido, sem depender do mês atual
-  const [tempoRecebimentoPeriodStart, setTempoRecebimentoPeriodStart] = useState('')
-  const [tempoRecebimentoPeriodEnd, setTempoRecebimentoPeriodEnd] = useState('')
+  const [tempoRecebimentoPeriodStart, setTempoRecebimentoPeriodStart] = useState(previousMonth)
+  const [tempoRecebimentoPeriodEnd, setTempoRecebimentoPeriodEnd] = useState(currentMonth)
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [topFilter, setTopFilter] = useState('valor')
@@ -3312,6 +3313,9 @@ export default function Dashboard() {
                   )
                 })}
               </div>
+              <p className="mt-3 text-center text-[11px] font-medium text-muted-foreground">
+                clique em algum mês para ver os dados do mes referente
+              </p>
             </div>
 
             <div className="flex min-h-0 min-w-0 flex-col border bg-card p-2">
@@ -4038,22 +4042,35 @@ export default function Dashboard() {
                   Nenhum inquilino com valor de aluguel cadastrado para o filtro selecionado.
                 </p>
               ) : (
-                <motion.div className="flex flex-col gap-2" variants={staggerContainerVariants} aria-label="Gráfico de quantidade de aluguéis por faixa de preço">
-                  {faixasAluguel.map(faixa => (
-                    <motion.div key={faixa.inicio} variants={staggerItemVariants} className="grid grid-cols-[minmax(110px,150px)_1fr_44px] items-center gap-2 text-xs">
-                      <span className="truncate text-muted-foreground" title={formatFaixaAluguel(faixa.inicio, faixa.fim)}>
-                        {formatFaixaAluguel(faixa.inicio, faixa.fim)}
-                      </span>
-                      <div className="h-5 overflow-hidden rounded-sm bg-muted" role="img" aria-label={`${faixa.quantidade} aluguel(is)`}>
-                        <div
-                          className="h-full rounded-sm bg-blue-500 transition-all"
-                          style={{ width: `${(faixa.quantidade / maiorQuantidadeFaixaAluguel) * 100}%` }}
-                        />
-                      </div>
-                      <strong className="text-right text-foreground">{faixa.quantidade}</strong>
-                    </motion.div>
-                  ))}
-                </motion.div>
+                <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 via-slate-50 to-slate-100 p-3 shadow-sm dark:border-blue-900/40 dark:from-slate-900/60 dark:via-slate-900/40 dark:to-slate-950/80">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                    <span className="rounded-full bg-white/80 px-2 py-1 font-medium text-slate-700 shadow-sm dark:bg-slate-800/80 dark:text-slate-200">
+                      {faixasAluguel.length} faixas ativas
+                    </span>
+                    <span className="rounded-full bg-blue-100 px-2 py-1 font-medium text-blue-700 dark:bg-blue-900/40 dark:text-blue-200">
+                      Pico: {Math.max(...faixasAluguel.map(f => f.quantidade))} inquilinos
+                    </span>
+                  </div>
+                  <motion.div className="flex flex-col gap-2.5" variants={staggerContainerVariants} aria-label="Gráfico de quantidade de aluguéis por faixa de preço">
+                    {faixasAluguel.map(faixa => {
+                      const porcentagem = maiorQuantidadeFaixaAluguel > 0 ? (faixa.quantidade / maiorQuantidadeFaixaAluguel) * 100 : 0
+                      return (
+                        <motion.div key={faixa.inicio} variants={staggerItemVariants} className="grid grid-cols-[minmax(110px,150px)_1fr_42px] items-center gap-2 text-xs">
+                          <span className="truncate font-medium text-slate-600 dark:text-slate-300" title={formatFaixaAluguel(faixa.inicio, faixa.fim)}>
+                            {formatFaixaAluguel(faixa.inicio, faixa.fim)}
+                          </span>
+                          <div className="relative h-6 overflow-hidden rounded-full bg-slate-200/80 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700" role="img" aria-label={`${faixa.quantidade} aluguel(is)`}>
+                            <div
+                              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.28)] transition-all duration-300"
+                              style={{ width: `${Math.max(porcentagem, faixa.quantidade > 0 ? 10 : 0)}%` }}
+                            />
+                          </div>
+                          <strong className="text-right text-slate-800 dark:text-slate-100">{faixa.quantidade}</strong>
+                        </motion.div>
+                      )
+                    })}
+                  </motion.div>
+                </div>
               )}
             </div>
 
