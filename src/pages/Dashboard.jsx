@@ -3373,50 +3373,6 @@ export default function Dashboard() {
       </motion.div>
 
       <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
-        <Card className="mb-3">
-          <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-2">
-            <div className="flex items-center gap-2">
-              <Wallet className="size-4 text-cyan-600" />
-              <div>
-                <CardTitle className="text-sm">Próximos pagamentos</CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">Pagamentos da seguradora agendados para o futuro.</CardDescription>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-cyan-100 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">
-                {proximosPagamentosSeguradora.length}
-              </span>
-              <strong className="text-xs font-semibold text-cyan-700">
-                {fmtMoney(totalProximosPagamentosSeguradora)}
-              </strong>
-            </div>
-          </CardHeader>
-          <CardContent className="p-3">
-            {proximosPagamentosSeguradora.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                Nenhum pagamento da seguradora agendado para o futuro.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {proximosPagamentosSeguradora.map(item => (
-                  <li key={`${item.id}-${item.dataPagamento}`} className="rounded-md border bg-slate-50/80 p-2 shadow-sm dark:bg-slate-900/20">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-xs font-medium text-slate-800 dark:text-slate-200" title={item.nome}>{item.nome}</span>
-                      <span className="text-[10px] font-medium text-cyan-700">{item.diasRestantes}d</span>
-                    </div>
-                    <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                      <span>{formatarDataCurta(item.dataPagamento)}</span>
-                      <span className="font-medium text-foreground">{fmtMoney(item.valor)}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
       <Card className="mb-3">
         <motion.div variants={staggerItemVariants}>
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
