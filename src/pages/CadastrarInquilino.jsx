@@ -5,6 +5,7 @@ import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { MapaImoveis, buildEnderecoQuery, geocodeEndereco } from '../components/MapaImoveis'
+import { normalizeText } from '../lib/utils'
 import './CadastrarInquilino.css'
 
 const GARANTIA_OPCOES = [
@@ -287,6 +288,26 @@ export default function CadastrarInquilino() {
   setLoading(true)
 
   try {
+    const nomeInformado = (form.nome || '').trim()
+    if (!nomeInformado) {
+      setError('Informe o nome do inquilino antes de salvar.')
+      return
+    }
+
+    const snapshotInquilinos = await get(ref(db, 'inquilinos'))
+    const duplicado = snapshotInquilinos.exists()
+      ? Object.entries(snapshotInquilinos.val() || {})
+          .find(([inquilinoId, value]) =>
+            inquilinoId !== id &&
+            normalizeText(value?.nome) === normalizeText(nomeInformado)
+          )
+      : null
+
+    if (duplicado) {
+      setError('Já existe um inquilino cadastrado com este nome.')
+      return
+    }
+
     // Verifica se existia imóvel antes da edição
     let imovelAntigoId = null
 

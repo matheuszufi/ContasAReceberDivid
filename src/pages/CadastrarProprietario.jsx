@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
-import { normalizeText } from '@/lib/utils'
+import { normalizeText } from '../lib/utils'
 import './CadastrarProprietario.css'
 
 const BANCOS = [
@@ -494,6 +494,26 @@ export default function CadastrarProprietario() {
     setLoading(true)
 
     try {
+      const nomeInformado = (form.nome || '').trim()
+      if (!nomeInformado) {
+        setError('Informe o nome do proprietário antes de salvar.')
+        return
+      }
+
+      const snapshotProprietarios = await get(ref(db, 'proprietarios'))
+      const duplicado = snapshotProprietarios.exists()
+        ? Object.entries(snapshotProprietarios.val() || {})
+            .find(([proprietarioId, value]) =>
+              proprietarioId !== id &&
+              normalizeText(value?.nome) === normalizeText(nomeInformado)
+            )
+        : null
+
+      if (duplicado) {
+        setError('Já existe um proprietário cadastrado com este nome.')
+        return
+      }
+
       const imoveisSelecionados = Object.keys(imoveisVinculos)
       const imoveisVinculosParsed = Object.fromEntries(
         Object.entries(imoveisVinculos).map(([imovelId, v]) => [

@@ -4,6 +4,7 @@ import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { MapaImovelUnico, buildEnderecoQuery, geocodeEndereco } from '../components/MapaImoveis'
+import { normalizeText } from '../lib/utils'
 import './CadastrarImovel.css'
 
 const STATUS_IMOVEL = ['Disponível', 'Ocupado', 'Em Manutenção', 'Indisponível']
@@ -191,6 +192,26 @@ export default function CadastrarImovel() {
     setError(null)
     setLoading(true)
     try {
+      const codigoInformado = (form.codigo || '').trim()
+      if (!codigoInformado) {
+        setError('Informe o código do imóvel antes de salvar.')
+        return
+      }
+
+      const snapshotImoveis = await get(ref(db, 'imoveis'))
+      const duplicado = snapshotImoveis.exists()
+        ? Object.entries(snapshotImoveis.val() || {})
+            .find(([imovelId, value]) =>
+              imovelId !== id &&
+              normalizeText(value?.codigo) === normalizeText(codigoInformado)
+            )
+        : null
+
+      if (duplicado) {
+        setError('Já existe um imóvel cadastrado com este código/nome.')
+        return
+      }
+
       const proprietario = proprietarios.find(p => p.id === form.proprietarioId)
       const payload = {
         ...form,
