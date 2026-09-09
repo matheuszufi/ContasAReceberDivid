@@ -1131,17 +1131,25 @@ export default function Dashboard() {
       return true
     }).filter(inquilino => {
       if (!faixaAluguelPeriodStart && !faixaAluguelPeriodEnd) return true
+
       const entrada = inquilino.dataEntrada?.slice(0, 7)
       const saida = inquilino.dataSaida?.slice(0, 7)
-      if (faixaAluguelPeriodEnd && entrada && entrada > faixaAluguelPeriodEnd) return false
-      if (faixaAluguelPeriodStart && saida && saida < faixaAluguelPeriodStart) return false
+
+      const inicioSelecionado = faixaAluguelPeriodStart || null
+      const fimSelecionado = faixaAluguelPeriodEnd || null
+
+      if (inicioSelecionado && saida && saida < inicioSelecionado) return false
+      if (fimSelecionado && entrada && entrada > fimSelecionado) return false
+      if (inicioSelecionado && !entrada && !saida) return true
+      if (fimSelecionado && !entrada && !saida) return true
+
       return true
     }).map(inquilino => Number(inquilino.valorAluguel) || 0).filter(valor => valor > 0)
 
     if (lista.length === 0) return []
 
     const passo = 500
-    const maiorFaixa = Math.floor(Math.max(...lista) / passo)
+    const maiorFaixa = Math.ceil(Math.max(...lista) / passo)
     return Array.from({ length: maiorFaixa + 1 }, (_, indice) => {
       const inicio = indice * passo
       const fim = inicio + passo - 0.01
