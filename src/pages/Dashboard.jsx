@@ -1154,6 +1154,42 @@ export default function Dashboard() {
 
   const maiorQuantidadeFaixaAluguel = Math.max(...faixasAluguel.map(faixa => faixa.quantidade), 0)
 
+  const proximosPagamentosSeguradora = useMemo(() => {
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+
+    return inadimplencias
+      .filter(debito => {
+        const dataPagamento = debito.dataPagamento
+        if (!dataPagamento) return false
+        const statusSeguro = debito.seguroAcionado
+        if (!(statusSeguro === 'pagamento_aprovado' || statusSeguro === 'pago_pela_seguradora')) return false
+
+        const data = new Date(`${dataPagamento}T00:00:00`)
+        if (Number.isNaN(data.getTime())) return false
+        return data >= hoje
+      })
+      .map(debito => {
+        const valor = Number(debito.valorTotal || debito.valorOriginal || 0)
+        const dataPagamento = new Date(`${debito.dataPagamento}T00:00:00`)
+        const diasRestantes = Math.ceil((dataPagamento - hoje) / (1000 * 60 * 60 * 24))
+
+        return {
+          ...debito,
+          valor,
+          diasRestantes,
+          nome: debito.inquilinoNome || 'Inquilino sem nome',
+          dataPagamento: debito.dataPagamento,
+        }
+      })
+      .sort((a, b) => a.dataPagamento.localeCompare(b.dataPagamento))
+  }, [inadimplencias])
+
+  const totalProximosPagamentosSeguradora = useMemo(
+    () => proximosPagamentosSeguradora.reduce((soma, item) => soma + (Number(item.valor) || 0), 0),
+    [proximosPagamentosSeguradora]
+  )
+
   const inadimplenciasRecebidas = useMemo(() => inadimplencias
     .filter(debito => (
       debito.status === 'pago' ||
@@ -3276,10 +3312,6 @@ export default function Dashboard() {
                   )
                 })}
               </div>
-              <div className="month-grid-hint">
-                <MousePointerClick className="size-3.5 shrink-0" />
-                <span>Clique em um card do mês para ver os detalhes</span>
-              </div>
             </div>
 
             <div className="flex min-h-0 min-w-0 flex-col border bg-card p-2">
@@ -3338,6 +3370,50 @@ export default function Dashboard() {
         </CardContent>
         </motion.div>
       </Card>
+      </motion.div>
+
+      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
+        <Card className="mb-3">
+          <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-2">
+            <div className="flex items-center gap-2">
+              <Wallet className="size-4 text-cyan-600" />
+              <div>
+                <CardTitle className="text-sm">Próximos pagamentos</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">Pagamentos da seguradora agendados para o futuro.</CardDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full bg-cyan-100 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">
+                {proximosPagamentosSeguradora.length}
+              </span>
+              <strong className="text-xs font-semibold text-cyan-700">
+                {fmtMoney(totalProximosPagamentosSeguradora)}
+              </strong>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3">
+            {proximosPagamentosSeguradora.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhum pagamento da seguradora agendado para o futuro.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {proximosPagamentosSeguradora.map(item => (
+                  <li key={`${item.id}-${item.dataPagamento}`} className="rounded-md border bg-slate-50/80 p-2 shadow-sm dark:bg-slate-900/20">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-xs font-medium text-slate-800 dark:text-slate-200" title={item.nome}>{item.nome}</span>
+                      <span className="text-[10px] font-medium text-cyan-700">{item.diasRestantes}d</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                      <span>{formatarDataCurta(item.dataPagamento)}</span>
+                      <span className="font-medium text-foreground">{fmtMoney(item.valor)}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
       </motion.div>
 
       <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
@@ -3955,28 +4031,33 @@ export default function Dashboard() {
         </motion.div>
         <motion.div variants={staggerItemVariants}>
         <CardContent className="p-3">
-          {faixasAluguel.length === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">
-              Nenhum inquilino com valor de aluguel cadastrado para o filtro selecionado.
-            </p>
-          ) : (
-            <motion.div className="flex flex-col gap-2" variants={staggerContainerVariants} aria-label="Gráfico de quantidade de aluguéis por faixa de preço">
-              {faixasAluguel.map(faixa => (
-                <motion.div key={faixa.inicio} variants={staggerItemVariants} className="grid grid-cols-[minmax(110px,150px)_1fr_44px] items-center gap-2 text-xs">
-                  <span className="truncate text-muted-foreground" title={formatFaixaAluguel(faixa.inicio, faixa.fim)}>
-                    {formatFaixaAluguel(faixa.inicio, faixa.fim)}
-                  </span>
-                  <div className="h-5 overflow-hidden rounded-sm bg-muted" role="img" aria-label={`${faixa.quantidade} aluguel(is)`}>
-                    <div
-                      className="h-full rounded-sm bg-blue-500 transition-all"
-                      style={{ width: `${(faixa.quantidade / maiorQuantidadeFaixaAluguel) * 100}%` }}
-                    />
-                  </div>
-                  <strong className="text-right text-foreground">{faixa.quantidade}</strong>
+          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(240px,0.9fr)]">
+            <div>
+              {faixasAluguel.length === 0 ? (
+                <p className="py-6 text-center text-xs text-muted-foreground">
+                  Nenhum inquilino com valor de aluguel cadastrado para o filtro selecionado.
+                </p>
+              ) : (
+                <motion.div className="flex flex-col gap-2" variants={staggerContainerVariants} aria-label="Gráfico de quantidade de aluguéis por faixa de preço">
+                  {faixasAluguel.map(faixa => (
+                    <motion.div key={faixa.inicio} variants={staggerItemVariants} className="grid grid-cols-[minmax(110px,150px)_1fr_44px] items-center gap-2 text-xs">
+                      <span className="truncate text-muted-foreground" title={formatFaixaAluguel(faixa.inicio, faixa.fim)}>
+                        {formatFaixaAluguel(faixa.inicio, faixa.fim)}
+                      </span>
+                      <div className="h-5 overflow-hidden rounded-sm bg-muted" role="img" aria-label={`${faixa.quantidade} aluguel(is)`}>
+                        <div
+                          className="h-full rounded-sm bg-blue-500 transition-all"
+                          style={{ width: `${(faixa.quantidade / maiorQuantidadeFaixaAluguel) * 100}%` }}
+                        />
+                      </div>
+                      <strong className="text-right text-foreground">{faixa.quantidade}</strong>
+                    </motion.div>
+                  ))}
                 </motion.div>
-              ))}
-            </motion.div>
-          )}
+              )}
+            </div>
+
+          </div>
         </CardContent>
         </motion.div>
       </Card>
