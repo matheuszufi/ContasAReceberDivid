@@ -3579,7 +3579,14 @@ export default function Dashboard() {
                     </div>
                     <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
                       <span>{formatarDataCurta(item.dataPagamento)}</span>
-                      <span className="font-medium text-foreground">{fmtMoney(item.valor)}</span>
+                      <div className="flex flex-col items-end">
+                        <span className="font-medium text-foreground">{fmtMoney(item.valor)}</span>
+                        {Number(item.valorRecebido || 0) > 0 && (
+                          <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                            Recebido: {fmtMoney(item.valorRecebido)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </li>
                 ))}
