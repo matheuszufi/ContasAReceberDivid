@@ -1150,7 +1150,7 @@ export default function Dashboard() {
         fim,
         quantidade: lista.filter(valor => valor >= inicio && valor < inicio + passo).length,
       }
-    }).filter(faixa => faixa.quantidade > 0)
+    })
   }, [inquilinos, faixaAluguelStatus, faixaAluguelPeriodStart, faixaAluguelPeriodEnd])
 
   const maiorQuantidadeFaixaAluguel = Math.max(...faixasAluguel.map(faixa => faixa.quantidade), 0)
@@ -3313,9 +3313,12 @@ export default function Dashboard() {
                   )
                 })}
               </div>
-              <p className="mt-3 text-center text-[11px] font-medium text-muted-foreground">
-                clique em algum mês para ver os dados do mes referente
-              </p>
+              <div className="mt-3 flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center shadow-sm dark:border-amber-900/50 dark:bg-amber-950/30">
+                <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-700 dark:text-amber-300">
+                  <span className="inline-block size-2 rounded-full bg-amber-500" />
+                  Clique em algum mês para ver os dados do mês referente
+                </span>
+              </div>
             </div>
 
             <div className="flex min-h-0 min-w-0 flex-col border bg-card p-2">
@@ -4035,7 +4038,7 @@ export default function Dashboard() {
         </motion.div>
         <motion.div variants={staggerItemVariants}>
         <CardContent className="p-3">
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(240px,0.9fr)]">
+          <div className="w-full">
             <div>
               {faixasAluguel.length === 0 ? (
                 <p className="py-6 text-center text-xs text-muted-foreground">
@@ -4062,7 +4065,7 @@ export default function Dashboard() {
                           <div className="relative h-6 overflow-hidden rounded-full bg-slate-200/80 ring-1 ring-slate-200 dark:bg-slate-800 dark:ring-slate-700" role="img" aria-label={`${faixa.quantidade} aluguel(is)`}>
                             <div
                               className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.28)] transition-all duration-300"
-                              style={{ width: `${Math.max(porcentagem, faixa.quantidade > 0 ? 10 : 0)}%` }}
+                              style={{ width: `${faixa.quantidade === 0 ? 0 : Math.max(porcentagem, 10)}%` }}
                             />
                           </div>
                           <strong className="text-right text-slate-800 dark:text-slate-100">{faixa.quantidade}</strong>
@@ -4073,7 +4076,6 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-
           </div>
         </CardContent>
         </motion.div>
