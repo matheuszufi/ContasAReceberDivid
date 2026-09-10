@@ -314,8 +314,16 @@ export default function Inadimplentes() {
 
   const getImovelId = (d) => inquilinos.find(i => i.id === d.inquilinoId)?.imovelId || ''
 
-  const goInquilino = (d) => d.inquilinoId && navigate(`/inquilinos/editar/${d.inquilinoId}`)
-  const goImovel = (d) => { const imovelId = getImovelId(d); if (imovelId) navigate(`/imoveis/editar/${imovelId}`) }
+  const goInquilino = (d) => {
+    if (!d.inquilinoId) return
+    window.open(`/inquilinos/editar/${d.inquilinoId}`, '_blank', 'noopener,noreferrer')
+  }
+
+  const goImovel = (d) => {
+    const imovelId = getImovelId(d)
+    if (!imovelId) return
+    window.open(`/imoveis/editar/${imovelId}`, '_blank', 'noopener,noreferrer')
+  }
 
   const handleDelete = async (id) => {
     if (!window.confirm('Deseja excluir este débito?')) return
