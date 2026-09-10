@@ -3449,7 +3449,7 @@ export default function Dashboard() {
             <>
             <div className="min-w-0 rounded-md border bg-muted/10 p-2">
               <div className="mb-2">
-                <h4 className="text-sm font-medium">Inadimplência em Aberto</h4>
+                <h4 className="text-sm font-medium">Taxa de Inadimplência em Aberto</h4>
                 <p className="text-xs text-muted-foreground">Inquilinos com débitos ainda não pagos no período.</p>
               </div>
               <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[180px_1fr]">
@@ -3493,7 +3493,7 @@ export default function Dashboard() {
             <div className="flex min-w-0 flex-col justify-center rounded-md border bg-muted/10 p-2">
               <div className="mb-2">
                 <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                  <h4 className="truncate text-sm font-medium">Histórico de Inadimplência</h4>
+                  <h4 className="truncate text-sm font-medium">Taxa de inadiplencia</h4>
                   <span className="shrink-0 text-xs font-medium text-muted-foreground">
                     Total de inquilinos: <strong className="text-foreground">{totalInquilinos}</strong>
                   </span>
