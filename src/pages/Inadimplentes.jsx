@@ -165,6 +165,7 @@ const DEFAULT_COL_FILTERS = {
   valorRecebidoMax: '',
   mesReferencia: '',
   vencimento: '',
+  pagamento: '',
   garantia: '',
   seguroAcionado: '',
   status: DEFAULT_STATUS_FILTRO,
@@ -501,6 +502,7 @@ export default function Inadimplentes() {
     .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
     .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
     .filter(d => !colFilters.vencimento || (d.dataVencimento || '') === colFilters.vencimento)
+    .filter(d => !colFilters.pagamento || (d.dataPagamento || '') === colFilters.pagamento)
     .filter(d => {
       const total = Number(d.valorTotal || d.valorOriginal || 0)
       if (colFilters.totalMin && total < Number(colFilters.totalMin)) return false
@@ -521,7 +523,7 @@ export default function Inadimplentes() {
       if (cardsDataFim && dataRef > cardsDataFim) return false
       return true
     }),
-  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.garantia, colFilters.seguroAcionado, colFilters.mesReferencia, colFilters.vencimento, colFilters.totalMin, colFilters.totalMax, colFilters.valorRecebidoMin, colFilters.valorRecebidoMax, cardsDataInicio, cardsDataFim])
+  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.garantia, colFilters.seguroAcionado, colFilters.mesReferencia, colFilters.vencimento, colFilters.pagamento, colFilters.totalMin, colFilters.totalMax, colFilters.valorRecebidoMin, colFilters.valorRecebidoMax, cardsDataInicio, cardsDataFim])
 
   // Filtro de status continua sendo aplicado na tabela.
   const filteredBase = useMemo(() => baseSemStatus
@@ -772,7 +774,7 @@ export default function Inadimplentes() {
                 Limpar período dos cards
               </Button>
             )}
-            {(colFilters.inquilino || colFilters.imovel || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || colFilters.vencimento || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || !isDefaultStatusFiltro(colFilters.status)) && (
+            {(colFilters.inquilino || colFilters.imovel || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || colFilters.vencimento || colFilters.pagamento || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || !isDefaultStatusFiltro(colFilters.status)) && (
               <Button variant="outline" size="sm" onClick={limparColFilters}>
                 Limpar filtros
               </Button>
@@ -890,6 +892,14 @@ export default function Inadimplentes() {
                       type="date"
                       value={colFilters.vencimento}
                       onChange={e => setColFilter('vencimento', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    />
+                  </th>
+                  <th>
+                    <input
+                      type="date"
+                      value={colFilters.pagamento}
+                      onChange={e => setColFilter('pagamento', e.target.value)}
                       style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                     />
                   </th>
