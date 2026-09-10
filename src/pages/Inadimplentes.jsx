@@ -166,6 +166,8 @@ const DEFAULT_COL_FILTERS = {
   mesReferencia: '',
   vencimento: '',
   pagamento: '',
+  dataSeguro: '',
+  ultimaCobranca: '',
   garantia: '',
   seguroAcionado: '',
   status: DEFAULT_STATUS_FILTRO,
@@ -503,6 +505,8 @@ export default function Inadimplentes() {
     .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
     .filter(d => !colFilters.vencimento || (d.dataVencimento || '') === colFilters.vencimento)
     .filter(d => !colFilters.pagamento || (d.dataPagamento || '') === colFilters.pagamento)
+    .filter(d => !colFilters.dataSeguro || (d.dataSeguro || '') === colFilters.dataSeguro)
+    .filter(d => !colFilters.ultimaCobranca || (d.ultimaCobranca || '') === colFilters.ultimaCobranca)
     .filter(d => {
       const total = Number(d.valorTotal || d.valorOriginal || 0)
       if (colFilters.totalMin && total < Number(colFilters.totalMin)) return false
@@ -523,7 +527,7 @@ export default function Inadimplentes() {
       if (cardsDataFim && dataRef > cardsDataFim) return false
       return true
     }),
-  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.garantia, colFilters.seguroAcionado, colFilters.mesReferencia, colFilters.vencimento, colFilters.pagamento, colFilters.totalMin, colFilters.totalMax, colFilters.valorRecebidoMin, colFilters.valorRecebidoMax, cardsDataInicio, cardsDataFim])
+  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.garantia, colFilters.seguroAcionado, colFilters.mesReferencia, colFilters.vencimento, colFilters.pagamento, colFilters.dataSeguro, colFilters.ultimaCobranca, colFilters.totalMin, colFilters.totalMax, colFilters.valorRecebidoMin, colFilters.valorRecebidoMax, cardsDataInicio, cardsDataFim])
 
   // Filtro de status continua sendo aplicado na tabela.
   const filteredBase = useMemo(() => baseSemStatus
@@ -786,7 +790,7 @@ export default function Inadimplentes() {
                 Limpar período dos cards
               </Button>
             )}
-            {(colFilters.inquilino || colFilters.imovel || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || colFilters.vencimento || colFilters.pagamento || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || !isDefaultStatusFiltro(colFilters.status)) && (
+            {(colFilters.inquilino || colFilters.imovel || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || colFilters.vencimento || colFilters.pagamento || colFilters.dataSeguro || colFilters.ultimaCobranca || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || !isDefaultStatusFiltro(colFilters.status)) && (
               <Button variant="outline" size="sm" onClick={limparColFilters}>
                 Limpar filtros
               </Button>
@@ -939,7 +943,14 @@ export default function Inadimplentes() {
                       ))}
                     </select>
                   </th>
-                  <th></th>
+                  <th>
+                    <input
+                      type="date"
+                      value={colFilters.dataSeguro}
+                      onChange={e => setColFilter('dataSeguro', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    />
+                  </th>
                   <th ref={statusFilterRef}>
                     <button
                       type="button"
@@ -972,7 +983,14 @@ export default function Inadimplentes() {
                       document.body
                     )}
                   </th>
-                  <th></th>
+                  <th>
+                    <input
+                      type="date"
+                      value={colFilters.ultimaCobranca}
+                      onChange={e => setColFilter('ultimaCobranca', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    />
+                  </th>
                   <th></th>
                 </tr>
               </thead>
