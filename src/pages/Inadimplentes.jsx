@@ -650,22 +650,34 @@ export default function Inadimplentes() {
                     onClick={() => setMesSelecionado(active ? null : ym)}
                     type="button"
                   >
-                    <div className="mc-month">{formatMonthLabel(ym)}</div>
+                    <div className="mc-header">
+                      <div className="mc-month">{formatMonthLabel(ym)}</div>
+                      <span className={`mc-selected-pill ${active ? 'is-active' : ''}`}>
+                        {active ? 'Selecionado' : 'Ver mês'}
+                      </span>
+                    </div>
+
+                    <div className="mc-summary">
+                      <div className="mc-summary-value">
+                        <span className="mc-summary-label">Total</span>
+                        <strong>{s.totalDebitos}</strong>
+                      </div>
+                      <div className="mc-summary-value accent">
+                        <span className="mc-summary-label">Em aberto</span>
+                        <strong>{fmtMoney(s.valorAberto)}</strong>
+                      </div>
+                    </div>
+
                     <div className="mc-stats">
                       <div className="mc-stat">
-                        <span className="mc-stat-label"><span className="mc-stat-icon"></span> Inadimplentes</span>
+                        <span className="mc-stat-label"><span className="mc-stat-icon">●</span> Inadimplentes</span>
                         <span className="mc-stat-value">{s.totalInadimplentes}</span>
                       </div>
                       <div className="mc-stat">
-                        <span className="mc-stat-label"><span className="mc-stat-icon"></span> Em Aberto</span>
-                        <span className="mc-stat-value">{fmtMoney(s.valorAberto)}</span>
-                      </div>
-                      <div className="mc-stat">
-                        <span className="mc-stat-label"><span className="mc-stat-icon"></span> Recuperado</span>
+                        <span className="mc-stat-label"><span className="mc-stat-icon">●</span> Recuperado</span>
                         <span className="mc-stat-value">{fmtMoney(s.valorRecuperado)}</span>
                       </div>
                     </div>
-                    <div className="mc-total">{s.totalDebitos} débito{s.totalDebitos !== 1 ? 's' : ''}</div>
                   </button>
                 )
               })}
