@@ -159,9 +159,14 @@ const FILTROS_STORAGE_KEY = 'inadimplentes_filtros_v1'
 const DEFAULT_COL_FILTERS = {
   inquilino: '',
   imovel: '',
+  totalMin: '',
+  totalMax: '',
+  valorRecebidoMin: '',
+  valorRecebidoMax: '',
+  mesReferencia: '',
+  vencimento: '',
   garantia: '',
   seguroAcionado: '',
-  mesReferencia: '',
   status: DEFAULT_STATUS_FILTRO,
 }
 
@@ -481,6 +486,19 @@ export default function Inadimplentes() {
     .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
     .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
     .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
+    .filter(d => !colFilters.vencimento || (d.dataVencimento || '') === colFilters.vencimento)
+    .filter(d => {
+      const total = Number(d.valorTotal || d.valorOriginal || 0)
+      if (colFilters.totalMin && total < Number(colFilters.totalMin)) return false
+      if (colFilters.totalMax && total > Number(colFilters.totalMax)) return false
+      return true
+    })
+    .filter(d => {
+      const recebido = Number(d.valorRecebido || 0)
+      if (colFilters.valorRecebidoMin && recebido < Number(colFilters.valorRecebidoMin)) return false
+      if (colFilters.valorRecebidoMax && recebido > Number(colFilters.valorRecebidoMax)) return false
+      return true
+    })
     .filter(d => {
       const dataRef = getDateForCardFilter(d)
       if (!cardsDataInicio && !cardsDataFim) return true
@@ -489,7 +507,7 @@ export default function Inadimplentes() {
       if (cardsDataFim && dataRef > cardsDataFim) return false
       return true
     }),
-  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.garantia, colFilters.seguroAcionado, colFilters.mesReferencia, cardsDataInicio, cardsDataFim])
+  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.garantia, colFilters.seguroAcionado, colFilters.mesReferencia, colFilters.vencimento, colFilters.totalMin, colFilters.totalMax, colFilters.valorRecebidoMin, colFilters.valorRecebidoMax, cardsDataInicio, cardsDataFim])
 
   // Filtro de status continua sendo aplicado na tabela.
   const filteredBase = useMemo(() => baseSemStatus
@@ -740,7 +758,7 @@ export default function Inadimplentes() {
                 Limpar período dos cards
               </Button>
             )}
-            {(colFilters.inquilino || colFilters.imovel || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || !isDefaultStatusFiltro(colFilters.status)) && (
+            {(colFilters.inquilino || colFilters.imovel || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || colFilters.vencimento || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || !isDefaultStatusFiltro(colFilters.status)) && (
               <Button variant="outline" size="sm" onClick={limparColFilters}>
                 Limpar filtros
               </Button>
@@ -801,10 +819,46 @@ export default function Inadimplentes() {
                       style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                     />
                   </th>
-                  <th></th>
-                  <th></th>
-                  <th></th>
-                  <th></th>
+                  <th>
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Min"
+                        value={colFilters.totalMin}
+                        onChange={e => setColFilter('totalMin', e.target.value)}
+                        style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Max"
+                        value={colFilters.totalMax}
+                        onChange={e => setColFilter('totalMax', e.target.value)}
+                        style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                      />
+                    </div>
+                  </th>
+                  <th>
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Min"
+                        value={colFilters.valorRecebidoMin}
+                        onChange={e => setColFilter('valorRecebidoMin', e.target.value)}
+                        style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Max"
+                        value={colFilters.valorRecebidoMax}
+                        onChange={e => setColFilter('valorRecebidoMax', e.target.value)}
+                        style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                      />
+                    </div>
+                  </th>
                   <th>
                     <select
                       value={colFilters.mesReferencia}
@@ -816,6 +870,14 @@ export default function Inadimplentes() {
                         <option key={m} value={m}>{formatMonthShort(m)}</option>
                       ))}
                     </select>
+                  </th>
+                  <th>
+                    <input
+                      type="date"
+                      value={colFilters.vencimento}
+                      onChange={e => setColFilter('vencimento', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    />
                   </th>
                   <th>
                     <select
