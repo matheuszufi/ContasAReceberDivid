@@ -1021,13 +1021,17 @@ export default function Inadimplentes() {
                       />
                     </td>
                     <td>
-                      <input
-                        type="date"
-                        value={d.dataPagamento || ''}
-                        onChange={e => handleDataPagamentoChange(d.id, e.target.value)}
-                        aria-label={`Data de pagamento de ${getInquilinoNome(d)}`}
-                        style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
-                      />
+                      {d.status === 'pago' ? (
+                        <input
+                          type="date"
+                          value={d.dataPagamento || ''}
+                          onChange={e => handleDataPagamentoChange(d.id, e.target.value)}
+                          aria-label={`Data de pagamento de ${getInquilinoNome(d)}`}
+                          style={{ fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                        />
+                      ) : (
+                        <span style={{ color: '#64748b', fontSize: 12 }}>{d.dataPagamento ? d.dataPagamento : '—'}</span>
+                      )}
                     </td>
                     <td>
                       {(() => {
