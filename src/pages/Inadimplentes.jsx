@@ -314,15 +314,21 @@ export default function Inadimplentes() {
 
   const getImovelId = (d) => inquilinos.find(i => i.id === d.inquilinoId)?.imovelId || ''
 
+  const openHashRoute = (route) => {
+    const url = new URL(window.location.href)
+    url.hash = `#${route}`
+    window.open(url.toString(), '_blank', 'noopener,noreferrer')
+  }
+
   const goInquilino = (d) => {
     if (!d.inquilinoId) return
-    window.open(`/inquilinos/editar/${d.inquilinoId}`, '_blank', 'noopener,noreferrer')
+    openHashRoute(`/inquilinos/editar/${d.inquilinoId}`)
   }
 
   const goImovel = (d) => {
     const imovelId = getImovelId(d)
     if (!imovelId) return
-    window.open(`/imoveis/editar/${imovelId}`, '_blank', 'noopener,noreferrer')
+    openHashRoute(`/imoveis/editar/${imovelId}`)
   }
 
   const handleDelete = async (id) => {
