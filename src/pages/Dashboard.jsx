@@ -3571,25 +3571,53 @@ export default function Dashboard() {
               </p>
             ) : (
               <ul className="space-y-2">
-                {proximosPagamentosSeguradora.map(item => (
-                  <li key={`${item.id}-${item.dataPagamento}`} className="rounded-md border bg-slate-50/80 p-2 shadow-sm dark:bg-slate-900/20">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="truncate text-xs font-medium text-slate-800 dark:text-slate-200" title={item.nome}>{item.nome}</span>
-                      <span className="text-[10px] font-medium text-cyan-700">{item.diasRestantes}d</span>
-                    </div>
-                    <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                      <span>{formatarDataCurta(item.dataPagamento)}</span>
-                      <div className="flex flex-col items-end">
-                        <span className="font-medium text-foreground">{fmtMoney(item.valor)}</span>
-                        {Number(item.valorRecebido || 0) > 0 && (
-                          <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                            Recebido: {fmtMoney(item.valorRecebido)}
-                          </span>
-                        )}
+                {proximosPagamentosSeguradora.map(item => {
+                  const ehHoje = item.diasRestantes === 0
+
+                  return (
+                    <li
+                      key={`${item.id}-${item.dataPagamento}`}
+                      className={[
+                        'rounded-md border p-2 shadow-sm transition-all',
+                        ehHoje
+                          ? 'border-emerald-300 bg-emerald-50 ring-1 ring-emerald-200 shadow-emerald-100/70 dark:border-emerald-700/70 dark:bg-emerald-950/30 dark:ring-emerald-800'
+                          : 'border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/20',
+                      ].join(' ')}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={[
+                          'truncate text-xs font-medium',
+                          ehHoje ? 'text-emerald-800 dark:text-emerald-300' : 'text-slate-800 dark:text-slate-200',
+                        ].join(' ')} title={item.nome}>
+                          {item.nome}
+                        </span>
+                        <span className={[
+                          'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+                          ehHoje
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
+                        ].join(' ')}>
+                          {ehHoje ? 'Hoje' : `${item.diasRestantes}d`}
+                        </span>
                       </div>
-                    </div>
-                  </li>
-                ))}
+                      <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                        <span className={ehHoje ? 'font-semibold text-emerald-700 dark:text-emerald-300' : ''}>
+                          {formatarDataCurta(item.dataPagamento)}
+                        </span>
+                        <div className="flex flex-col items-end">
+                          <span className={ehHoje ? 'font-bold text-emerald-700 dark:text-emerald-300' : 'font-medium text-foreground'}>
+                            {fmtMoney(item.valor)}
+                          </span>
+                          {Number(item.valorRecebido || 0) > 0 && (
+                            <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                              Recebido: {fmtMoney(item.valorRecebido)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </CardContent>
