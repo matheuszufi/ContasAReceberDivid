@@ -67,6 +67,7 @@ import {
   FileText,
   MousePointerClick,
   BarChart3,
+  CalendarDays,
 } from 'lucide-react'
 
 // --- Mapa de imóveis (Leaflet + OpenStreetMap) ---
@@ -1777,6 +1778,28 @@ export default function Dashboard() {
       .sort((a, b) => b.utilizado - a.utilizado)
   }, [inadimplencias, inquilinos])
 
+  const proximasOcupacoes = useMemo(() => {
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    const dataLimite = new Date(hoje)
+    dataLimite.setDate(hoje.getDate() + 7)
+
+    return inquilinos
+      .filter(i => {
+        if (!i.dataEntrada) return false
+        const entrada = new Date(`${i.dataEntrada}T00:00:00`)
+        if (Number.isNaN(entrada.getTime())) return false
+        return entrada >= hoje && entrada <= dataLimite
+      })
+      .map(i => ({
+        id: i.id,
+        nome: i.nome || 'Inquilino sem nome',
+        dataEntrada: i.dataEntrada,
+        garantia: i.garantia || 'sem_garantia',
+      }))
+      .sort((a, b) => a.dataEntrada.localeCompare(b.dataEntrada))
+  }, [inquilinos])
+
 
   // Detalha, por débito, quem compõe cada uma das categorias do card de recuperação (para os tooltips)
   const categoryBreakdown = useMemo(() => {
@@ -2514,10 +2537,30 @@ export default function Dashboard() {
             </CardContent>
           </Card>
           </motion.div>
+          <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
+          <Card className="w-full border-cyan-300" style={{ background: '#ecfeff' }}>
+            <CardHeader className="">
+              <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#0f766e' }}>
+                <div className="h-4 w-4 animate-pulse rounded bg-cyan-300/60" />
+                <div className="h-4 w-56 animate-pulse rounded bg-cyan-300/60" />
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="">
+              <div className="flex flex-col gap-2">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="flex items-center justify-between gap-2">
+                    <div className="h-3 w-28 animate-pulse rounded bg-cyan-200/70" />
+                    <div className="h-3 w-16 animate-pulse rounded bg-cyan-200/70" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          </motion.div>
         </motion.div>
       )}
 
-      {inquilinosCarregado && (segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0 || garantiasUtilizadas.length > 0) && (
+      {inquilinosCarregado && (segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0 || garantiasUtilizadas.length > 0 || proximasOcupacoes.length > 0) && (
         <motion.div
           key="alertas-reais"
           className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap"
@@ -2582,10 +2625,34 @@ export default function Dashboard() {
               <CardContent className="">
                 <div className="flex flex-col gap-1">
                   {garantiasUtilizadas.map(i => (
-                    <div key={i.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-xs">
-                      <span className="font-small">{i.nome}</span>
+                    <div key={i.id} className="flex flex-col gap-1 text-xs">
+                      <span className="font-medium text-slate-800">{i.nome}</span>
                       <span className="text-muted-foreground">
                         Total: {fmtMoney(i.total)}{' · '}Utilizado: <strong className="text-red-700">{fmtMoney(i.utilizado)}</strong>{' · '}Em aberto: {fmtMoney(i.aberto)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+            </motion.div>
+          )}
+          {proximasOcupacoes.length > 0 && (
+            <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
+            <Card className="w-full border-cyan-300" style={{ background: '#ecfeff' }}>
+              <CardHeader className="">
+                <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#0f766e' }}>
+                  <CalendarDays className="size-4" />
+                  Próximas ocupações ({proximasOcupacoes.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="">
+                <div className="flex flex-col gap-1">
+                  {proximasOcupacoes.map(i => (
+                    <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-small">{i.nome}</span>
+                      <span className="text-muted-foreground">
+                        {GARANTIA_LABELS[i.garantia] || i.garantia || 'Sem garantia'} · {formatarDataCurta(i.dataEntrada)}
                       </span>
                     </div>
                   ))}
@@ -3688,55 +3755,64 @@ export default function Dashboard() {
                 Nenhum pagamento da seguradora agendado para o futuro.
               </p>
             ) : (
-              <ul className="space-y-2">
-                {proximosPagamentosSeguradora.map(item => {
-                  const ehHoje = item.diasRestantes === 0
+              <div className="overflow-x-auto pb-1">
+                <ul className="flex min-w-max gap-2.5">
+                  {proximosPagamentosSeguradora.map(item => {
+                    const ehHoje = item.diasRestantes === 0
 
-                  return (
-                    <li
-                      key={`${item.id}-${item.dataPagamento}`}
-                      className={[
-                        'rounded-md border p-2 shadow-sm transition-all',
-                        ehHoje
-                          ? 'border-emerald-300 bg-emerald-50 ring-1 ring-emerald-200 shadow-emerald-100/70 dark:border-emerald-700/70 dark:bg-emerald-950/30 dark:ring-emerald-800'
-                          : 'border-slate-200 bg-slate-50/80 dark:border-slate-700 dark:bg-slate-900/20',
-                      ].join(' ')}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className={[
-                          'truncate text-xs font-medium',
-                          ehHoje ? 'text-emerald-800 dark:text-emerald-300' : 'text-slate-800 dark:text-slate-200',
-                        ].join(' ')} title={item.nome}>
-                          {item.nome}
-                        </span>
-                        <span className={[
-                          'inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+                    return (
+                      <li
+                        key={`${item.id}-${item.dataPagamento}`}
+                        className={[
+                          'min-w-[240px] flex-shrink-0 rounded-xl border p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
                           ehHoje
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
-                        ].join(' ')}>
-                          {ehHoje ? 'Hoje' : `${item.diasRestantes}d`}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                        <span className={ehHoje ? 'font-semibold text-emerald-700 dark:text-emerald-300' : ''}>
-                          {formatarDataCurta(item.dataPagamento)}
-                        </span>
-                        <div className="flex flex-col items-end">
-                          <span className={ehHoje ? 'font-bold text-emerald-700 dark:text-emerald-300' : 'font-medium text-foreground'}>
-                            {fmtMoney(item.valor)}
+                            ? 'border-emerald-300 bg-gradient-to-br from-emerald-50 to-white ring-1 ring-emerald-200 shadow-emerald-100/70 dark:border-emerald-700/70 dark:from-emerald-950/40 dark:to-slate-950 dark:ring-emerald-800'
+                            : 'border-slate-200 bg-gradient-to-br from-slate-50 to-white dark:border-slate-700 dark:from-slate-900/30 dark:to-slate-950',
+                        ].join(' ')}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={[
+                            'truncate text-xs font-semibold',
+                            ehHoje ? 'text-emerald-800 dark:text-emerald-300' : 'text-slate-800 dark:text-slate-200',
+                          ].join(' ')} title={item.nome}>
+                            {item.nome}
                           </span>
-                          {Number(item.valorRecebido || 0) > 0 && (
-                            <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                              Recebido: {fmtMoney(item.valorRecebido)}
-                            </span>
-                          )}
+                          <span className={[
+                            'inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-bold',
+                            ehHoje
+                              ? 'border-emerald-300 bg-emerald-600 text-white'
+                              : 'border-cyan-200 bg-cyan-100 text-cyan-700 dark:border-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
+                          ].join(' ')}>
+                            {ehHoje ? 'Hoje' : `${item.diasRestantes}d`}
+                          </span>
                         </div>
-                      </div>
-                    </li>
-                  )
-                })}
-              </ul>
+
+                        <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                          <span className={[
+                            'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5',
+                            ehHoje
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+                          ].join(' ')}>
+                            {formatarDataCurta(item.dataPagamento)}
+                          </span>
+
+                          <div className="flex flex-col items-end">
+                            <span className={ehHoje ? 'text-sm font-extrabold text-emerald-700 dark:text-emerald-300' : 'text-sm font-bold text-slate-800 dark:text-slate-100'}>
+                              {fmtMoney(item.valor)}
+                            </span>
+                            {Number(item.valorRecebido || 0) > 0 && (
+                              <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                                Recebido: {fmtMoney(item.valorRecebido)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
             )}
           </CardContent>
         </Card>
