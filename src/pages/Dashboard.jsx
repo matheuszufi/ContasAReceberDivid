@@ -2038,6 +2038,28 @@ export default function Dashboard() {
     [historicoOrdenado, historicoMesFiltro]
   )
 
+  const deveMostrarDataPagamento = (item) => {
+    const novo = normalizarHistoricoValor(item.valorNovoKey || item.valorNovoLabel)
+    const ehPagamentoAprovado = item.campo === 'seguroAcionado' && novo === 'pagamentoaprovado'
+    const ehPago = item.campo === 'status' && novo === 'pago'
+    return ehPagamentoAprovado || ehPago
+  }
+
+  const getHistoricoDataIndicada = (item) => {
+    const mostrarPagamento = deveMostrarDataPagamento(item)
+    const value = item.dataPagamento || item.dataSeguro || null
+    if (!value) return null
+    return {
+      label: mostrarPagamento ? 'Data Pagamento' : 'Data Seguro',
+      value,
+    }
+  }
+
+  const handleAbrirHistoricoDebito = (debitoId) => {
+    if (!debitoId) return
+    navigate(`/inadimplentes?debitoId=${encodeURIComponent(debitoId)}`)
+  }
+
   const handleExcluirHistorico = async (id) => {
     if (!window.confirm('Deseja excluir este registro do histórico?')) return
     await remove(ref(db, `historicoAlteracoes/${id}`))
@@ -3771,8 +3793,21 @@ export default function Dashboard() {
             <div className="flex max-h-96 flex-col divide-y overflow-y-auto">
               {historicoFiltrado.map(item => {
                 const campoStyle = HISTORICO_CAMPO_STYLE[item.campo] || HISTORICO_CAMPO_STYLE.status
+                const dataIndicada = getHistoricoDataIndicada(item)
                 return (
-                  <div key={item.id} className="group flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
+                  <div
+                    key={item.id}
+                    className="group flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0 cursor-pointer hover:bg-slate-50/70 dark:hover:bg-slate-900/30"
+                    onClick={() => handleAbrirHistoricoDebito(item.debitoId)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        handleAbrirHistoricoDebito(item.debitoId)
+                      }
+                    }}
+                  >
                     <div className="flex min-w-0 flex-1 basis-56 flex-col items-start gap-1">
                       <span
                         className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
@@ -3794,7 +3829,7 @@ export default function Dashboard() {
                           <span className="break-words">Total c/ Encargos: {fmtMoney(item.valorTotal)}</span>
                           {item.valorRecebido > 0 && <span className="break-words">· Recebido: {fmtMoney(item.valorRecebido)}</span>}
                           {item.mesReferencia && <span className="break-words">· {getMonthLabel(item.mesReferencia)}</span>}
-                          {item.dataSeguro && <span className="break-words">· Data Seguro: {fmtDataCurta(item.dataSeguro)}</span>}
+                          {dataIndicada && <span className="break-words">· {dataIndicada.label}: {fmtDataCurta(dataIndicada.value)}</span>}
                         </p>
                       </div>
                     </div>
@@ -3804,7 +3839,10 @@ export default function Dashboard() {
                         variant="ghost"
                         size="icon"
                         className="size-6 shrink-0 text-muted-foreground opacity-100 transition-opacity hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
-                        onClick={() => handleExcluirHistorico(item.id)}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          handleExcluirHistorico(item.id)
+                        }}
                         aria-label="Excluir registro do histórico"
                         title="Excluir registro do histórico"
                       >

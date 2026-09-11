@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { ref, onValue, remove, update, push } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
@@ -185,9 +185,11 @@ const loadFiltrosSalvos = () => {
 
 export default function Inadimplentes() {
   const navigate = useNavigate()
+  const location = useLocation()
   // Lido uma vez por montagem (não no carregamento do módulo), para refletir o que foi salvo
   // mesmo ao voltar para esta página por navegação interna (sem recarregar o app)
   const [filtrosIniciais] = useState(loadFiltrosSalvos)
+  const debitoIdFiltro = useMemo(() => new URLSearchParams(location.search).get('debitoId'), [location.search])
   const [debitos, setDebitos] = useState([])
   const [inquilinos, setInquilinos] = useState([])
   const [imoveis, setImoveis] = useState([])
@@ -570,9 +572,19 @@ export default function Inadimplentes() {
 
   const monthGroups = buildMonthGroups(debitos)
 
-  const filtered = mesSelecionado
-    ? filteredBase.filter(d => (getMonth(d) || 'sem-mes') === mesSelecionado)
-    : filteredBase
+  const filtered = useMemo(() => {
+    let resultado = filteredBase
+
+    if (debitoIdFiltro) {
+      resultado = debitos.filter(d => d.id === debitoIdFiltro)
+    }
+
+    if (mesSelecionado && !debitoIdFiltro) {
+      resultado = resultado.filter(d => (getMonth(d) || 'sem-mes') === mesSelecionado)
+    }
+
+    return resultado
+  }, [debitos, debitoIdFiltro, filteredBase, mesSelecionado])
 
   const sortedFiltered = [...filtered].sort((a, b) => {
     if (!sortBy) return 0
