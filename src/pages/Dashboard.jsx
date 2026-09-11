@@ -3522,11 +3522,11 @@ export default function Dashboard() {
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
           <div>
             <CardTitle className="text-sm">Percentual de Inquilinos Inadimplentes</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
+            {/* <CardDescription className="text-xs text-muted-foreground">
               {mediaTaxasInadimplencia
                 ? `Média das taxas mensais de inadimplência em ${selectedPeriodLabel.toLowerCase()}.`
                 : `Comparação entre inquilinos inadimplentes e o total de inquilinos em ${selectedPeriodLabel.toLowerCase()}.`}
-            </CardDescription>
+            </CardDescription> */}
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
             <label className="sr-only" htmlFor="percentual-ano">Ano de referência</label>
@@ -4046,9 +4046,9 @@ export default function Dashboard() {
           <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
             <div>
               <CardTitle className="text-sm">Garantias dos Inadimplentes</CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
+              {/* <CardDescription className="text-xs text-muted-foreground">
                 Cada inquilino é contado uma vez (inclui pagos e em aberto), com detalhamento por seguradora quando aplicável.
-              </CardDescription>
+              </CardDescription> */}
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               <Tabs value={garantiaFilterMode} onValueChange={setGarantiaFilterMode}>
@@ -4142,9 +4142,9 @@ export default function Dashboard() {
           <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <CardTitle className="text-sm">Garantias de Todos os Inquilinos</CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
+              {/* <CardDescription className="text-xs text-muted-foreground">
                 Distribuição das garantias cadastradas, filtrável por status e por período de vigência do contrato.
-              </CardDescription>
+              </CardDescription> */}
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               <Tabs value={garantiaInquilinosStatusFilter} onValueChange={setGarantiaInquilinosStatusFilter}>
