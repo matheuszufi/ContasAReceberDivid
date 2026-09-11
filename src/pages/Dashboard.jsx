@@ -1781,15 +1781,13 @@ export default function Dashboard() {
   const proximasOcupacoes = useMemo(() => {
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
-    const dataLimite = new Date(hoje)
-    dataLimite.setDate(hoje.getDate() + 7)
 
     return inquilinos
       .filter(i => {
         if (!i.dataEntrada) return false
         const entrada = new Date(`${i.dataEntrada}T00:00:00`)
         if (Number.isNaN(entrada.getTime())) return false
-        return entrada >= hoje && entrada <= dataLimite
+        return entrada >= hoje
       })
       .map(i => ({
         id: i.id,
