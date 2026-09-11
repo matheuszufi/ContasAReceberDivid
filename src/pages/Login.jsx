@@ -14,6 +14,7 @@ import './Login.css'
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState(null)
   const [lockRemainingMs, setLockRemainingMs] = useState(0)
   const { login } = useAuth()
@@ -66,25 +67,76 @@ export default function Login() {
 
   return (
     <div className="auth-container">
-      <form className="auth-card" onSubmit={handleLogin}>
-        <div className="auth-logo">
-          <img src={logo} alt="Divid Logo" />
-        </div>
-        <h2>Financeiro</h2>
-        <p className="auth-sub">Entre com sua conta para continuar</p>
-        {error && <div className="error-msg" role="alert" aria-live="polite">{error}</div>}
-        <div className="form-group">
-          <label htmlFor="login-email">Email</label>
-          <input id="login-email" value={email} onChange={(e) => setEmail(e.target.value)} type="email" required placeholder="seu@email.com" autoComplete="email" disabled={isLocked} />
-        </div>
-        <div className="form-group">
-          <label htmlFor="login-password">Senha</label>
-          <input id="login-password" value={password} onChange={(e) => setPassword(e.target.value)} type="password" required placeholder="••••••••" autoComplete="current-password" disabled={isLocked} />
-        </div>
-        <button type="submit" className="btn btn-primary btn-block" disabled={isLocked}>
-          {isLocked ? `Bloqueado (${formatRemainingTime(lockRemainingMs)})` : 'Entrar'}
-        </button>
-      </form>
+      <div className="auth-shell">
+        <aside className="auth-hero" aria-label="Informações do produto">
+          <div className="auth-brand">
+            <img src={logo} alt="Divid Logo" />
+          </div>
+          <div className="auth-hero-badge">Sistema financeiro</div>
+          <h1>Controle total do seu imóvel e do seu fluxo financeiro.</h1>
+          <p>
+            Acompanhe inadimplência, seguros, garantias e movimentações em um único lugar,
+            com organização e segurança para a sua operação.
+          </p>
+          <ul className="auth-benefits">
+            <li>Dashboard em tempo real</li>
+            <li>Controle de inadimplência</li>
+            <li>Histórico e relatórios</li>
+          </ul>
+        </aside>
+
+        <form className="auth-card" onSubmit={handleLogin}>
+          <div className="auth-card-header">
+            <span className="auth-mini-label">Acesso</span>
+            <h2>Entrar</h2>
+          </div>
+
+          <p className="auth-sub">Entre com sua conta para continuar</p>
+          {error && <div className="error-msg" role="alert" aria-live="polite">{error}</div>}
+
+          <div className="form-group">
+            <label htmlFor="login-email">Email</label>
+            <input
+              id="login-email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              required
+              placeholder="seu@email.com"
+              autoComplete="email"
+              disabled={isLocked}
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="login-password">Senha</label>
+            <div className="password-wrap">
+              <input
+                id="login-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type={showPassword ? 'text' : 'password'}
+                required
+                placeholder="••••••••"
+                autoComplete="current-password"
+                disabled={isLocked}
+              />
+              <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShowPassword(v => !v)}
+                aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+              >
+                {showPassword ? 'Ocultar' : 'Mostrar'}
+              </button>
+            </div>
+          </div>
+
+          <button type="submit" className="btn btn-primary btn-block" disabled={isLocked}>
+            {isLocked ? `Bloqueado (${formatRemainingTime(lockRemainingMs)})` : 'Entrar'}
+          </button>
+        </form>
+      </div>
     </div>
   )
 }
