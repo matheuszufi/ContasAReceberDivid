@@ -94,7 +94,7 @@ const loadColumnOrder = () => {
   return DEFAULT_COLUMN_ORDER
 }
 
-function EditableCell({ value, display, onSave, type = 'text', options = [], inputType = 'text', placeholder = '—', className = '' }) {
+function EditableCell({ value, display, onSave, type = 'text', options = [], inputType = 'text', placeholder = '—', className = '', disabled = false }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const inputRef = useRef(null)
@@ -106,7 +106,10 @@ function EditableCell({ value, display, onSave, type = 'text', options = [], inp
     }
   }, [editing])
 
-  const start = () => setEditing(true)
+  const start = () => {
+    if (disabled) return
+    setEditing(true)
+  }
   const commit = () => {
     setEditing(false)
     if (draft !== value) onSave(draft)
@@ -118,7 +121,7 @@ function EditableCell({ value, display, onSave, type = 'text', options = [], inp
 
   if (!editing) {
     return (
-      <td className={`editable-cell ${className}`} onClick={start} title="Clique para editar">
+      <td className={`editable-cell ${className}`} onClick={start} title={disabled ? 'Ative a edição das células' : 'Clique para editar'}>
         {display !== undefined ? display : (value || <span className="cell-empty">{placeholder}</span>)}
       </td>
     )
@@ -174,6 +177,7 @@ export default function Proprietarios() {
   const [columnOrder, setColumnOrder] = useState(loadColumnOrder)
   const [draggingKey, setDraggingKey] = useState(null)
   const [dragOverKey, setDragOverKey] = useState(null)
+  const [inlineEditingEnabled, setInlineEditingEnabled] = useState(false)
   const [extratoProprietario, setExtratoProprietario] = useState(null)
   const [extratoMes, setExtratoMes] = useState(() => new Date().toISOString().slice(0, 7))
 
@@ -674,6 +678,7 @@ export default function Proprietarios() {
           display={<strong>{p.nome || '—'}</strong>}
           onSave={v => handleCampoChange(p.id, 'nome', v)}
           className="col-sticky-td"
+          disabled={!inlineEditingEnabled}
         />
       ),
       tipoDocumento: (
@@ -684,6 +689,7 @@ export default function Proprietarios() {
           type="select"
           options={[{ value: 'cpf', label: 'CPF' }, { value: 'cnpj', label: 'CNPJ' }]}
           onSave={v => handleDocumentoChange(p.id, v || 'cpf', p.cpfCnpj || '')}
+          disabled={!inlineEditingEnabled}
         />
       ),
       cpfCnpj: (
@@ -691,6 +697,7 @@ export default function Proprietarios() {
           key="cpfCnpj"
           value={p.cpfCnpj || p.cpf || ''}
           onSave={v => handleDocumentoChange(p.id, p.tipoDocumento || 'cpf', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       telefone: (
@@ -698,6 +705,7 @@ export default function Proprietarios() {
           key="telefone"
           value={p.telefone || ''}
           onSave={v => handleTelefoneChange(p.id, v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       email: (
@@ -705,6 +713,7 @@ export default function Proprietarios() {
           key="email"
           value={p.email || ''}
           onSave={v => handleCampoChange(p.id, 'email', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       status: (
@@ -712,6 +721,7 @@ export default function Proprietarios() {
           <select
             className={`badge-select ${p.status === 'Ativo' ? 'badge-green' : 'badge-gray'}`}
             value={p.status || 'Ativo'}
+            disabled={!inlineEditingEnabled}
             onClick={e => e.stopPropagation()}
             onChange={e => handleSelectChange(p.id, 'status', e.target.value)}
           >
@@ -725,6 +735,7 @@ export default function Proprietarios() {
           key="banco"
           value={p.banco || ''}
           onSave={v => handleCampoChange(p.id, 'banco', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       agencia: (
@@ -732,6 +743,7 @@ export default function Proprietarios() {
           key="agencia"
           value={p.agencia || ''}
           onSave={v => handleCampoChange(p.id, 'agencia', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       conta: (
@@ -739,6 +751,7 @@ export default function Proprietarios() {
           key="conta"
           value={p.conta || ''}
           onSave={v => handleCampoChange(p.id, 'conta', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       tipoConta: (
@@ -749,6 +762,7 @@ export default function Proprietarios() {
           type="select"
           options={[{ value: 'Corrente', label: 'Corrente' }, { value: 'Poupança', label: 'Poupança' }, { value: 'Salário', label: 'Salário' }]}
           onSave={v => handleCampoChange(p.id, 'tipoConta', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       pix: (
@@ -756,6 +770,7 @@ export default function Proprietarios() {
           key="pix"
           value={p.pix || ''}
           onSave={v => handleCampoChange(p.id, 'pix', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       observacao: (
@@ -764,6 +779,7 @@ export default function Proprietarios() {
           value={p.observacao || ''}
           display={<span className="table-cell-wrap">{p.observacao || '—'}</span>}
           onSave={v => handleCampoChange(p.id, 'observacao', v)}
+          disabled={!inlineEditingEnabled}
         />
       )
     }
@@ -872,9 +888,28 @@ export default function Proprietarios() {
       </div>
 
       <Card>
-        <CardHeader className="border-b pb-3">
-          <CardTitle className="text-lg">Todos os Proprietários ({filtered.length})</CardTitle>
-          <CardDescription>Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas</CardDescription>
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b pb-3">
+          <div className="min-w-0">
+            <CardTitle className="text-lg">Todos os Proprietários ({filtered.length})</CardTitle>
+            <CardDescription>
+              {inlineEditingEnabled ? 'Clique em qualquer célula para editar · ' : ''}Arraste o cabeçalho para reordenar colunas
+            </CardDescription>
+          </div>
+          <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
+            <label className="flex h-7 cursor-pointer items-center gap-2 text-sm font-medium">
+              <span>Editar células</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={inlineEditingEnabled}
+                aria-label="Permitir edição das células ao clicar"
+                onClick={() => setInlineEditingEnabled(enabled => !enabled)}
+                className={`relative h-6 w-11 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${inlineEditingEnabled ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+              >
+                <span className={`absolute left-0 top-0.5 size-5 rounded-full bg-background shadow-sm transition-transform ${inlineEditingEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </button>
+            </label>
+          </div>
         </CardHeader>
         <CardContent className="px-0">
         <div className="table-container table-scroll-x inquilinos-scroll-area">

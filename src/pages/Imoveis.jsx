@@ -57,7 +57,7 @@ const loadColumnOrder = () => {
   return DEFAULT_COLUMN_ORDER
 }
 
-function EditableCell({ value, display, onSave, type = 'text', options = [], placeholder = '—', className = '' }) {
+function EditableCell({ value, display, onSave, type = 'text', options = [], placeholder = '—', className = '', disabled = false }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value ?? '')
   const inputRef = useRef(null)
@@ -69,7 +69,10 @@ function EditableCell({ value, display, onSave, type = 'text', options = [], pla
     }
   }, [editing])
 
-  const start = () => setEditing(true)
+  const start = () => {
+    if (disabled) return
+    setEditing(true)
+  }
   const commit = () => {
     setEditing(false)
     if (draft !== value) onSave(draft)
@@ -81,7 +84,7 @@ function EditableCell({ value, display, onSave, type = 'text', options = [], pla
 
   if (!editing) {
     return (
-      <td className={`editable-cell ${className}`} onClick={start} title="Clique para editar">
+      <td className={`editable-cell ${className}`} onClick={start} title={disabled ? 'Ative a edição das células' : 'Clique para editar'}>
         {display !== undefined ? display : (value || <span className="cell-empty">{placeholder}</span>)}
       </td>
     )
@@ -136,6 +139,7 @@ export default function Imoveis() {
   const [columnOrder, setColumnOrder] = useState(loadColumnOrder)
   const [draggingKey, setDraggingKey] = useState(null)
   const [dragOverKey, setDragOverKey] = useState(null)
+  const [inlineEditingEnabled, setInlineEditingEnabled] = useState(false)
 
   useEffect(() => {
     const r = ref(db, 'imoveis')
@@ -337,6 +341,7 @@ export default function Imoveis() {
           display={<strong>{im.codigo || '—'}</strong>}
           onSave={v => handleCampoChange(im.id, 'codigo', v)}
           className="col-sticky-td"
+          disabled={!inlineEditingEnabled}
         />
       ),
       proprietario: (
@@ -347,6 +352,7 @@ export default function Imoveis() {
           type="select"
           options={proprietarios.map(p => ({ value: p.id, label: p.nome }))}
           onSave={v => handleProprietarioChange(im, v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       modelo: (
@@ -354,6 +360,7 @@ export default function Imoveis() {
           <select
             className={`badge-select ${modeloBadge[im.modelo] || 'badge-gray'}`}
             value={im.modelo || ''}
+            disabled={!inlineEditingEnabled}
             onChange={e => handleModeloChange(im.id, e.target.value)}
           >
             <option value="">—</option>
@@ -366,6 +373,7 @@ export default function Imoveis() {
           <select
             className={`badge-select ${statusBadge[im.status] || 'badge-gray'}`}
             value={im.status || ''}
+            disabled={!inlineEditingEnabled}
             onChange={e => handleStatusChange(im.id, e.target.value)}
           >
             <option value="">—</option>
@@ -378,6 +386,7 @@ export default function Imoveis() {
           key="cep"
           value={im.endereco?.cep || ''}
           onSave={v => handleEnderecoChange(im.id, 'cep', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       rua: (
@@ -385,6 +394,7 @@ export default function Imoveis() {
           key="rua"
           value={im.endereco?.rua || ''}
           onSave={v => handleEnderecoChange(im.id, 'rua', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       numero: (
@@ -392,6 +402,7 @@ export default function Imoveis() {
           key="numero"
           value={im.endereco?.numero || ''}
           onSave={v => handleEnderecoChange(im.id, 'numero', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       complemento: (
@@ -399,6 +410,7 @@ export default function Imoveis() {
           key="complemento"
           value={im.endereco?.complemento || ''}
           onSave={v => handleEnderecoChange(im.id, 'complemento', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       bairro: (
@@ -406,6 +418,7 @@ export default function Imoveis() {
           key="bairro"
           value={im.endereco?.bairro || ''}
           onSave={v => handleEnderecoChange(im.id, 'bairro', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       cidade: (
@@ -413,6 +426,7 @@ export default function Imoveis() {
           key="cidade"
           value={im.endereco?.cidade || ''}
           onSave={v => handleEnderecoChange(im.id, 'cidade', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       estado: (
@@ -420,6 +434,7 @@ export default function Imoveis() {
           key="estado"
           value={im.endereco?.estado || ''}
           onSave={v => handleEnderecoChange(im.id, 'estado', String(v).toUpperCase().substring(0, 2))}
+          disabled={!inlineEditingEnabled}
         />
       ),
       ucEnergia: (
@@ -427,6 +442,7 @@ export default function Imoveis() {
           key="ucEnergia"
           value={im.ucEnergia || ''}
           onSave={v => handleCampoChange(im.id, 'ucEnergia', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       ucAgua: (
@@ -434,6 +450,7 @@ export default function Imoveis() {
           key="ucAgua"
           value={im.ucAgua || ''}
           onSave={v => handleCampoChange(im.id, 'ucAgua', v)}
+          disabled={!inlineEditingEnabled}
         />
       ),
       contas: (
@@ -514,6 +531,7 @@ export default function Imoveis() {
           value={im.observacao || ''}
           display={<span className="table-cell-wrap">{im.observacao || '—'}</span>}
           onSave={v => handleCampoChange(im.id, 'observacao', v)}
+          disabled={!inlineEditingEnabled}
         />
       )
     }
@@ -594,9 +612,28 @@ export default function Imoveis() {
       </div>
 
       <Card>
-        <CardHeader className="border-b pb-3">
-          <CardTitle className="text-lg">Todos os Imóveis ({filtered.length})</CardTitle>
-          <CardDescription>Clique em qualquer célula para editar · arraste o cabeçalho para reordenar colunas</CardDescription>
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b pb-3">
+          <div className="min-w-0">
+            <CardTitle className="text-lg">Todos os Imóveis ({filtered.length})</CardTitle>
+            <CardDescription>
+              {inlineEditingEnabled ? 'Clique em qualquer célula para editar · ' : ''}Arraste o cabeçalho para reordenar colunas
+            </CardDescription>
+          </div>
+          <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
+            <label className="flex h-7 cursor-pointer items-center gap-2 text-sm font-medium">
+              <span>Editar células</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={inlineEditingEnabled}
+                aria-label="Permitir edição das células ao clicar"
+                onClick={() => setInlineEditingEnabled(enabled => !enabled)}
+                className={`relative h-6 w-11 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${inlineEditingEnabled ? 'bg-primary' : 'bg-muted-foreground/30'}`}
+              >
+                <span className={`absolute left-0 top-0.5 size-5 rounded-full bg-background shadow-sm transition-transform ${inlineEditingEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              </button>
+            </label>
+          </div>
         </CardHeader>
         <CardContent className="px-0">
         <div className="table-container table-scroll-x inquilinos-scroll-area">

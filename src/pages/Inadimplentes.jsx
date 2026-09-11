@@ -632,65 +632,6 @@ export default function Inadimplentes() {
         </div>
       </div>
 
-      {/* ── Resumo por Mês ── */}
-      {monthGroups.length > 0 && (
-        <Card className="mb-6">
-          <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-3">
-            <CardTitle className="text-lg">Inadimplência por Mês</CardTitle>
-            {mesSelecionado && (
-              <Button variant="outline" size="sm" onClick={() => setMesSelecionado(null)}>
-                Limpar filtro
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className="month-group-grid">
-              {monthGroups.map(([ym, list]) => {
-                const s = monthStats(list)
-                const active = mesSelecionado === ym
-                return (
-                  <button
-                    key={ym}
-                    className={`month-card${active ? ' active' : ''}`}
-                    onClick={() => setMesSelecionado(active ? null : ym)}
-                    type="button"
-                  >
-                    <div className="mc-header">
-                      <div className="mc-month">{formatMonthLabel(ym)}</div>
-                      <span className={`mc-selected-pill ${active ? 'is-active' : ''}`}>
-                        {active ? 'Selecionado' : 'Ver mês'}
-                      </span>
-                    </div>
-
-                    <div className="mc-summary">
-                      <div className="mc-summary-value">
-                        <span className="mc-summary-label">Total</span>
-                        <strong>{s.totalDebitos}</strong>
-                      </div>
-                      <div className="mc-summary-value accent">
-                        <span className="mc-summary-label">Em aberto</span>
-                        <strong>{fmtMoney(s.valorAberto)}</strong>
-                      </div>
-                    </div>
-
-                    <div className="mc-stats">
-                      <div className="mc-stat">
-                        <span className="mc-stat-label"><span className="mc-stat-icon">●</span> Inadimplentes</span>
-                        <span className="mc-stat-value">{s.totalInadimplentes}</span>
-                      </div>
-                      <div className="mc-stat">
-                        <span className="mc-stat-label"><span className="mc-stat-icon">●</span> Recuperado</span>
-                        <span className="mc-stat-value">{fmtMoney(s.valorRecuperado)}</span>
-                      </div>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* ── Resumo Geral ── */}
       <div className="mb-6 flex flex-wrap items-stretch gap-2">
         <div className="grid flex-[1_1_480px] grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
