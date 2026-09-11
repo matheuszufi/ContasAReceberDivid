@@ -2041,6 +2041,7 @@ export default function Dashboard() {
           criadoEm: evento.criadoEm || null,
           statusEvento: evento.statusEvento || EVENTO_STATUS_DEFAULT,
           mesReferencia: evento.criadoEm ? formatDateToMonthKey(evento.criadoEm) : null,
+          valorTotal: Number(d.valorTotal || d.valorOriginal || 0),
         })
       })
     })
@@ -3863,7 +3864,7 @@ export default function Dashboard() {
                         )}
                       </div>
                     </div>
-                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
                       <select
                         value={item.statusEvento}
                         onChange={e => handleStatusEventoChange(item.debitoId, item.eventoKey, e.target.value)}
@@ -3874,7 +3875,10 @@ export default function Dashboard() {
                           <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
                       </select>
-                      <span className="text-muted-foreground">{fmtDataHora(item.criadoEm)}</span>
+                      <span className="text-[10px] text-muted-foreground">{fmtDataHora(item.criadoEm)}</span>
+                      {item.valorTotal > 0 && (
+                        <span className="text-[10px] font-medium text-foreground/80">{fmtMoney(item.valorTotal)}</span>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
