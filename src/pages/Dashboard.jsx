@@ -1992,10 +1992,32 @@ export default function Dashboard() {
 
   // ---- Card "Histórico de Alterações" ----
 
+  const normalizarHistoricoValor = (valor) => String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]/g, '')
+    .toLowerCase()
+
+  const isHistoricoAlteracaoVisivel = (item) => {
+    if (item.origem === 'planilha_cobranca') return false
+
+    if (item.campo === 'seguroAcionado') {
+      const novo = normalizarHistoricoValor(item.valorNovoKey || item.valorNovoLabel)
+      return ['acionado', 'pagamentoaprovado', 'pagamentoreprovado', 'juridico'].includes(novo)
+    }
+
+    if (item.campo === 'status') {
+      const novo = normalizarHistoricoValor(item.valorNovoKey || item.valorNovoLabel)
+      return novo === 'pago'
+    }
+
+    return false
+  }
+
   // Ordena as alterações de status/seguro acionado da mais recente para a mais antiga
   // (exclui as alterações de conta feitas na Planilha de Cobrança, exibidas em seu próprio card)
   const historicoOrdenado = useMemo(
-    () => [...historicoAlteracoes].filter(item => item.origem !== 'planilha_cobranca').sort((a, b) => (b.data || 0) - (a.data || 0)),
+    () => [...historicoAlteracoes].filter(isHistoricoAlteracaoVisivel).sort((a, b) => (b.data || 0) - (a.data || 0)),
     [historicoAlteracoes]
   )
 
