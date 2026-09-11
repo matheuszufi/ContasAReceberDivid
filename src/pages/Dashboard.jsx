@@ -1695,6 +1695,25 @@ export default function Dashboard() {
     }, emptyMonthTotals())
   }, [periodMonthKeys, yearMonthTotals])
 
+  const inadimplenciaMensalChart = useMemo(() => {
+    return MONTH_LABELS.map((label, index) => {
+      const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
+      const totals = yearMonthTotals[key] || emptyMonthTotals()
+      const total = Object.values(totals).reduce((sum, value) => sum + Number(value || 0), 0)
+
+      return {
+        key,
+        mes: label,
+        total,
+      }
+    })
+  }, [selectedYear, yearMonthTotals])
+
+  const maiorMesInadimplencia = useMemo(() => {
+    if (inadimplenciaMensalChart.length === 0) return null
+    return inadimplenciaMensalChart.reduce((maior, item) => item.total > maior.total ? item : maior, inadimplenciaMensalChart[0])
+  }, [inadimplenciaMensalChart])
+
   const topInadimplentes = useMemo(() => {
     const map = {}
     periodDebts.forEach(debt => {
@@ -3440,9 +3459,9 @@ export default function Dashboard() {
         </CardHeader>
         </motion.div>
         <motion.div variants={staggerItemVariants}>
-        <CardContent className="grid grid-cols-1 gap-4 p-3 xl:grid-cols-2">
+        <CardContent className="grid grid-cols-1 gap-4 p-3 xl:grid-cols-[1fr_1fr_1.4fr]">
           {totalInquilinos === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">
+            <p className="py-6 text-center text-xs text-muted-foreground xl:col-span-3">
               Nenhum inquilino cadastrado para calcular o percentual.
             </p>
           ) : (
@@ -3537,6 +3556,45 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className="min-w-0 rounded-md border bg-muted/10 p-2">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-sm font-medium">Total de inadimplência por mês</h4>
+                  <p className="text-xs text-muted-foreground">Valores acumulados em {selectedYear}</p>
+                </div>
+                <Badge variant="secondary" className="shrink-0 text-xs">{selectedYear}</Badge>
+              </div>
+              <div className="h-60 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={inadimplenciaMensalChart} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                    <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+                    <XAxis dataKey="mes" tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#64748b' }} />
+                    <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 9, fill: '#64748b' }} width={52} />
+                    <RechartsTooltip
+                      cursor={{ fill: 'rgba(249, 115, 22, 0.08)' }}
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: '1px solid #fed7aa',
+                        backgroundColor: '#ffffff',
+                        boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
+                        fontSize: 11,
+                      }}
+                      formatter={(value) => [fmtMoney(Number(value)), 'Inadimplência']}
+                      labelFormatter={(label) => `${label}/${selectedYear}`}
+                    />
+                    <Bar dataKey="total" radius={[6, 6, 0, 0]} fill="#f97316" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              {maiorMesInadimplencia && (
+                <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-orange-200 bg-orange-50 px-2 py-1.5 text-[11px] text-orange-700">
+                  <span className="font-medium">Maior mês</span>
+                  <strong>{maiorMesInadimplencia.mes}/{selectedYear}</strong>
+                  <span>{fmtMoney(maiorMesInadimplencia.total)}</span>
+                </div>
+              )}
             </div>
             </>
           )}
