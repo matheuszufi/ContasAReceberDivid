@@ -3466,61 +3466,72 @@ export default function Dashboard() {
             </p>
           ) : (
             <>
-            <div className="min-w-0 rounded-md border bg-muted/10 p-2">
-              <div className="mb-2">
-                <h4 className="text-sm font-medium">Taxa de Inadimplência em Aberto</h4>
-                <p className="text-xs text-muted-foreground">Inquilinos com débitos ainda não pagos no período.</p>
-              </div>
-              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[180px_1fr]">
-              <div className="relative mx-auto size-40" aria-label={`Gráfico de ${percentualInquilinosInadimplentes}% de inquilinos inadimplentes`}>
-                <svg viewBox="0 0 120 120" className="size-full -rotate-90">
-                  <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="22" />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="40"
-                    fill="none"
-                    stroke="#f97316"
-                    strokeWidth="22"
-                    strokeDasharray={`${(percentualInquilinosInadimplentes / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (percentualInquilinosInadimplentes / 100) * DONUT_CIRCUMFERENCE}`}
-                    strokeLinecap="butt"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <strong className="text-2xl font-bold">{percentualInquilinosInadimplentes}%</strong>
-                  <span className="text-[11px] text-muted-foreground">inadimplentes</span>
+            <div className="flex min-h-full min-w-0 flex-col justify-between rounded-xl border border-orange-200 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-3 shadow-sm">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-orange-600">Aberto</p>
+                  <h4 className="text-sm font-semibold text-slate-900">Taxa de Inadimplência em Aberto</h4>
                 </div>
+                <span className="rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold text-orange-700">
+                  {mediaTaxasInadimplencia ? 'Média' : 'Período'}
+                </span>
               </div>
-              <div className="flex flex-col gap-2 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 text-muted-foreground">
-                    <span className="size-2.5 shrink-0 rounded-full bg-orange-500" />
-                    Inquilinos inadimplentes
-                  </span>
-                  <strong>{mediaTaxasInadimplencia ? `Média mensal: ${percentualInquilinosInadimplentes}%` : `${inquilinosInadimplentesNoPeriodo} (${percentualInquilinosInadimplentes}%)`}</strong>
+              <p className="mb-3 text-xs text-muted-foreground">Inquilinos com débitos ainda não pagos no período.</p>
+              <div className="grid flex-1 grid-cols-1 items-center gap-4 sm:grid-cols-[180px_1fr]">
+                <div className="relative mx-auto size-40 rounded-full bg-white/70 shadow-inner ring-1 ring-orange-100" aria-label={`Gráfico de ${percentualInquilinosInadimplentes}% de inquilinos inadimplentes`}>
+                  <svg viewBox="0 0 120 120" className="size-full -rotate-90">
+                    <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="22" />
+                    <circle
+                      cx="60"
+                      cy="60"
+                      r="40"
+                      fill="none"
+                      stroke="#f97316"
+                      strokeWidth="22"
+                      strokeDasharray={`${(percentualInquilinosInadimplentes / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (percentualInquilinosInadimplentes / 100) * DONUT_CIRCUMFERENCE}`}
+                      strokeLinecap="butt"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <strong className="text-2xl font-bold text-orange-700">{percentualInquilinosInadimplentes}%</strong>
+                    <span className="text-[11px] text-muted-foreground">inadimplentes</span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="flex items-center gap-1.5 text-muted-foreground">
-                    <span className="size-2.5 shrink-0 rounded-full bg-slate-200" />
-                    Sem inadimplência no período
-                  </span>
-                  <strong>{totalInquilinos - inquilinosInadimplentesNoPeriodo} ({percentualInquilinosSemInadimplencia}%)</strong>
+                <div className="flex flex-col gap-2 text-xs">
+                  <div className="rounded-lg border border-orange-100 bg-white/80 p-2 shadow-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-slate-600">
+                        <span className="size-2.5 shrink-0 rounded-full bg-orange-500" />
+                        Inquilinos inadimplentes
+                      </span>
+                      <strong className="text-slate-900">{mediaTaxasInadimplencia ? `Média: ${percentualInquilinosInadimplentes}%` : `${inquilinosInadimplentesNoPeriodo} (${percentualInquilinosInadimplentes}%)`}</strong>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-2 shadow-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-slate-600">
+                        <span className="size-2.5 shrink-0 rounded-full bg-slate-300" />
+                        Sem inadimplência
+                      </span>
+                      <strong className="text-slate-900">{totalInquilinos - inquilinosInadimplentesNoPeriodo} ({percentualInquilinosSemInadimplencia}%)</strong>
+                    </div>
+                  </div>
                 </div>
-              </div>
               </div>
             </div>
-            <div className="flex min-w-0 flex-col justify-center rounded-md border bg-muted/10 p-2">
-              <div className="mb-2">
-                <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-                  <h4 className="truncate text-sm font-medium">Taxa de inadiplencia</h4>
-                  <span className="shrink-0 text-xs font-medium text-muted-foreground">
-                    Total de inquilinos: <strong className="text-foreground">{totalInquilinos}</strong>
-                  </span>
+            <div className="flex min-h-full min-w-0 flex-col justify-between rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 via-white to-sky-50 p-3 shadow-sm">
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <div>
+                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-blue-600">Total com registro</p>
+                  <h4 className="truncate text-sm font-semibold text-slate-900">Taxa de inadimplência</h4>
                 </div>
-                <p className="text-xs text-muted-foreground">Inquilinos com qualquer registro no período, pago ou em aberto.</p>
+                <span className="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold text-blue-700">
+                  {totalInquilinos} inquilinos
+                </span>
               </div>
-              <div className="grid grid-cols-1 items-center gap-4 sm:grid-cols-[180px_1fr]">
-                <div className="relative mx-auto size-40" aria-label={`Gráfico de ${percentualInquilinosComRegistro}% de inquilinos com registro de inadimplência`}>
+              <p className="mb-3 text-xs text-muted-foreground">Inquilinos com qualquer registro no período, pago ou em aberto.</p>
+              <div className="grid flex-1 grid-cols-1 items-center gap-4 sm:grid-cols-[180px_1fr]">
+                <div className="relative mx-auto size-40 rounded-full bg-white/70 shadow-inner ring-1 ring-blue-100" aria-label={`Gráfico de ${percentualInquilinosComRegistro}% de inquilinos com registro de inadimplência`}>
                   <svg viewBox="0 0 120 120" className="size-full -rotate-90">
                     <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="22" />
                     <circle
@@ -3535,24 +3546,28 @@ export default function Dashboard() {
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <strong className="text-2xl font-bold">{percentualInquilinosComRegistro}%</strong>
+                    <strong className="text-2xl font-bold text-blue-700">{percentualInquilinosComRegistro}%</strong>
                     <span className="text-[11px] text-muted-foreground">com registro</span>
                   </div>
                 </div>
                 <div className="flex flex-col gap-2 text-xs">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <span className="size-2.5 shrink-0 rounded-full bg-blue-600" />
-                      Com registro de inadimplência
-                    </span>
-                    <strong>{mediaTaxasInadimplencia ? `Média mensal: ${percentualInquilinosComRegistro}%` : `${inquilinosComRegistroNoPeriodo} (${percentualInquilinosComRegistro}%)`}</strong>
+                  <div className="rounded-lg border border-blue-100 bg-white/80 p-2 shadow-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-slate-600">
+                        <span className="size-2.5 shrink-0 rounded-full bg-blue-600" />
+                        Com registro
+                      </span>
+                      <strong className="text-slate-900">{mediaTaxasInadimplencia ? `Média: ${percentualInquilinosComRegistro}%` : `${inquilinosComRegistroNoPeriodo} (${percentualInquilinosComRegistro}%)`}</strong>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <span className="size-2.5 shrink-0 rounded-full bg-slate-200" />
-                      Sem registro de inadimplência
-                    </span>
-                    <strong>{totalInquilinos - inquilinosComRegistroNoPeriodo} ({percentualInquilinosSemRegistro}%)</strong>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-2 shadow-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-slate-600">
+                        <span className="size-2.5 shrink-0 rounded-full bg-slate-300" />
+                        Sem registro
+                      </span>
+                      <strong className="text-slate-900">{totalInquilinos - inquilinosComRegistroNoPeriodo} ({percentualInquilinosSemRegistro}%)</strong>
+                    </div>
                   </div>
                 </div>
               </div>
