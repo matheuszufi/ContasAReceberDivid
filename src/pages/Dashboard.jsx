@@ -3714,7 +3714,7 @@ export default function Dashboard() {
             <div>
               <CardTitle className="text-sm">Histórico de Alterações</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
-                Atualizações de Status e Seguro Acionado na planilha de inadimplentes, mais recentes primeiro.
+                Atualizações de Status e Seguro Acionado na planilha de inadimplentes.
               </CardDescription>
             </div>
           </div>
@@ -4318,7 +4318,7 @@ export default function Dashboard() {
           >
             <h3 style={{ margin: '0 0 4px' }}>Gerar Relatório</h3>
             <p style={{ margin: '0 0 16px', fontSize: 12, color: '#64748b' }}>
-              {relatorioTipo === 'alteracoes' && 'Histórico de Alterações — selecione o período (deixe em branco para incluir todos os registros).'}
+              {relatorioTipo === 'alteracoes' && 'Histórico de Alterações — selecione o período.'}
               {relatorioTipo === 'seguradoras' && 'Histórico Seguradoras — selecione o período (deixe em branco para incluir todos os registros).'}
               {relatorioTipo === 'periodo' && 'Inadimplência por Período — selecione o mês ou o ano desejado.'}
             </p>
