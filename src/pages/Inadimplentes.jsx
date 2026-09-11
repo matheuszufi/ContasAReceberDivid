@@ -75,6 +75,7 @@ const GARANTIA_STYLE = {
 
 const isStatusRecuperado = status => status === 'pago' || status === 'pago_caucao'
 const isSeguroRecuperado = seguroAcionado => seguroAcionado === 'pago_pela_seguradora'
+const podeInformarDataPagamento = d => d.status === 'pago' || d.seguroAcionado === 'pagamento_aprovado'
 
 const fmtMoney = (v) =>
   'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
@@ -1051,7 +1052,7 @@ export default function Inadimplentes() {
                       />
                     </td>
                     <td>
-                      {d.status === 'pago' ? (
+                      {podeInformarDataPagamento(d) ? (
                         <input
                           type="date"
                           value={d.dataPagamento || ''}
