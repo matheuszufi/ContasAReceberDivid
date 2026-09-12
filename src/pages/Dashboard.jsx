@@ -1725,11 +1725,14 @@ export default function Dashboard() {
       const key = debt.inquilinoId || debt.inquilinoNome || 'desconhecido'
       const name = inquilinoMap[debt.inquilinoId]?.nome || debt.inquilinoNome || 'Desconhecido'
       const value = getDebtValue(debt)
+      const isPaidDebt = debt.status === 'pago' || debt.status === 'pago_caucao' || debt.seguroAcionado === 'pago_pela_seguradora'
+
       if (!map[key]) {
-        map[key] = { id: key, name, total: 0, count: 0 }
+        map[key] = { id: key, name, total: 0, count: 0, isPaid: false }
       }
       map[key].total += value
       map[key].count += 1
+      if (isPaidDebt) map[key].isPaid = true
     })
 
     return Object.values(map)
@@ -1737,7 +1740,7 @@ export default function Dashboard() {
         if (topFilter === 'quantidade') return b.count - a.count
         return b.total - a.total
       })
-      .slice(0, 10)
+      .slice(0, 14)
   }, [periodDebts, inquilinoMap, topFilter])
 
   const pie = getPieSegments(
@@ -3502,11 +3505,13 @@ export default function Dashboard() {
                           {index === 0 ? <Trophy className="size-3" /> : `#${index + 1}`}
                         </Badge>
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-medium">{item.name}</p>
-                          <p className="text-[11px] text-muted-foreground">{item.count} inadimplência{item.count === 1 ? '' : 's'}</p>
+                          <p className={['truncate text-xs font-medium', item.isPaid ? 'text-emerald-600 dark:text-emerald-400' : ''].join(' ')}>{item.name}</p>
+                          <p className={['text-[11px]', item.isPaid ? 'text-emerald-600/80 dark:text-emerald-400/80' : 'text-muted-foreground'].join(' ')}>
+                            {item.count} inadimplência{item.count === 1 ? '' : 's'}
+                          </p>
                         </div>
                       </div>
-                      <strong className="shrink-0 text-xs">{fmtMoney(item.total)}</strong>
+                      <strong className={['shrink-0 text-xs', item.isPaid ? 'text-emerald-600 dark:text-emerald-400' : ''].join(' ')}>{fmtMoney(item.total)}</strong>
                     </motion.div>
                   ))}
                   </motion.div>
