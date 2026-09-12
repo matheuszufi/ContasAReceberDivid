@@ -1164,6 +1164,11 @@ export default function Dashboard() {
 
   const maiorQuantidadeFaixaAluguel = Math.max(...faixasAluguel.map(faixa => faixa.quantidade), 0)
 
+  const inquilinoMap = useMemo(
+    () => Object.fromEntries(inquilinos.map(i => [i.id, i])),
+    [inquilinos]
+  )
+
   const proximosPagamentosSeguradora = useMemo(() => {
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
@@ -1183,6 +1188,9 @@ export default function Dashboard() {
         const valor = Number(debito.valorTotal || debito.valorOriginal || 0)
         const dataPagamento = new Date(`${debito.dataPagamento}T00:00:00`)
         const diasRestantes = Math.ceil((dataPagamento - hoje) / (1000 * 60 * 60 * 24))
+        const inquilino = inquilinoMap[debito.inquilinoId]
+        const seguroTipo = inquilino?.seguro || debito.seguro || null
+        const seguroLabel = seguroTipo ? (SEGURO_FIANCA_LABELS[seguroTipo] || seguroTipo) : 'Sem seguro'
 
         return {
           ...debito,
@@ -1190,6 +1198,7 @@ export default function Dashboard() {
           diasRestantes,
           nome: debito.inquilinoNome || 'Inquilino sem nome',
           dataPagamento: debito.dataPagamento,
+          seguroLabel,
         }
       })
       .sort((a, b) => a.dataPagamento.localeCompare(b.dataPagamento))
@@ -1293,11 +1302,6 @@ export default function Dashboard() {
     })
     return ids.size
   }, [pendentes])
-
-  const inquilinoMap = useMemo(
-    () => Object.fromEntries(inquilinos.map(i => [i.id, i])),
-    [inquilinos]
-  )
 
   const imovelMap = useMemo(
     () => Object.fromEntries(imoveis.map(im => [im.id, im])),
@@ -3729,22 +3733,20 @@ export default function Dashboard() {
       </motion.div>
 
       <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
-        <Card className="mb-3">
-          <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-2">
+        <Card className="payment-platform-panel mb-3">
+          <CardHeader className="payment-platform-header flex w-full flex-row items-center justify-between gap-2 border-b py-2">
             <div className="flex items-center gap-2">
-              <Wallet className="size-4 text-cyan-600" />
+              <div className="payment-platform-icon">
+                <Wallet className="size-4" />
+              </div>
               <div>
                 <CardTitle className="text-sm">Próximos pagamentos</CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">Pagamentos da seguradora agendados para o futuro.</CardDescription>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-cyan-100 px-1.5 py-0.5 text-[10px] font-medium text-cyan-700">
-                {proximosPagamentosSeguradora.length}
-              </span>
-              <strong className="text-xs font-semibold text-cyan-700">
-                {fmtMoney(totalProximosPagamentosSeguradora)}
-              </strong>
+            <div className="payment-platform-summary">
+              <span className="payment-platform-count">{proximosPagamentosSeguradora.length}</span>
+              <strong>{fmtMoney(totalProximosPagamentosSeguradora)}</strong>
             </div>
           </CardHeader>
           <CardContent className="p-3">
@@ -3753,8 +3755,8 @@ export default function Dashboard() {
                 Nenhum pagamento da seguradora agendado para o futuro.
               </p>
             ) : (
-              <div className="overflow-x-auto pb-1">
-                <ul className="flex min-w-max gap-2.5">
+              <div className="payment-platform-scroller">
+                <ul className="payment-platform-list">
                   {proximosPagamentosSeguradora.map(item => {
                     const ehHoje = item.diasRestantes === 0
 
@@ -3762,49 +3764,32 @@ export default function Dashboard() {
                       <li
                         key={`${item.id}-${item.dataPagamento}`}
                         className={[
-                          'min-w-[240px] flex-shrink-0 rounded-xl border p-3 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md',
-                          ehHoje
-                            ? 'border-emerald-300 bg-gradient-to-br from-emerald-50 to-white ring-1 ring-emerald-200 shadow-emerald-100/70 dark:border-emerald-700/70 dark:from-emerald-950/40 dark:to-slate-950 dark:ring-emerald-800'
-                            : 'border-slate-200 bg-gradient-to-br from-slate-50 to-white dark:border-slate-700 dark:from-slate-900/30 dark:to-slate-950',
+                          'payment-platform-card',
+                          ehHoje ? 'is-today' : '',
                         ].join(' ')}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className={[
-                            'truncate text-xs font-semibold',
-                            ehHoje ? 'text-emerald-800 dark:text-emerald-300' : 'text-slate-800 dark:text-slate-200',
-                          ].join(' ')} title={item.nome}>
-                            {item.nome}
-                          </span>
-                          <span className={[
-                            'inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-bold',
-                            ehHoje
-                              ? 'border-emerald-300 bg-emerald-600 text-white'
-                              : 'border-cyan-200 bg-cyan-100 text-cyan-700 dark:border-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
-                          ].join(' ')}>
+                        <div className="payment-platform-card-header">
+                          <span className="payment-platform-name" title={item.nome}>{item.nome}</span>
+                          <span className={`payment-platform-pill ${ehHoje ? 'is-today' : ''}`}>
                             {ehHoje ? 'Hoje' : `${item.diasRestantes}d`}
                           </span>
                         </div>
 
-                        <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
-                          <span className={[
-                            'inline-flex items-center gap-1 rounded-full px-1.5 py-0.5',
-                            ehHoje
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                              : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
-                          ].join(' ')}>
-                            {formatarDataCurta(item.dataPagamento)}
-                          </span>
+                        <div className="payment-platform-amount-row">
+                          <span className="payment-platform-date">{formatarDataCurta(item.dataPagamento)}</span>
+                          <strong className="payment-platform-amount">{fmtMoney(item.valor)}</strong>
+                        </div>
 
-                          <div className="flex flex-col items-end">
-                            <span className={ehHoje ? 'text-sm font-extrabold text-emerald-700 dark:text-emerald-300' : 'text-sm font-bold text-slate-800 dark:text-slate-100'}>
-                              {fmtMoney(item.valor)}
-                            </span>
-                            {Number(item.valorRecebido || 0) > 0 && (
-                              <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                                Recebido: {fmtMoney(item.valorRecebido)}
-                              </span>
-                            )}
-                          </div>
+                        <div className="payment-platform-insurance-wrap">
+                          <span className="payment-platform-insurance">Seguro: {item.seguroLabel}</span>
+                        </div>
+
+                        <div className="payment-platform-footer">
+                          {Number(item.valorRecebido || 0) > 0 ? (
+                            <span className="payment-platform-received">Recebido: {fmtMoney(item.valorRecebido)}</span>
+                          ) : (
+                            <span className="payment-platform-status">Pendência programada</span>
+                          )}
                         </div>
                       </li>
                     )
