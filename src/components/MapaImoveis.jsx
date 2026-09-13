@@ -116,7 +116,7 @@ const spreadGroupPositions = (grupo) => {
 
 // Componente do mapa: recebe a lista de imóveis e plota um marcador para cada um que já
 // possui coordenadas (im.geo.lat / im.geo.lng)
-export function MapaImoveis({ imoveis, height = 420 }) {
+export function MapaImoveis({ imoveis }) {
   const mapContainerRef = useRef(null)
   const mapRef = useRef(null)
   const markersLayerRef = useRef(null)
@@ -142,11 +142,6 @@ export function MapaImoveis({ imoveis, height = 420 }) {
   }, [])
 
   // Atualiza os marcadores sempre que a lista de imóveis (ou suas coordenadas) mudar
-  useEffect(() => {
-    if (!mapRef.current) return
-    mapRef.current.invalidateSize()
-  }, [height])
-
   useEffect(() => {
     if (!mapRef.current || !markersLayerRef.current) return
     markersLayerRef.current.clearLayers()
@@ -218,7 +213,7 @@ export function MapaImoveis({ imoveis, height = 420 }) {
     }
   }, [imoveis])
 
-  return <div ref={mapContainerRef} style={{ width: '100%', height, borderRadius: 8 }} />
+  return <div ref={mapContainerRef} style={{ width: '100%', height: 420, borderRadius: 8 }} />
 }
 
 // Mapa de um único imóvel, usado na tela de edição: mostra apenas o marcador do imóvel em
