@@ -138,6 +138,14 @@ body {
   .form-grid-3 {
     grid-template-columns: 1fr;
   }
+
+  .seguro-incendio-card {
+    grid-column: span 1;
+  }
+
+  .seguro-incendio-range {
+    grid-template-columns: 1fr;
+  }
 }
 
 .form-group { display: flex; flex-direction: column; }
@@ -247,7 +255,7 @@ body {
 
 .tenant-compact-form .form-group label {
     margin-bottom: 2px;
-    font-size: 9.5px;
+    font-size: 8px;
   }
 
 .tenant-compact-form .form-group input,
@@ -255,7 +263,7 @@ body {
   .tenant-compact-form .form-group textarea {
     padding: 5px 8px;
     border-radius: 6px;
-    font-size: 12.5px;
+    font-size: 10px;
   }
 
 .tenant-compact-form .form-group textarea {
@@ -336,7 +344,7 @@ body {
   .tenant-compact-form .conta-card-origem input {
     padding: 5px 8px;
     border-radius: 6px;
-    font-size: 11.5px;
+    font-size: 10px;
   }
 
 .tenant-compact-form .info-banner {
@@ -429,6 +437,11 @@ body {
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 16px;
     margin-top: 12px;
+  }
+
+.seguro-incendio-card {
+    grid-column: span 2;
+    min-width: 0;
   }
 
 .conta-card {
@@ -531,6 +544,43 @@ body {
   .conta-card-origem input:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1);
+  }
+
+.seguro-incendio-range {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+.seguro-incendio-month-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+    border: 1px solid #dbeafe;
+    background: #ffffff;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+
+.seguro-incendio-month-field label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #475569;
+    margin: 0;
+  }
+
+.seguro-incendio-month-field input {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1.5px solid #bfdbfe;
+    border-radius: 10px;
+    background: #f8fbff;
+    color: var(--text-primary);
+    font-size: 13.5px;
+    font-weight: 600;
   }
 
 .conta-card-body .form-group {

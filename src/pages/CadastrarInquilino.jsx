@@ -46,6 +46,8 @@ const formatMonth = monthKey => {
     .replace(/^./, char => char.toUpperCase())
 }
 
+const getSelectedMonthLabel = (monthValue) => monthValue ? formatMonth(monthValue) : 'Nenhum mês selecionado'
+
 const initialForm = {
   nome: '',
   locatario: '',
@@ -636,11 +638,12 @@ required
   <div className="checkbox-grid">
     {contasDoImovel.map(conta => {
       const isActive = form.contasInclusas.includes(conta.id)
+      const isSeguroIncendioCard = conta.isSeguroIncendio
 
       return (
         <div
           key={conta.id}
-          className={`conta-card${isActive ? ' active' : ''}${conta.isVariavel ? ' variavel' : ''}`}
+          className={`conta-card${isActive ? ' active' : ''}${conta.isVariavel ? ' variavel' : ''}${isSeguroIncendioCard ? ' seguro-incendio-card' : ''}`}
         >
           <label className="conta-card-header">
             <input
@@ -660,10 +663,10 @@ required
                 {conta.isVariavel ? 'Conta variável' : 'Conta fixa'} · cobrada {conta.cobradoBoleto ? 'no boleto do inquilino' : 'pela imobiliária'}
               </div>
 
-              {conta.isSeguroIncendio && (
-                <div className="form-grid-2">
-                  <div className="form-group">
-                    <label>Primeiro mês de cobrança</label>
+              {isSeguroIncendioCard && (
+                <div className="seguro-incendio-range">
+                  <div className="seguro-incendio-month-field">
+                    <label>Primeiro mês</label>
                     <input
                       type="month"
                       name="seguroIncendioMesInicio"
@@ -671,8 +674,9 @@ required
                       onChange={handleChange}
                     />
                   </div>
-                  <div className="form-group">
-                    <label>Último mês de cobrança</label>
+
+                  <div className="seguro-incendio-month-field">
+                    <label>Último mês</label>
                     <input
                       type="month"
                       name="seguroIncendioMesFim"
