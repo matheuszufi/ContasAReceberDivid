@@ -68,6 +68,8 @@ import {
   MousePointerClick,
   BarChart3,
   CalendarDays,
+  Expand,
+  Minimize2,
 } from 'lucide-react'
 
 // --- Mapa de imóveis (Leaflet + OpenStreetMap) ---
@@ -933,6 +935,7 @@ export default function Dashboard() {
   // Filtros do card "Mapa de Imóveis": quais imóveis aparecem no mapa
   const [mapaFiltroOcupacao, setMapaFiltroOcupacao] = useState('todos') // 'todos' | 'ocupados' | 'desocupados'
   const [mapaFiltroTexto, setMapaFiltroTexto] = useState('') // busca por código/nome do imóvel
+  const [mapaExpandido, setMapaExpandido] = useState(false)
 
   // Filtros do card "Garantias dos Inadimplentes"
   const [garantiaFilterMode, setGarantiaFilterMode] = useState('month') // 'month' | 'range'
@@ -2718,12 +2721,25 @@ export default function Dashboard() {
                 <TabsTrigger value="desocupados">Desocupados</TabsTrigger>
               </TabsList>
             </Tabs>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="size-8"
+              onClick={() => setMapaExpandido(value => !value)}
+              aria-label={mapaExpandido ? 'Reduzir mapa' : 'Expandir mapa'}
+              title={mapaExpandido ? 'Reduzir mapa' : 'Expandir mapa'}
+            >
+              {mapaExpandido ? <Minimize2 className="size-3.5" /> : <Expand className="size-3.5" />}
+            </Button>
           </div>
         </CardHeader>
         </motion.div>
         <motion.div variants={staggerItemVariants}>
         <CardContent className="p-2">
-          <MapaImoveis imoveis={imoveisMapaFiltrados} />
+          <div style={{ transition: 'height 0.25s ease', height: mapaExpandido ? 700 : 420 }}>
+            <MapaImoveis imoveis={imoveisMapaFiltrados} height={mapaExpandido ? 700 : 420} />
+          </div>
         </CardContent>
         </motion.div>
       </Card>
