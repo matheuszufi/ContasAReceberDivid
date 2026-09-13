@@ -1271,7 +1271,15 @@ export default function Dashboard() {
   // Lista de imóveis já com a flag `ocupado` calculada e filtrada conforme a seleção do usuário
   // (ocupação + busca por nome/código do imóvel)
   const imoveisMapaFiltrados = useMemo(() => {
-    const comFlag = imoveis.map(im => ({ ...im, ocupado: imovelIdsOcupados.has(im.id) }))
+    const comFlag = imoveis.map(im => {
+      const inquilinoAtual = inquilinos.find(i => i.imovelId === im.id && i.status === 'Ativo')
+      return {
+        ...im,
+        ocupado: imovelIdsOcupados.has(im.id),
+        inquilinoAtualNome: inquilinoAtual?.nome || '',
+      }
+    })
+
     let resultado = comFlag
     if (mapaFiltroOcupacao === 'ocupados') resultado = resultado.filter(im => im.ocupado)
     if (mapaFiltroOcupacao === 'desocupados') resultado = resultado.filter(im => !im.ocupado)
@@ -1282,7 +1290,7 @@ export default function Dashboard() {
     }
 
     return resultado
-  }, [imoveis, imovelIdsOcupados, mapaFiltroOcupacao, mapaFiltroTexto])
+  }, [imoveis, inquilinos, imovelIdsOcupados, mapaFiltroOcupacao, mapaFiltroTexto])
 
   const imoveisMapaComGeoCount = useMemo(
     () => imoveisMapaFiltrados.filter(im => im.geo?.lat && im.geo?.lng).length,

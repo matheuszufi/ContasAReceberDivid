@@ -192,11 +192,15 @@ export function MapaImoveis({ imoveis }) {
             })
           : undefined
 
+        const inquilinoNome = im.inquilinoAtualNome || im.inquilinoNome || ''
+        const statusTexto = im.status || (im.ocupado ? 'Ocupado' : 'Desocupado')
+
         const marker = icon ? L.marker([lat, lng], { icon }) : L.marker([lat, lng])
         marker.bindPopup(`
           <strong>${im.codigo || 'Sem código'}</strong><br/>
           ${enderecoTexto || 'Endereço não informado'}<br/>
-          <span style="color:#64748b">${im.ocupado ? 'Ocupado' : 'Desocupado'}</span>
+          <span style="color:#64748b">${statusTexto}</span>
+          ${inquilinoNome ? `<br/>Inquilino: <strong>${inquilinoNome}</strong>` : ''}
           ${clusterSize > 1 ? `<br/><span style="color:#ef4444;font-size:11px">${clusterSize} imóveis próximos deste ponto</span>` : ''}
         `)
         marker.addTo(markersLayerRef.current)
