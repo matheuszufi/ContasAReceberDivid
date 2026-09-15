@@ -215,17 +215,24 @@ export function MapaImoveis({ imoveis }) {
             })
           : undefined
 
-        const inquilinoNome = im.inquilinoAtualNome || im.inquilinoNome || ''
+        const inquilinosNomes = im.inquilinosAtivosNomes?.length
+          ? im.inquilinosAtivosNomes
+          : (im.inquilinoAtualNome || im.inquilinoNome ? [im.inquilinoAtualNome || im.inquilinoNome] : [])
         const proprietarioNome = im.proprietarioNome || ''
         const statusTexto = im.status || (im.ocupado ? 'Ocupado' : 'Desocupado')
 
         const marker = icon ? L.marker([lat, lng], { icon }) : L.marker([lat, lng])
+        const inquilinosHtml = inquilinosNomes.length
+          ? (inquilinosNomes.length > 1
+            ? `<br/>Inquilinos (${inquilinosNomes.length}, compartilhado): <strong>${inquilinosNomes.join(', ')}</strong>`
+            : `<br/>Inquilino: <strong>${inquilinosNomes[0]}</strong>`)
+          : ''
         marker.bindPopup(`
           <strong>${im.codigo || 'Sem código'}</strong><br/>
           ${enderecoTexto || 'Endereço não informado'}<br/>
           <span style="color:#64748b">${statusTexto}</span>
           ${proprietarioNome ? `<br/>Proprietário: <strong>${proprietarioNome}</strong>` : ''}
-          ${inquilinoNome ? `<br/>Inquilino: <strong>${inquilinoNome}</strong>` : ''}
+          ${inquilinosHtml}
           ${clusterSize > 1 ? `<br/><span style="color:#ef4444;font-size:11px">${clusterSize} imóveis próximos deste ponto</span>` : ''}
         `)
         marker.addTo(markersLayerRef.current)

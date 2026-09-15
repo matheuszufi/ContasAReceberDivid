@@ -1274,11 +1274,13 @@ export default function Dashboard() {
   // (ocupação + busca por nome/código do imóvel)
   const imoveisMapaFiltrados = useMemo(() => {
     const comFlag = imoveis.map(im => {
-      const inquilinoAtual = inquilinos.find(i => i.imovelId === im.id && i.status === 'Ativo')
+      // Imóveis compartilhados podem ter mais de um inquilino ativo simultaneamente
+      const inquilinosAtivos = inquilinos.filter(i => i.imovelId === im.id && i.status === 'Ativo')
       return {
         ...im,
         ocupado: imovelIdsOcupados.has(im.id),
-        inquilinoAtualNome: inquilinoAtual?.nome || '',
+        inquilinoAtualNome: inquilinosAtivos.map(i => i.nome).filter(Boolean).join(', '),
+        inquilinosAtivosNomes: inquilinosAtivos.map(i => i.nome).filter(Boolean),
       }
     })
 
