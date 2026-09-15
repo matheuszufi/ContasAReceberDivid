@@ -380,7 +380,6 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
 
   const badgeWidth = getItemStatus ? 38 : 0
   const indent = getItemStatus ? 3.5 : 0
-
   itens.forEach((item, idx) => {
     const linhas = formatarItem(item)
     const statusInfo = getItemStatus ? getItemStatus(item) : null
@@ -1323,8 +1322,12 @@ export default function Dashboard() {
 
   const getModeloImovel = (d) => {
     const inquilino = inquilinoMap[d.inquilinoId]
-    const imovel = imovelMap[inquilino?.imovelId]
-    return imovel?.modelo || ''
+    const imovelPorId = imovelMap[inquilino?.imovelId || d.imovelId]
+    if (imovelPorId?.modelo) return imovelPorId.modelo
+    // Inquilinos inativos têm o imovelId limpo no cadastro (ver Desocupacoes.jsx), então
+    // cai para o mesmo código usado por getCodigoImovel para achar o imóvel correto.
+    const codigo = inquilino?.codigoImovel || d.codigoImovel
+    return (codigo && imoveis.find(im => im.codigo === codigo)?.modelo) || ''
   }
 
   const getCodigoImovel = (d) => {
@@ -1676,6 +1679,42 @@ export default function Dashboard() {
       ? Math.round((inquilinosComRegistroNoPeriodo / totalInquilinos) * 100)
       : 0
   const percentualInquilinosSemRegistro = Math.max(0, 100 - percentualInquilinosComRegistro)
+
+  // Os dois cards exibem a taxa de um único mês, para que o percentual e os
+  // contadores tenham sempre a mesma base de inquilinos ativos.
+  const mesTaxaInadimplencia = selectedMonth || `${selectedYear}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const resumoTaxaInadimplencia = useMemo(() => {
+    const inquilinosAtivosNoMes = inquilinos.filter(inquilino => {
+      if (inquilino.status !== 'Ativo') return false
+      const entrada = inquilino.dataEntrada?.slice(0, 7)
+      const saida = inquilino.dataSaida?.slice(0, 7)
+      if (entrada && entrada > mesTaxaInadimplencia) return false
+      if (saida && saida < mesTaxaInadimplencia) return false
+      return true
+    })
+    const keysAtivosNoMes = new Set(inquilinosAtivosNoMes.flatMap(inquilino => [
+      `id:${inquilino.id}`,
+      ...(inquilino.nome ? [`nome:${normalizeText(inquilino.nome)}`] : []),
+    ]))
+    const debitosDoMes = filteredInadimplencias.filter(debito =>
+      getMonthKey(debito) === mesTaxaInadimplencia && keysAtivosNoMes.has(getInquilinoRegistroKey(debito))
+    )
+    const comRegistro = new Set(debitosDoMes.map(getInquilinoRegistroKey).filter(Boolean))
+    const emAberto = new Set(
+      debitosDoMes
+        .filter(debito => debito.status !== 'pago' && debito.status !== 'pago_caucao' && debito.seguroAcionado !== 'pago_pela_seguradora')
+        .map(getInquilinoRegistroKey)
+        .filter(Boolean)
+    )
+    const total = inquilinosAtivosNoMes.length
+    return {
+      total,
+      comRegistro: comRegistro.size,
+      emAberto: emAberto.size,
+      percentualComRegistro: total > 0 ? Math.round((comRegistro.size / total) * 100) : 0,
+      percentualEmAberto: total > 0 ? Math.round((emAberto.size / total) * 100) : 0,
+    }
+  }, [filteredInadimplencias, inquilinos, mesTaxaInadimplencia])
 
   const periodPagas = useMemo(
     () => periodDebts.filter(d => d.status === 'pago' || d.status === 'pago_caucao' || d.seguroAcionado === 'pago_pela_seguradora'),
@@ -3582,13 +3621,13 @@ export default function Dashboard() {
                 return <option key={monthKey} value={monthKey}>{label}</option>
               })}
             </select>
-            <Badge variant="secondary" className="shrink-0 text-xs">{totalInquilinos} inquilino{totalInquilinos === 1 ? '' : 's'}</Badge>
+            <Badge variant="secondary" className="shrink-0 text-xs">{resumoTaxaInadimplencia.total} inquilino{resumoTaxaInadimplencia.total === 1 ? '' : 's'}</Badge>
           </div>
         </CardHeader>
         </motion.div>
         <motion.div variants={staggerItemVariants}>
         <CardContent className="grid grid-cols-1 gap-4 p-3 xl:grid-cols-[1fr_1fr_1.4fr]">
-          {totalInquilinos === 0 ? (
+          {resumoTaxaInadimplencia.total === 0 ? (
             <p className="py-6 text-center text-xs text-muted-foreground xl:col-span-3">
               Nenhum inquilino cadastrado para calcular o percentual.
             </p>
@@ -3601,12 +3640,12 @@ export default function Dashboard() {
                   <h4 className="text-sm font-semibold text-slate-900">Taxa de Inadimplência em Aberto</h4>
                 </div>
                 <span className="rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold text-orange-700">
-                  {mediaTaxasInadimplencia ? 'Média' : 'Período'}
+                  {getMonthLabel(mesTaxaInadimplencia)}
                 </span>
               </div>
-              <p className="mb-3 text-xs text-muted-foreground">Inquilinos com débitos ainda não pagos no período.</p>
+              <p className="mb-3 text-xs text-muted-foreground">Inquilinos com débitos ainda não pagos no mês de referência.</p>
               <div className="grid flex-1 grid-cols-1 items-center gap-4 sm:grid-cols-[180px_1fr]">
-                <div className="relative mx-auto size-40 rounded-full bg-white/70 shadow-inner ring-1 ring-orange-100" aria-label={`Gráfico de ${percentualInquilinosInadimplentes}% de inquilinos inadimplentes`}>
+                <div className="relative mx-auto size-40 rounded-full bg-white/70 shadow-inner ring-1 ring-orange-100" aria-label={`Gráfico de ${resumoTaxaInadimplencia.percentualEmAberto}% de inquilinos inadimplentes`}>
                   <svg viewBox="0 0 120 120" className="size-full -rotate-90">
                     <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="22" />
                     <circle
@@ -3616,12 +3655,12 @@ export default function Dashboard() {
                       fill="none"
                       stroke="#f97316"
                       strokeWidth="22"
-                      strokeDasharray={`${(percentualInquilinosInadimplentes / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (percentualInquilinosInadimplentes / 100) * DONUT_CIRCUMFERENCE}`}
+                      strokeDasharray={`${(resumoTaxaInadimplencia.percentualEmAberto / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (resumoTaxaInadimplencia.percentualEmAberto / 100) * DONUT_CIRCUMFERENCE}`}
                       strokeLinecap="butt"
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <strong className="text-2xl font-bold text-orange-700">{percentualInquilinosInadimplentes}%</strong>
+                    <strong className="text-2xl font-bold text-orange-700">{resumoTaxaInadimplencia.percentualEmAberto}%</strong>
                     <span className="text-[11px] text-muted-foreground">inadimplentes</span>
                   </div>
                 </div>
@@ -3632,7 +3671,7 @@ export default function Dashboard() {
                         <span className="size-2.5 shrink-0 rounded-full bg-orange-500" />
                         Inquilinos inadimplentes
                       </span>
-                      <strong className="text-slate-900">{mediaTaxasInadimplencia ? `Média: ${percentualInquilinosInadimplentes}%` : `${inquilinosInadimplentesNoPeriodo} (${percentualInquilinosInadimplentes}%)`}</strong>
+                      <strong className="text-slate-900">{resumoTaxaInadimplencia.emAberto} ({resumoTaxaInadimplencia.percentualEmAberto}%)</strong>
                     </div>
                   </div>
                   <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-2 shadow-sm">
@@ -3641,7 +3680,7 @@ export default function Dashboard() {
                         <span className="size-2.5 shrink-0 rounded-full bg-slate-300" />
                         Sem inadimplência
                       </span>
-                      <strong className="text-slate-900">{totalInquilinos - inquilinosInadimplentesNoPeriodo} ({percentualInquilinosSemInadimplencia}%)</strong>
+                      <strong className="text-slate-900">{resumoTaxaInadimplencia.total - resumoTaxaInadimplencia.emAberto} ({100 - resumoTaxaInadimplencia.percentualEmAberto}%)</strong>
                     </div>
                   </div>
                 </div>
@@ -3654,12 +3693,12 @@ export default function Dashboard() {
                   <h4 className="truncate text-sm font-semibold text-slate-900">Taxa de inadimplência</h4>
                 </div>
                 <span className="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold text-blue-700">
-                  {totalInquilinos} inquilinos
+                  {getMonthLabel(mesTaxaInadimplencia)}
                 </span>
               </div>
-              <p className="mb-3 text-xs text-muted-foreground">Inquilinos com qualquer registro no período, pago ou em aberto.</p>
+              <p className="mb-3 text-xs text-muted-foreground">Inquilinos com qualquer registro no mês de referência, pago ou em aberto.</p>
               <div className="grid flex-1 grid-cols-1 items-center gap-4 sm:grid-cols-[180px_1fr]">
-                <div className="relative mx-auto size-40 rounded-full bg-white/70 shadow-inner ring-1 ring-blue-100" aria-label={`Gráfico de ${percentualInquilinosComRegistro}% de inquilinos com registro de inadimplência`}>
+                <div className="relative mx-auto size-40 rounded-full bg-white/70 shadow-inner ring-1 ring-blue-100" aria-label={`Gráfico de ${resumoTaxaInadimplencia.percentualComRegistro}% de inquilinos com registro de inadimplência`}>
                   <svg viewBox="0 0 120 120" className="size-full -rotate-90">
                     <circle cx="60" cy="60" r="40" fill="none" stroke="#e2e8f0" strokeWidth="22" />
                     <circle
@@ -3669,12 +3708,12 @@ export default function Dashboard() {
                       fill="none"
                       stroke="#2563eb"
                       strokeWidth="22"
-                      strokeDasharray={`${(percentualInquilinosComRegistro / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (percentualInquilinosComRegistro / 100) * DONUT_CIRCUMFERENCE}`}
+                      strokeDasharray={`${(resumoTaxaInadimplencia.percentualComRegistro / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (resumoTaxaInadimplencia.percentualComRegistro / 100) * DONUT_CIRCUMFERENCE}`}
                       strokeLinecap="butt"
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <strong className="text-2xl font-bold text-blue-700">{percentualInquilinosComRegistro}%</strong>
+                    <strong className="text-2xl font-bold text-blue-700">{resumoTaxaInadimplencia.percentualComRegistro}%</strong>
                     <span className="text-[11px] text-muted-foreground">com registro</span>
                   </div>
                 </div>
@@ -3685,7 +3724,7 @@ export default function Dashboard() {
                         <span className="size-2.5 shrink-0 rounded-full bg-blue-600" />
                         Com registro
                       </span>
-                      <strong className="text-slate-900">{mediaTaxasInadimplencia ? `Média: ${percentualInquilinosComRegistro}%` : `${inquilinosComRegistroNoPeriodo} (${percentualInquilinosComRegistro}%)`}</strong>
+                      <strong className="text-slate-900">{resumoTaxaInadimplencia.comRegistro} ({resumoTaxaInadimplencia.percentualComRegistro}%)</strong>
                     </div>
                   </div>
                   <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-2 shadow-sm">
@@ -3694,7 +3733,7 @@ export default function Dashboard() {
                         <span className="size-2.5 shrink-0 rounded-full bg-slate-300" />
                         Sem registro
                       </span>
-                      <strong className="text-slate-900">{totalInquilinos - inquilinosComRegistroNoPeriodo} ({percentualInquilinosSemRegistro}%)</strong>
+                      <strong className="text-slate-900">{resumoTaxaInadimplencia.total - resumoTaxaInadimplencia.comRegistro} ({100 - resumoTaxaInadimplencia.percentualComRegistro}%)</strong>
                     </div>
                   </div>
                 </div>

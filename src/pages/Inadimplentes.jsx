@@ -321,8 +321,12 @@ export default function Inadimplentes() {
 
   const getModeloImovel = (d) => {
     const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
-    const imovel = imoveis.find(im => im.id === (inquilino?.imovelId || d.imovelId))
-    return imovel?.modelo || ''
+    const imovelPorId = imoveis.find(im => im.id === (inquilino?.imovelId || d.imovelId))
+    if (imovelPorId?.modelo) return imovelPorId.modelo
+    // Inquilinos inativos têm o imovelId limpo no cadastro (ver Desocupacoes.jsx), então
+    // cai para o mesmo código usado pela coluna "Imóvel" para achar o imóvel correto.
+    const codigo = getCodigoImovel(d)
+    return (codigo && imoveis.find(im => im.codigo === codigo)?.modelo) || ''
   }
 
   const getImovelId = (d) => inquilinos.find(i => i.id === d.inquilinoId)?.imovelId || ''
