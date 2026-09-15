@@ -160,6 +160,7 @@ const FILTROS_STORAGE_KEY = 'inadimplentes_filtros_v1'
 const DEFAULT_COL_FILTERS = {
   inquilino: '',
   imovel: '',
+  modelo: '',
   totalMin: '',
   totalMax: '',
   valorRecebidoMin: '',
@@ -316,6 +317,12 @@ export default function Inadimplentes() {
     const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
     const imovel = imoveis.find(im => im.id === inquilino?.imovelId)
     return imovel?.codigo || inquilino?.codigoImovel || d.codigoImovel || ''
+  }
+
+  const getModeloImovel = (d) => {
+    const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
+    const imovel = imoveis.find(im => im.id === (inquilino?.imovelId || d.imovelId))
+    return imovel?.modelo || ''
   }
 
   const getImovelId = (d) => inquilinos.find(i => i.id === d.inquilinoId)?.imovelId || ''
@@ -503,6 +510,7 @@ export default function Inadimplentes() {
     )
     .filter(d => !colFilters.inquilino || normalizeText(getInquilinoNome(d)).includes(normalizeText(colFilters.inquilino)))
     .filter(d => !colFilters.imovel || normalizeText(getCodigoImovel(d)).includes(normalizeText(colFilters.imovel)))
+    .filter(d => !colFilters.modelo || getModeloImovel(d) === colFilters.modelo)
     .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
     .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
     .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
@@ -530,7 +538,7 @@ export default function Inadimplentes() {
       if (cardsDataFim && dataRef > cardsDataFim) return false
       return true
     }),
-  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.garantia, colFilters.seguroAcionado, colFilters.mesReferencia, colFilters.vencimento, colFilters.pagamento, colFilters.dataSeguro, colFilters.ultimaCobranca, colFilters.totalMin, colFilters.totalMax, colFilters.valorRecebidoMin, colFilters.valorRecebidoMax, cardsDataInicio, cardsDataFim])
+  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.modelo, colFilters.garantia, colFilters.seguroAcionado, colFilters.mesReferencia, colFilters.vencimento, colFilters.pagamento, colFilters.dataSeguro, colFilters.ultimaCobranca, colFilters.totalMin, colFilters.totalMax, colFilters.valorRecebidoMin, colFilters.valorRecebidoMax, cardsDataInicio, cardsDataFim])
 
   // Filtro de status continua sendo aplicado na tabela.
   const filteredBase = useMemo(() => baseSemStatus
@@ -598,6 +606,7 @@ export default function Inadimplentes() {
     const values = {
       inquilino: [getInquilinoNome(a), getInquilinoNome(b)],
       imovel: [getCodigoImovel(a), getCodigoImovel(b)],
+      modelo: [getModeloImovel(a), getModeloImovel(b)],
       total: [Number(a.valorTotal || a.valorOriginal || 0), Number(b.valorTotal || b.valorOriginal || 0)],
       recebido: [Number(a.valorRecebido || 0), Number(b.valorRecebido || 0)],
       mesReferencia: [a.mesReferencia || '', b.mesReferencia || ''],
@@ -744,7 +753,7 @@ export default function Inadimplentes() {
                 Limpar período dos cards
               </Button>
             )}
-            {(colFilters.inquilino || colFilters.imovel || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || colFilters.vencimento || colFilters.pagamento || colFilters.dataSeguro || colFilters.ultimaCobranca || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || !isDefaultStatusFiltro(colFilters.status)) && (
+            {(colFilters.inquilino || colFilters.imovel || colFilters.modelo || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || colFilters.vencimento || colFilters.pagamento || colFilters.dataSeguro || colFilters.ultimaCobranca || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || !isDefaultStatusFiltro(colFilters.status)) && (
               <Button variant="outline" size="sm" onClick={limparColFilters}>
                 Limpar filtros
               </Button>
@@ -762,6 +771,7 @@ export default function Inadimplentes() {
                   {[
                     ['inquilino', 'Inquilino'],
                     ['imovel', 'Imóvel'],
+                    ['modelo', 'Modelo'],
                     ['total', 'Total c/ Encargos'],
                     ['recebido', 'Valor Recebido'],
                     ['mesReferencia', 'Mês Ref.'],
@@ -804,6 +814,18 @@ export default function Inadimplentes() {
                       onChange={e => setColFilter('imovel', e.target.value)}
                       style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                     />
+                  </th>
+                  <th>
+                    <select
+                      value={colFilters.modelo}
+                      onChange={e => setColFilter('modelo', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    >
+                      <option value="">Todos</option>
+                      {['MA', 'ME', 'ML'].map(modelo => (
+                        <option key={modelo} value={modelo}>{modelo}</option>
+                      ))}
+                    </select>
                   </th>
                   <th>
                     <div style={{ display: 'grid', gap: 4 }}>
@@ -951,7 +973,7 @@ export default function Inadimplentes() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={13}>
+                    <td colSpan={14}>
                       <div className="empty-state">
                         <div className="es-icon">✅</div>
                         <h3>Nenhum débito encontrado</h3>
@@ -983,6 +1005,7 @@ export default function Inadimplentes() {
                         </span>
                       ) : '—'}
                     </td>
+                    <td>{getModeloImovel(d) || '—'}</td>
                     <td><strong>{fmtMoney(d.valorTotal)}</strong></td>
                     <td>
                       <input

@@ -1615,7 +1615,7 @@ export default function Dashboard() {
 
   const totalInquilinos = inquilinosAtivosNoPeriodo.length
   const mediaTaxasInadimplencia = useMemo(() => {
-    if (periodMode !== 'ano' || selectedMonth) return null
+    if (periodMonthKeys.length <= 1) return null
 
     const taxas = periodMonthKeys.reduce((acc, monthKey) => {
       const inquilinosAtivosNoMes = inquilinos.filter(inquilino => {
@@ -1629,8 +1629,9 @@ export default function Dashboard() {
         `id:${inquilino.id}`,
         ...(inquilino.nome ? [`nome:${normalizeText(inquilino.nome)}`] : []),
       ]))
+      if (inquilinosAtivosNoMes.length === 0) return acc
+
       const debitosDoMes = periodDebts.filter(debito => getMonthKey(debito) === monthKey && keysAtivosNoMes.has(getInquilinoRegistroKey(debito)))
-      if (debitosDoMes.length === 0 || inquilinosAtivosNoMes.length === 0) return acc
 
       const comRegistro = new Set(debitosDoMes.map(getInquilinoRegistroKey).filter(Boolean))
       const emAberto = new Set(
@@ -1651,7 +1652,7 @@ export default function Dashboard() {
       comRegistro: taxas.reduce((sum, taxa) => sum + taxa.comRegistro, 0) / taxas.length,
       emAberto: taxas.reduce((sum, taxa) => sum + taxa.emAberto, 0) / taxas.length,
     }
-  }, [periodMode, selectedMonth, periodMonthKeys, periodDebts, inquilinos])
+  }, [periodMonthKeys, periodDebts, inquilinos])
 
   const percentualInquilinosInadimplentes = mediaTaxasInadimplencia
     ? Math.round(mediaTaxasInadimplencia.emAberto * 100)
