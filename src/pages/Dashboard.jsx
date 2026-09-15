@@ -928,6 +928,8 @@ export default function Dashboard() {
   const [colFilters, setColFilters] = useState({
     modelo: '',
     garantia: '',
+    // 'todos' contabiliza garantidos + não garantidos (padrão); 'apenas_garantidos' filtra só os garantidos
+    garantidaFiltro: 'todos',
   })
 
   // Filtros do card "Mapa de Imóveis": quais imóveis aparecem no mapa
@@ -956,7 +958,7 @@ export default function Dashboard() {
     setColFilters(prev => ({ ...prev, [field]: value }))
 
   const limparColFilters = () =>
-    setColFilters({ modelo: '', garantia: '' })
+    setColFilters({ modelo: '', garantia: '', garantidaFiltro: 'todos' })
 
   useEffect(() => {
     const imoveisRef = ref(db, 'imoveis')
@@ -1209,6 +1211,43 @@ export default function Dashboard() {
     [proximosPagamentosSeguradora]
   )
 
+  const proximosAcionamentos = useMemo(() => {
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+
+    return inadimplencias
+      .filter(debito => debito.seguroAcionado === 'aguardar_para_acionar')
+      .map(debito => {
+        const valor = Number(debito.valorTotal || debito.valorOriginal || 0)
+        const dataVencimento = debito.dataVencimento || null
+        let diasAtraso = null
+        if (dataVencimento) {
+          const data = new Date(`${dataVencimento}T00:00:00`)
+          if (!Number.isNaN(data.getTime())) {
+            diasAtraso = Math.floor((hoje - data) / (1000 * 60 * 60 * 24))
+          }
+        }
+        const inquilino = inquilinoMap[debito.inquilinoId]
+        const seguroTipo = inquilino?.seguro || debito.seguro || null
+        const seguroLabel = seguroTipo ? (SEGURO_FIANCA_LABELS[seguroTipo] || seguroTipo) : 'Sem seguro'
+
+        return {
+          ...debito,
+          valor,
+          dataVencimento,
+          diasAtraso,
+          nome: debito.inquilinoNome || 'Inquilino sem nome',
+          seguroLabel,
+        }
+      })
+      .sort((a, b) => (b.diasAtraso ?? -Infinity) - (a.diasAtraso ?? -Infinity))
+  }, [inadimplencias, inquilinoMap])
+
+  const totalProximosAcionamentos = useMemo(
+    () => proximosAcionamentos.reduce((soma, item) => soma + (Number(item.valor) || 0), 0),
+    [proximosAcionamentos]
+  )
+
   const inadimplenciasRecebidas = useMemo(() => inadimplencias
     .filter(debito => (
       debito.status === 'pago' ||
@@ -1325,6 +1364,9 @@ export default function Dashboard() {
     return { key: g, label: GARANTIA_LABELS[g] || g }
   }
 
+  // Indica se o débito em si está marcado como garantido, independente do tipo de garantia do contrato
+  const getGarantidaStatus = (d) => d.garantida === 'nao_garantida' ? 'nao_garantida' : 'garantida'
+
   const getModeloImovel = (d) => {
     const inquilino = inquilinoMap[d.inquilinoId]
     const imovelPorId = imovelMap[inquilino?.imovelId || d.imovelId]
@@ -1436,7 +1478,8 @@ export default function Dashboard() {
 
   const filteredInadimplencias = useMemo(() => inadimplencias
     .filter(d => !colFilters.modelo || getModeloImovel(d) === colFilters.modelo)
-    .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia),
+    .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
+    .filter(d => colFilters.garantidaFiltro !== 'apenas_garantidos' || getGarantidaStatus(d) === 'garantida'),
     [inadimplencias, colFilters, inquilinoMap, imovelMap]
   )
 
@@ -1869,7 +1912,8 @@ export default function Dashboard() {
       const value = getDebtValue(d)
       const name = inquilinoMap[d.inquilinoId]?.nome || d.inquilinoNome || 'Sem nome'
       const imovel = getCodigoImovel(d)
-      const entry = { name, imovel, value }
+      const garantida = getGarantidaStatus(d)
+      const entry = { name, imovel, value, garantida }
       acc[classifyDebt(d)].push(entry)
     })
     Object.values(acc).forEach(list => list.sort((a, b) => b.value - a.value))
@@ -1884,6 +1928,14 @@ export default function Dashboard() {
         {list.map((item, i) => (
           <div key={i} className="flex items-center justify-between gap-2">
             <span className="truncate">{item.name}{item.imovel ? ` (${item.imovel})` : ''}</span>
+            <span
+              className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold"
+              style={item.garantida === 'garantida'
+                ? { background: '#f0fdf4', color: '#166534', border: '1px solid #86efac' }
+                : { background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}
+            >
+              {item.garantida === 'garantida' ? 'Garantida' : 'Não Garantida'}
+            </span>
             <span className="shrink-0 font-medium">{fmtMoney(item.value)}</span>
           </div>
         ))}
@@ -3146,7 +3198,15 @@ export default function Dashboard() {
               <option key={g} value={g}>{GARANTIA_LABELS[g] || g}</option>
             ))}
           </select>
-          {(colFilters.modelo || colFilters.garantia) && (
+          <select
+            value={colFilters.garantidaFiltro}
+            onChange={e => setColFilter('garantidaFiltro', e.target.value)}
+            style={{ fontSize: 12, padding: '4px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+          >
+            <option value="todos">Garantidos + Não Garantidos</option>
+            <option value="apenas_garantidos">Somente Garantidos</option>
+          </select>
+          {(colFilters.modelo || colFilters.garantia || colFilters.garantidaFiltro !== 'todos') && (
             <Button variant="outline" size="sm" className="h-7 text-xs" onClick={limparColFilters}>
               Limpar filtros
             </Button>
@@ -3795,8 +3855,15 @@ export default function Dashboard() {
       </Card>
       </motion.div>
 
-      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
-        <Card className="payment-platform-panel mb-3">
+      <motion.div
+        className="mb-3 grid grid-cols-1 gap-2 xl:grid-cols-2"
+        variants={staggerContainerVariants}
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.15 }}
+      >
+      <motion.div variants={staggerItemVariants}>
+        <Card className="payment-platform-panel h-full">
           <CardHeader className="payment-platform-header flex w-full flex-row items-center justify-between gap-2 border-b py-2">
             <div className="flex items-center gap-2">
               <div className="payment-platform-icon">
@@ -3862,6 +3929,64 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+      </motion.div>
+
+      <motion.div variants={staggerItemVariants}>
+        <Card className="payment-platform-panel h-full">
+          <CardHeader className="payment-platform-header flex w-full flex-row items-center justify-between gap-2 border-b py-2">
+            <div className="flex items-center gap-2">
+              <div className="payment-platform-icon acionamento-icon">
+                <TriangleAlert className="size-4" />
+              </div>
+              <div>
+                <CardTitle className="text-sm">Próximos acionamentos</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">Inadimplências aguardando acionamento do seguro.</CardDescription>
+              </div>
+            </div>
+            <div className="payment-platform-summary acionamento-summary">
+              <span className="payment-platform-count">{proximosAcionamentos.length}</span>
+              <strong>{fmtMoney(totalProximosAcionamentos)}</strong>
+            </div>
+          </CardHeader>
+          <CardContent className="p-3">
+            {proximosAcionamentos.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhuma inadimplência aguardando acionamento do seguro no momento.
+              </p>
+            ) : (
+              <div className="payment-platform-scroller">
+                <ul className="payment-platform-list">
+                  {proximosAcionamentos.map(item => (
+                    <li key={item.id} className="payment-platform-card acionamento-card">
+                      <div className="payment-platform-card-header">
+                        <span className="payment-platform-name" title={item.nome}>{item.nome}</span>
+                        {item.diasAtraso !== null && (
+                          <span className="payment-platform-pill acionamento-pill">
+                            {item.diasAtraso > 0 ? `${item.diasAtraso}d ` : 'Em dia'}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="payment-platform-amount-row">
+                        <span className="payment-platform-date">{item.dataVencimento ? formatarDataCurta(item.dataVencimento) : 'Sem vencimento'}</span>
+                        <strong className="payment-platform-amount">{fmtMoney(item.valor)}</strong>
+                      </div>
+
+                      <div className="payment-platform-insurance-wrap">
+                        <span className="payment-platform-insurance">Seguro: {item.seguroLabel}</span>
+                      </div>
+
+                      <div className="payment-platform-footer">
+                        <span className="payment-platform-status">Aguardar para acionar</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
       </motion.div>
 
       {/* ── Histórico de Alterações e Histórico Seguradoras, lado a lado ── */}

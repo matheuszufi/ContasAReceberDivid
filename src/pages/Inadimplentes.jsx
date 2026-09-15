@@ -73,6 +73,17 @@ const GARANTIA_STYLE = {
   sem_garantia: { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0', icon: '🚫' },
 }
 
+// Indica se a inadimplência em si está garantida (independente do tipo de garantia do contrato)
+const GARANTIDA_OPCOES = [
+  { value: 'garantida',     label: 'Garantida' },
+  { value: 'nao_garantida', label: 'Não Garantida' },
+]
+
+const GARANTIDA_STYLE = {
+  garantida:     { bg: '#f0fdf4', color: '#166534', border: '#86efac' },
+  nao_garantida: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
+}
+
 const isStatusRecuperado = status => status === 'pago' || status === 'pago_caucao'
 const isSeguroRecuperado = seguroAcionado => seguroAcionado === 'pago_pela_seguradora'
 const podeInformarDataPagamento = d => d.status === 'pago' || d.status === 'pago_caucao' || d.seguroAcionado === 'pagamento_aprovado'
@@ -171,6 +182,7 @@ const DEFAULT_COL_FILTERS = {
   dataSeguro: '',
   ultimaCobranca: '',
   garantia: '',
+  garantida: '',
   seguroAcionado: '',
   status: DEFAULT_STATUS_FILTRO,
 }
@@ -308,6 +320,9 @@ export default function Inadimplentes() {
     return { key: g, label: fullLabel, seguro: s }
   }
 
+  // Se ainda não foi definido manualmente para este débito, assume garantida por padrão
+  const getGarantida = (d) => d.garantida === 'nao_garantida' ? 'nao_garantida' : 'garantida'
+
   // O cadastro do inquilino e do imóvel são as fontes vivas; as cópias gravadas no débito
   // (inquilinoNome/codigoImovel) podem ficar desatualizadas, então só servem de fallback.
   const getInquilinoNome = (d) =>
@@ -431,6 +446,10 @@ export default function Inadimplentes() {
     await update(ref(db, `inadimplencias/${id}`), { ultimaCobranca: value })
   }
 
+  const handleGarantidaChange = async (id, value) => {
+    await update(ref(db, `inadimplencias/${id}`), { garantida: value })
+  }
+
   const handleValorRecebidoChange = async (id, value) => {
     await update(ref(db, `inadimplencias/${id}`), { valorRecebido: value === '' ? null : Number(value) })
   }
@@ -516,6 +535,7 @@ export default function Inadimplentes() {
     .filter(d => !colFilters.imovel || normalizeText(getCodigoImovel(d)).includes(normalizeText(colFilters.imovel)))
     .filter(d => !colFilters.modelo || getModeloImovel(d) === colFilters.modelo)
     .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
+    .filter(d => !colFilters.garantida || getGarantida(d) === colFilters.garantida)
     .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
     .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
     .filter(d => !colFilters.vencimento || (d.dataVencimento || '') === colFilters.vencimento)
@@ -542,7 +562,7 @@ export default function Inadimplentes() {
       if (cardsDataFim && dataRef > cardsDataFim) return false
       return true
     }),
-  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.modelo, colFilters.garantia, colFilters.seguroAcionado, colFilters.mesReferencia, colFilters.vencimento, colFilters.pagamento, colFilters.dataSeguro, colFilters.ultimaCobranca, colFilters.totalMin, colFilters.totalMax, colFilters.valorRecebidoMin, colFilters.valorRecebidoMax, cardsDataInicio, cardsDataFim])
+  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.modelo, colFilters.garantia, colFilters.garantida, colFilters.seguroAcionado, colFilters.mesReferencia, colFilters.vencimento, colFilters.pagamento, colFilters.dataSeguro, colFilters.ultimaCobranca, colFilters.totalMin, colFilters.totalMax, colFilters.valorRecebidoMin, colFilters.valorRecebidoMax, cardsDataInicio, cardsDataFim])
 
   // Filtro de status continua sendo aplicado na tabela.
   const filteredBase = useMemo(() => baseSemStatus
@@ -603,6 +623,8 @@ export default function Inadimplentes() {
 
     const garantiaA = getGarantia(a)
     const garantiaB = getGarantia(b)
+    const garantidaA = GARANTIDA_OPCOES.find(o => o.value === getGarantida(a))?.label || 'Garantida'
+    const garantidaB = GARANTIDA_OPCOES.find(o => o.value === getGarantida(b))?.label || 'Garantida'
     const statusA = STATUS_OPCOES.find(o => o.value === a.status)?.label || 'Selecione'
     const statusB = STATUS_OPCOES.find(o => o.value === b.status)?.label || 'Selecione'
     const seguroA = SEGURO_ACIONADO_OPCOES.find(o => o.value === (a.seguroAcionado || 'nao_acionado'))?.label || 'Não Acionado'
@@ -617,6 +639,7 @@ export default function Inadimplentes() {
       vencimento: [a.dataVencimento || '', b.dataVencimento || ''],
       pagamento: [a.dataPagamento || '', b.dataPagamento || ''],
       garantia: [garantiaA.label, garantiaB.label],
+      garantida: [garantidaA, garantidaB],
       seguroAcionado: [seguroA, seguroB],
       dataSeguro: [a.dataSeguro || '', b.dataSeguro || ''],
       status: [statusA, statusB],
@@ -757,7 +780,7 @@ export default function Inadimplentes() {
                 Limpar período dos cards
               </Button>
             )}
-            {(colFilters.inquilino || colFilters.imovel || colFilters.modelo || colFilters.garantia || colFilters.seguroAcionado || colFilters.mesReferencia || colFilters.vencimento || colFilters.pagamento || colFilters.dataSeguro || colFilters.ultimaCobranca || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || !isDefaultStatusFiltro(colFilters.status)) && (
+            {(colFilters.inquilino || colFilters.imovel || colFilters.modelo || colFilters.garantia || colFilters.garantida || colFilters.seguroAcionado || colFilters.mesReferencia || colFilters.vencimento || colFilters.pagamento || colFilters.dataSeguro || colFilters.ultimaCobranca || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || !isDefaultStatusFiltro(colFilters.status)) && (
               <Button variant="outline" size="sm" onClick={limparColFilters}>
                 Limpar filtros
               </Button>
@@ -782,6 +805,7 @@ export default function Inadimplentes() {
                     ['vencimento', 'Vencimento Boleto'],
                     ['pagamento', 'Data Pagamento'],
                     ['garantia', 'Garantia'],
+                    ['garantida', 'Garantida'],
                     ['seguroAcionado', 'Seguro Acionado'],
                     ['dataSeguro', 'Data Seguro'],
                     ['status', 'Status'],
@@ -913,6 +937,18 @@ export default function Inadimplentes() {
                   </th>
                   <th>
                     <select
+                      value={colFilters.garantida}
+                      onChange={e => setColFilter('garantida', e.target.value)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                    >
+                      <option value="">Todas</option>
+                      {GARANTIDA_OPCOES.map(o => (
+                        <option key={o.value} value={o.value}>{o.label}</option>
+                      ))}
+                    </select>
+                  </th>
+                  <th>
+                    <select
                       value={colFilters.seguroAcionado}
                       onChange={e => setColFilter('seguroAcionado', e.target.value)}
                       style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
@@ -977,7 +1013,7 @@ export default function Inadimplentes() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={14}>
+                    <td colSpan={15}>
                       <div className="empty-state">
                         <div className="es-icon">✅</div>
                         <h3>Nenhum débito encontrado</h3>
@@ -1101,6 +1137,22 @@ export default function Inadimplentes() {
                               </button>
                             )}
                           </div>
+                        )
+                      })()}
+                    </td>
+                    <td>
+                      {(() => {
+                        const gd = getGarantida(d)
+                        const style = GARANTIDA_STYLE[gd]
+                        const label = GARANTIDA_OPCOES.find(o => o.value === gd)?.label
+                        return (
+                          <span
+                            style={{ fontSize: 11, fontWeight: 600, borderRadius: 0, padding: '2px 8px', background: style.bg, whiteSpace: 'nowrap', color: style.color, border: `1px solid ${style.border}`, cursor: 'pointer' }}
+                            title="Clique para alternar"
+                            onClick={() => handleGarantidaChange(d.id, gd === 'garantida' ? 'nao_garantida' : 'garantida')}
+                          >
+                            {label}
+                          </span>
                         )
                       })()}
                     </td>

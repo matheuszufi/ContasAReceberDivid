@@ -115,6 +115,7 @@ export default function CadastrarProprietario() {
   const [loading, setLoading] = useState(false)
   const [cepLoading, setCepLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(false)
   const [extratoMes, setExtratoMes] = useState(() => new Date().toISOString().slice(0, 7))
 
   const imovelLabel = (im) => {
@@ -569,7 +570,11 @@ export default function CadastrarProprietario() {
           })
       )
 
-      navigate('/proprietarios')
+      // Continua na página em vez de redirecionar para a listagem; se foi uma criação,
+      // troca para a URL de edição do registro recém-criado (evita duplicar ao salvar de novo)
+      if (!isEdit) navigate(`/proprietarios/editar/${proprietarioId}`, { replace: true })
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
 
     } catch (err) {
       setError('Erro ao salvar. Verifique sua conexão e tente novamente.')
@@ -586,6 +591,7 @@ export default function CadastrarProprietario() {
     >
       <form onSubmit={handleSubmit}>
         {error && <div className="error-msg">{error}</div>}
+        {success && <div className="success-msg">Proprietário salvo com sucesso.</div>}
 
         {/* ── Dados Pessoais ── */}
         <div className="form-section">

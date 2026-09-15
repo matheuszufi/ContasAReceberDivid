@@ -96,6 +96,7 @@ export default function CadastrarInquilino() {
   const [inadimplencias, setInadimplencias] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(false)
   const [buscaImovel, setBuscaImovel] = useState('')
   const imovelInputRef = useRef(null)
   const [imovelDropdownRect, setImovelDropdownRect] = useState(null)
@@ -415,7 +416,11 @@ export default function CadastrarInquilino() {
     }
 
 
-    navigate('/inquilinos')
+    // Continua na página em vez de redirecionar para a listagem; se foi uma criação,
+    // troca para a URL de edição do registro recém-criado (evita duplicar ao salvar de novo)
+    if (!isEdit) navigate(`/inquilinos/editar/${inquilinoId}`, { replace: true })
+    setSuccess(true)
+    setTimeout(() => setSuccess(false), 3000)
 
 
   } catch (err) {
@@ -434,6 +439,7 @@ export default function CadastrarInquilino() {
     <Layout title={isEdit ? 'Editar Inquilino' : 'Cadastrar Inquilino'} subtitle={isEdit ? 'Atualize os dados do inquilino' : 'Preencha os dados do novo inquilino'}>
       <form onSubmit={handleSubmit} className="tenant-compact-form">
         {error && <div className="error-msg">{error}</div>}
+        {success && <div className="success-msg">Inquilino salvo com sucesso.</div>}
 
         {/* ── Dados Pessoais ── */}
         <div className="form-section">

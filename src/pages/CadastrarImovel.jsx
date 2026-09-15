@@ -37,6 +37,7 @@ export default function CadastrarImovel() {
   const [cepLoading, setCepLoading] = useState(false)
   const [geoLoading, setGeoLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [success, setSuccess] = useState(false)
   const autoLocateAttemptedRef = useRef(false)
 
   useEffect(() => {
@@ -244,7 +245,11 @@ export default function CadastrarImovel() {
             return update(ref(db, `proprietarios/${p.id}`), { imoveisIds: novaLista })
           })
       )
-      navigate('/imoveis')
+      // Continua na página em vez de redirecionar para a listagem; se foi uma criação,
+      // troca para a URL de edição do registro recém-criado (evita duplicar ao salvar de novo)
+      if (!isEdit) navigate(`/imoveis/editar/${imovelId}`, { replace: true })
+      setSuccess(true)
+      setTimeout(() => setSuccess(false), 3000)
     } catch (err) {
       setError('Erro ao salvar. Verifique sua conexão e tente novamente.')
       console.error(err)
@@ -255,6 +260,7 @@ export default function CadastrarImovel() {
     <Layout title={isEdit ? 'Editar Imóvel' : 'Cadastrar Imóvel'} subtitle={isEdit ? 'Atualize os dados do imóvel' : 'Preencha os dados do novo imóvel'}>
       <form onSubmit={handleSubmit} className="property-compact-form">
         {error && <div className="error-msg">{error}</div>}
+        {success && <div className="success-msg">Imóvel salvo com sucesso.</div>}
 
         {/* ── Identificação ── */}
         <div className="form-section">
