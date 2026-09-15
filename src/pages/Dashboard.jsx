@@ -22,6 +22,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
   XAxis,
@@ -1755,11 +1756,14 @@ export default function Dashboard() {
       const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
       const totals = yearMonthTotals[key] || emptyMonthTotals()
       const total = Object.values(totals).reduce((sum, value) => sum + Number(value || 0), 0)
+      const quitado = totals.recuperado + totals.utilizacaoCaucao + totals.pagoSeguradora
+      const emAberto = total - quitado
 
       return {
         key,
         mes: label,
         total,
+        emAberto,
       }
     })
   }, [selectedYear, yearMonthTotals])
@@ -3765,10 +3769,12 @@ export default function Dashboard() {
                         boxShadow: '0 10px 30px rgba(15, 23, 42, 0.08)',
                         fontSize: 11,
                       }}
-                      formatter={(value) => [fmtMoney(Number(value)), 'Inadimplência']}
+                      formatter={(value, name) => [fmtMoney(Number(value)), name === 'total' ? 'Total do mês' : 'Ainda em aberto']}
                       labelFormatter={(label) => `${label}/${selectedYear}`}
                     />
-                    <Bar dataKey="total" radius={[6, 6, 0, 0]} fill="#f97316" />
+                    <Legend wrapperStyle={{ fontSize: 10 }} formatter={(value) => (value === 'total' ? 'Total do mês' : 'Ainda em aberto')} />
+                    <Bar dataKey="total" name="total" radius={[6, 6, 0, 0]} fill="#f97316" />
+                    <Bar dataKey="emAberto" name="emAberto" radius={[6, 6, 0, 0]} fill="#dc2626" />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -3776,7 +3782,7 @@ export default function Dashboard() {
                 <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-orange-200 bg-orange-50 px-2 py-1.5 text-[11px] text-orange-700">
                   <span className="font-medium">Maior mês</span>
                   <strong>{maiorMesInadimplencia.mes}/{selectedYear}</strong>
-                  <span>{fmtMoney(maiorMesInadimplencia.total)}</span>
+                  <span>{fmtMoney(maiorMesInadimplencia.total)} total · {fmtMoney(maiorMesInadimplencia.emAberto)} em aberto</span>
                 </div>
               )}
             </div>
