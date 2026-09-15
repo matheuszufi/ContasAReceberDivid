@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ref, onValue, update, push, set, remove } from 'firebase/database'
+import * as XLSX from 'xlsx'
 import { db } from '../firebase'
 import { useAuth } from '../auth'
 import Layout from '../components/Layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { House, ChevronLeft, ChevronRight, Plus, UserPlus, CircleCheck, TriangleAlert, Wallet, ListFilter, X, Repeat, Trash2, History } from 'lucide-react'
+import { House, ChevronLeft, ChevronRight, Plus, UserPlus, CircleCheck, TriangleAlert, Wallet, ListFilter, X, Repeat, Trash2, History, Download } from 'lucide-react'
 import './ImoveisTodos.css'
  
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
@@ -49,6 +50,10 @@ const STATUS_STYLE = {
   'Acordo':        { bg: '#dbeafe', border: '#d1a044', color: '#fdd893', icon: '🤝' },
   'Protestado':    { bg: '#fee2e2', border: '#fca5a5', color: '#991b1b', icon: '❌' },
 }
+
+// Status possíveis considerados no filtro de exportação de contas (inclui "Sem pendências",
+// atribuído a meses sem nenhum lançamento de inadimplência e sem valor total gerado)
+const STATUS_EXPORT_OPCOES = ['Pago', 'Pendente', 'Em Negociação', 'Protestado', 'Sem pendências']
  
 function getCellSummary(items) {
   if (!items.length) return null
@@ -147,6 +152,22 @@ export default function ImoveisTodos() {
   const [filterDesocupacao, setFilterDesocupacao] = useState(false)
   const [filterEstrangeiro, setFilterEstrangeiro] = useState(false)
   const [filterInativos, setFilterInativos] = useState(false)
+  const [exportModal, setExportModal] = useState(false)
+  const [exportFiltros, setExportFiltros] = useState({
+    mesInicio: 0,
+    mesFim: 11,
+    imovel: '',
+    inquilino: '',
+    modelo: '',
+    status: { Pago: true, Pendente: true, 'Em Negociação': true, Protestado: true, 'Sem pendências': true },
+    valorMin: '',
+    valorMax: '',
+    apenasComExtras: false,
+    apenasComBoletos: false,
+    apenasComParcelas: false,
+    apenasComGarantia: false,
+    incluirInativos: false,
+  })
   const [sortBy, setSortBy]   = useState(null)
   const [sortDir, setSortDir] = useState('asc')
 
@@ -393,7 +414,135 @@ export default function ImoveisTodos() {
   const monthTotals = MESES.map((_, mi) =>
     sortedRows.reduce((s, { imovel, inquilino }) => s + getTotalMes(imovel, inquilino, mi), 0)
   )
- 
+
+  // Calcula, para um inquilino/imóvel/mês, o detalhamento completo de uma cobrança (mesmas regras
+  // de getTotalMes) — reaproveitado tanto para renderizar a planilha quanto para a exportação em Excel.
+  const getBreakdownMes = (imovel, inquilino, mi) => {
+    const cellKey = monthKey(mi)
+    const vv = valoresVariaveis[inquilino.id]?.[cellKey] || {}
+    const { extras: cellExtras, ...cellVarVals } = vv
+    const aluguel = getAluguelDoMes(imovel, inquilino, cellKey)
+    const { mesInicio } = getMesRange(inquilino)
+    const valorSeguro = '_seguro' in cellVarVals ? Number(cellVarVals._seguro) || 0 : ((inquilino.garantia === 'seguro' && isMesDentroRange(cellKey, inquilino.seguroFiancaMesInicio, inquilino.seguroFiancaMesFim)) ? Number(inquilino.valorSeguro) || 0 : 0)
+    const valorGaragem = '_garagem' in cellVarVals ? Number(cellVarVals._garagem) || 0 : (Number(inquilino.vagas) || 0) * (Number(inquilino.valorVaga) || 0)
+    const valorGarantia = (inquilino.garantia === 'caucao' || inquilino.garantia === 'adiantamento') && cellKey === mesInicio ? Number(inquilino.valorGarantia) || 0 : 0
+    const contasDoImovel = (imovel.contasInclusas || inquilino.contasInclusas || [])
+      .filter(k => !isContaPagaImobiliaria(inquilino, k))
+      .filter(k => !(isSeguroIncendioKey(k) && !isMesDentroRange(cellKey, inquilino.seguroIncendioMesInicio, inquilino.seguroIncendioMesFim)))
+    const contasTexto = contasDoImovel.map(k => {
+      const { label } = getContaMeta(k)
+      const valor = k in cellVarVals ? Number(cellVarVals[k]) || 0 : Number(inquilino.contasValores?.[k]) || 0
+      return `${label}: R$ ${valor.toFixed(2)}`
+    }).join('; ')
+    const despesasTotal = contasDoImovel.reduce((s, k) => s + (k in cellVarVals ? Number(cellVarVals[k]) || 0 : Number(inquilino.contasValores?.[k]) || 0), 0)
+    const extrasTexto = cellExtras ? Object.values(cellExtras).map(e => `${e.descricao || 'Extra'}: R$ ${Number(e.valor || 0).toFixed(2)}`).join('; ') : ''
+    const extrasTotal = cellExtras ? Object.values(cellExtras).reduce((s, e) => s + (Number(e.valor) || 0), 0) : 0
+    const parcelasTotal = getParcelasTotal(inquilino.id, cellKey)
+    const boletosTotal = getBoletosTotal(inquilino.id, cellKey)
+    const garantiaUsoPagamento = Number(cellVarVals._garantiaUsoPagamento) || 0
+    const total = aluguel + despesasTotal + valorSeguro + valorGaragem + valorGarantia + extrasTotal + parcelasTotal + boletosTotal - garantiaUsoPagamento
+    const status = getCellSummary(getItems(inquilino.id, mi)) || (total > 0 ? 'Pendente' : 'Sem pendências')
+    return { aluguel, contasTexto, despesasTotal, valorSeguro, valorGaragem, valorGarantia, cellExtras, extrasTexto, extrasTotal, parcelasTotal, boletosTotal, garantiaUsoPagamento, total, status }
+  }
+
+  // Monta as linhas do relatório de contas aplicando todos os filtros do modal de exportação
+  // (independentes dos filtros da tabela na tela) — reaproveitado pela pré-visualização e pelo download.
+  const buildExportLinhas = () => {
+    const f = exportFiltros
+    const valorMin = f.valorMin !== '' ? parseFloat(f.valorMin) : null
+    const valorMax = f.valorMax !== '' ? parseFloat(f.valorMax) : null
+
+    const baseRows = imoveis.flatMap(im => inquilinos
+      .filter(inq => inq.imovelId === im.id && (f.incluirInativos || inq.status !== 'Inativo'))
+      .map(inquilino => ({ imovel: im, inquilino }))
+    )
+
+    const linhas = []
+    baseRows.forEach(({ imovel, inquilino }) => {
+      if (f.imovel && !imovel.codigo?.toLowerCase().includes(f.imovel.toLowerCase())) return
+      if (f.inquilino && !normalizeTexto(inquilino.nome).includes(normalizeTexto(f.inquilino))) return
+      if (f.modelo && imovel.modelo !== f.modelo) return
+
+      const { mesInicio, mesFim } = getMesRange(inquilino)
+      MESES.forEach((mesLabel, mi) => {
+        if (mi < f.mesInicio || mi > f.mesFim) return
+        const cellKey = monthKey(mi)
+        if ((mesInicio && cellKey < mesInicio) || (mesFim && cellKey > mesFim)) return
+
+        const b = getBreakdownMes(imovel, inquilino, mi)
+        if (!f.status[b.status]) return
+        if (valorMin !== null && !isNaN(valorMin) && b.total < valorMin) return
+        if (valorMax !== null && !isNaN(valorMax) && b.total > valorMax) return
+        if (f.apenasComExtras && !(b.cellExtras && Object.keys(b.cellExtras).length > 0)) return
+        if (f.apenasComBoletos && b.boletosTotal <= 0) return
+        if (f.apenasComParcelas && b.parcelasTotal <= 0) return
+        if (f.apenasComGarantia && b.valorGarantia <= 0 && b.garantiaUsoPagamento <= 0) return
+
+        linhas.push({
+          'Imóvel': imovel.codigo || '',
+          'Inquilino': inquilino.nome || '',
+          'Mês': `${mesLabel}/${year}`,
+          'Aluguel': Number(b.aluguel.toFixed(2)),
+          'Contas': b.contasTexto,
+          'Seguro': Number(b.valorSeguro.toFixed(2)),
+          'Garagem': Number(b.valorGaragem.toFixed(2)),
+          'Garantia (caução/adiantamento)': Number(b.valorGarantia.toFixed(2)),
+          'Extras': b.extrasTexto,
+          'Uso de caução no mês': Number(b.garantiaUsoPagamento.toFixed(2)),
+          'Parcelas': Number(b.parcelasTotal.toFixed(2)),
+          'Boletos': Number(b.boletosTotal.toFixed(2)),
+          'Total': Number(b.total.toFixed(2)),
+          'Status': b.status,
+        })
+      })
+    })
+    return linhas
+  }
+
+  // Baixa o .xlsx com o detalhamento retornado por buildExportLinhas
+  const handleExportContas = () => {
+    const linhas = buildExportLinhas()
+
+    if (linhas.length === 0) {
+      window.alert('Nenhuma conta encontrada para os filtros selecionados.')
+      return
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(linhas)
+    worksheet['!cols'] = [
+      { wch: 12 }, { wch: 26 }, { wch: 10 }, { wch: 12 }, { wch: 40 },
+      { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 40 }, { wch: 16 },
+      { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 16 },
+    ]
+
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Contas')
+
+    const dataAtual = new Date().toISOString().split('T')[0]
+    XLSX.writeFile(workbook, `contas_imoveis_${year}_${dataAtual}.xlsx`)
+    setExportModal(false)
+  }
+
+  const closeExportModal = () => setExportModal(false)
+
+  const resetExportFiltros = () => setExportFiltros({
+    mesInicio: 0,
+    mesFim: 11,
+    imovel: '',
+    inquilino: '',
+    modelo: '',
+    status: { Pago: true, Pendente: true, 'Em Negociação': true, Protestado: true, 'Sem pendências': true },
+    valorMin: '',
+    valorMax: '',
+    apenasComExtras: false,
+    apenasComBoletos: false,
+    apenasComParcelas: false,
+    apenasComGarantia: false,
+    incluirInativos: false,
+  })
+
+  const toggleExportStatus = (status) => setExportFiltros(f => ({ ...f, status: { ...f.status, [status]: !f.status[status] } }))
+
   const openModal = (row, mi) => {
     const key = monthKey(mi)
     const saved = valoresVariaveis[row.inquilino.id]?.[key] || {}
@@ -1012,6 +1161,8 @@ export default function ImoveisTodos() {
  
   const isCurrentYear   = year === currentYear
   const currentMonthIdx = new Date().getMonth()
+
+  const exportPreviewCount = exportModal ? buildExportLinhas().length : 0
  
   const totalPago = rows.reduce((a, r) =>
     a + MESES.reduce((s, _, mi) =>
@@ -1052,6 +1203,7 @@ export default function ImoveisTodos() {
           <Button variant="secondary" onClick={() => navigate('/inquilinos/cadastrar')}><UserPlus /> Inquilino</Button>
           <Button variant="secondary" onClick={() => setModalParcela(true)}><Repeat /> Cobrança Parcelada</Button>
           <Button variant="secondary" onClick={() => navigate('/alteracoes-planilha')}><History /> Alterações na Planilha</Button>
+          <Button variant="outline" onClick={() => setExportModal(true)}><Download /> Exportar Contas</Button>
         </div>
       </div>
 
@@ -2331,6 +2483,186 @@ export default function ImoveisTodos() {
                   ➕ Registrar Inadimplência
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {exportModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={closeExportModal}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 640, maxHeight: '86vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ margin: 0 }}>📤 Exportar Contas — {year}</h3>
+              <button className="btn btn-secondary" style={{ width: 'auto', padding: '4px 10px' }} onClick={closeExportModal}>✕</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Mês inicial</div>
+                  <select
+                    value={exportFiltros.mesInicio}
+                    onChange={e => setExportFiltros(f => ({ ...f, mesInicio: Number(e.target.value) }))}
+                    style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: '#fff' }}
+                  >
+                    {MESES.map((mes, mi) => <option key={mes} value={mi}>{mes}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Mês final</div>
+                  <select
+                    value={exportFiltros.mesFim}
+                    onChange={e => setExportFiltros(f => ({ ...f, mesFim: Number(e.target.value) }))}
+                    style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: '#fff' }}
+                  >
+                    {MESES.map((mes, mi) => <option key={mes} value={mi}>{mes}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Imóvel</div>
+                  <input
+                    type="text"
+                    value={exportFiltros.imovel}
+                    onChange={e => setExportFiltros(f => ({ ...f, imovel: e.target.value }))}
+                    placeholder="Código..."
+                    style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Inquilino</div>
+                  <input
+                    type="text"
+                    value={exportFiltros.inquilino}
+                    onChange={e => setExportFiltros(f => ({ ...f, inquilino: e.target.value }))}
+                    placeholder="Nome..."
+                    style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Modelo</div>
+                  <select
+                    value={exportFiltros.modelo}
+                    onChange={e => setExportFiltros(f => ({ ...f, modelo: e.target.value }))}
+                    style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: '#fff' }}
+                  >
+                    <option value="">Todos</option>
+                    <option value="MA">MA</option>
+                    <option value="ME">ME</option>
+                    <option value="ML">ML</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 5 }}>Status considerados</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {STATUS_EXPORT_OPCOES.map(status => (
+                    <label
+                      key={status}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, cursor: 'pointer',
+                        padding: '4px 9px', borderRadius: 999,
+                        border: `1.5px solid ${exportFiltros.status[status] ? '#93c5fd' : '#e2e8f0'}`,
+                        background: exportFiltros.status[status] ? '#eff6ff' : '#f8fafc',
+                        color: exportFiltros.status[status] ? '#1d4ed8' : '#64748b',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={exportFiltros.status[status]}
+                        onChange={() => toggleExportStatus(status)}
+                        style={{ margin: 0 }}
+                      />
+                      {status}
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Valor total mínimo (R$)</div>
+                  <input
+                    type="number" step="0.01"
+                    value={exportFiltros.valorMin}
+                    onChange={e => setExportFiltros(f => ({ ...f, valorMin: e.target.value }))}
+                    placeholder="Sem mínimo"
+                    style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 3 }}>Valor total máximo (R$)</div>
+                  <input
+                    type="number" step="0.01"
+                    value={exportFiltros.valorMax}
+                    onChange={e => setExportFiltros(f => ({ ...f, valorMax: e.target.value }))}
+                    placeholder="Sem máximo"
+                    style={{ width: '100%', padding: '6px 8px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={exportFiltros.apenasComExtras}
+                    onChange={e => setExportFiltros(f => ({ ...f, apenasComExtras: e.target.checked }))}
+                  />
+                  Apenas meses com contas extras
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={exportFiltros.apenasComBoletos}
+                    onChange={e => setExportFiltros(f => ({ ...f, apenasComBoletos: e.target.checked }))}
+                  />
+                  Apenas meses com boletos
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={exportFiltros.apenasComParcelas}
+                    onChange={e => setExportFiltros(f => ({ ...f, apenasComParcelas: e.target.checked }))}
+                  />
+                  Apenas meses com cobranças parceladas
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={exportFiltros.apenasComGarantia}
+                    onChange={e => setExportFiltros(f => ({ ...f, apenasComGarantia: e.target.checked }))}
+                  />
+                  Apenas meses com caução/adiantamento cobrado ou usado
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#475569', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={exportFiltros.incluirInativos}
+                    onChange={e => setExportFiltros(f => ({ ...f, incluirInativos: e.target.checked }))}
+                  />
+                  Incluir inquilinos inativos
+                </label>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 20, paddingTop: 14, borderTop: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: 12.5, color: '#64748b' }}>
+                {exportPreviewCount} linha{exportPreviewCount === 1 ? '' : 's'} correspondem aos filtros
+              </span>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <Button variant="ghost" size="sm" onClick={resetExportFiltros}>Limpar filtros</Button>
+                <Button onClick={handleExportContas} disabled={exportPreviewCount === 0}><Download /> Exportar .xlsx</Button>
+              </div>
             </div>
           </div>
         </div>
