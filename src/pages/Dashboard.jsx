@@ -1258,13 +1258,14 @@ export default function Dashboard() {
     [inquilinos]
   )
 
-  // Texto normalizado (sem acento, minúsculo) usado para buscar por código, nome ou endereço
+  // Texto normalizado (sem acento, minúsculo) usado para buscar por código, nome, endereço ou proprietário
   const buildImovelBusca = (im) => normalizeText([
     im.codigo,
     im.nome,
     im.endereco?.rua,
     im.endereco?.bairro,
     im.endereco?.cidade,
+    im.proprietarioNome,
   ].filter(Boolean).join(' '))
 
   // Lista de imóveis já com a flag `ocupado` calculada e filtrada conforme a seleção do usuário
@@ -2737,7 +2738,7 @@ export default function Dashboard() {
               <Input
                 value={mapaFiltroTexto}
                 onChange={e => setMapaFiltroTexto(e.target.value)}
-                placeholder="Buscar por código ou nome do imóvel..."
+                placeholder="Buscar por código, imóvel ou proprietário..."
                 className="h-8 w-56 pl-7 pr-7 text-xs"
               />
               {mapaFiltroTexto && (
