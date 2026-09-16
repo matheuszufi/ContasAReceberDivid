@@ -307,11 +307,39 @@ export default function ImoveisTodos() {
   const getParcelasTotal = (inquilinoId, mesKey) =>
     getParcelasDoMes(inquilinoId, mesKey).reduce((s, p) => s + (Number(p.valorParcela) || 0), 0)
  
-  const rows = imoveis
-    .flatMap(im => inquilinos
-      .filter(inq => inq.imovelId === im.id && (filterInativos || inq.status !== 'Inativo'))
+  // Cada troca de unidade registrada em "historicoImoveis" vira uma linha própria (imóvel antigo,
+  // com o período encerrado na data de saída), além da linha do imóvel atual — assim um inquilino
+  // que trocou de imóvel aparece duas vezes: uma terminando onde a antiga ocupação encerrou, e
+  // outra começando na nova data de entrada. Reaproveitado tanto na tabela principal quanto na
+  // exportação, para os dois sempre baterem.
+  const buildRowsComHistorico = (incluirInativos) => imoveis.flatMap(im => {
+    const atuais = inquilinos
+      .filter(inq => inq.imovelId === im.id && (incluirInativos || inq.status !== 'Inativo'))
       .map(inquilino => ({ imovel: im, inquilino }))
-    )
+
+    const historicos = inquilinos
+      .filter(inq => incluirInativos || inq.status !== 'Inativo')
+      .flatMap(inq => Object.entries(inq.historicoImoveis || {})
+        .filter(([, h]) => h.imovelId === im.id)
+        .map(([histId, h]) => ({
+          imovel: im,
+          inquilino: {
+            ...inq,
+            imovelId: h.imovelId,
+            codigoImovel: h.codigoImovel || inq.codigoImovel,
+            dataEntrada: h.dataEntrada,
+            dataSaida: h.dataSaida,
+            valorAluguel: h.valorAluguelAnterior ?? inq.valorAluguel,
+            desocupacaoRegistrada: false,
+            _historico: true,
+            _historicoKey: histId,
+          },
+        })))
+
+    return [...atuais, ...historicos]
+  })
+
+  const rows = buildRowsComHistorico(filterInativos)
  
   const filteredRows = rows.filter(({ imovel, inquilino }) => {
     if (filterNome && !normalizeTexto(inquilino.nome).includes(normalizeTexto(filterNome))) return false
@@ -452,10 +480,7 @@ export default function ImoveisTodos() {
     const valorMin = f.valorMin !== '' ? parseFloat(f.valorMin) : null
     const valorMax = f.valorMax !== '' ? parseFloat(f.valorMax) : null
 
-    const baseRows = imoveis.flatMap(im => inquilinos
-      .filter(inq => inq.imovelId === im.id && (f.incluirInativos || inq.status !== 'Inativo'))
-      .map(inquilino => ({ imovel: im, inquilino }))
-    )
+    const baseRows = buildRowsComHistorico(f.incluirInativos)
 
     const linhas = []
     baseRows.forEach(({ imovel, inquilino }) => {
@@ -548,6 +573,9 @@ export default function ImoveisTodos() {
     const saved = valoresVariaveis[row.inquilino.id]?.[key] || {}
     const { mesFim } = getMesRange(row.inquilino)
     setModal({ ...row, mi, key, items: getItems(row.inquilino.id, mi), travado: !!saved._travado })
+    // Linhas de imóveis anteriores (histórico de troca) são somente leitura para desocupação:
+    // o flag "desocupacaoRegistrada" pertence ao registro atual do inquilino, não ao período antigo.
+
     const { extras, _obs, _registrado, _travado, _travadoEm, _diaSaida, _contasProporcionais, boletos, ...vals } = saved
     console.log('[openModal] inquilino', row.inquilino.id, 'mes', key, 'dados carregados:', saved)
     setVarValues(vals || {})
@@ -559,7 +587,7 @@ export default function ImoveisTodos() {
     setObsModal(_obs || '')
     setDiaSaidaModal(_diaSaida ? String(_diaSaida) : '')
     setContasProporcionaisModal(_contasProporcionais || (_diaSaida ? ['_aluguel'] : []))
-    setDesocupacaoModal(!!row.inquilino.desocupacaoRegistrada && key === mesFim)
+    setDesocupacaoModal(!row.inquilino._historico && !!row.inquilino.desocupacaoRegistrada && key === mesFim)
   }
  
   const handleVarValue = (contaKey, rawValue) => {
@@ -684,7 +712,8 @@ export default function ImoveisTodos() {
     aplicarProporcional(rawValue, contasProporcionaisModal)
 
     // Se a desocupação já está marcada neste mês, mantém a data de saída do inquilino em sincronia
-    if (desocupacaoModal && modal?.inquilino?.id && modal?.key) {
+    // (não se aplica a linhas de imóveis anteriores, que são somente leitura)
+    if (desocupacaoModal && modal?.inquilino?.id && modal?.key && !modal.inquilino._historico) {
       const dia = parseInt(rawValue, 10)
       if (rawValue && !Number.isNaN(dia) && dia >= 1) {
         const diasNoMes = getDiasNoMes(modal.key)
@@ -699,6 +728,7 @@ export default function ImoveisTodos() {
 
   // Marca/desmarca este mês como o mês de desocupação do inquilino, atualizando dataSaida
   const handleToggleDesocupacao = (checked) => {
+    if (modal?.inquilino?._historico) return
     setDesocupacaoModal(checked)
     if (!modal?.inquilino?.id || !modal?.key) return
 
@@ -1393,7 +1423,7 @@ export default function ImoveisTodos() {
                 <tbody>
                   {sortedRows.map(({ imovel, inquilino }) => (
                     <tr
-                      key={`${imovel.id}-${inquilino.id}`}
+                      key={`${imovel.id}-${inquilino.id}-${inquilino._historicoKey || 'atual'}`}
                       onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')}
                       onMouseLeave={e => (e.currentTarget.style.background = '')}
                     >
@@ -1429,6 +1459,9 @@ export default function ImoveisTodos() {
                         title="Ver cadastro do inquilino"
                       >
                         {inquilino.nome || '—'}
+                        {inquilino._historico && (
+                          <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, color: '#94a3b8' }}>(anterior)</span>
+                        )}
                       </td>
                       <td style={{ ...tdL, textAlign: 'center' }}>
                         {imovel.modelo ? <Badge variant="outline">{imovel.modelo}</Badge> : '—'}
@@ -1878,6 +1911,7 @@ export default function ImoveisTodos() {
                           type="checkbox"
                           checked={desocupacaoModal}
                           onChange={e => handleToggleDesocupacao(e.target.checked)}
+                          disabled={!!modal.inquilino._historico}
                           style={{ cursor: 'pointer' }}
                         />
                         🚪 Registrar desocupação neste mês

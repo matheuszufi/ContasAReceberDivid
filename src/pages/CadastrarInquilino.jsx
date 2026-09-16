@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ref, push, onValue, get, update } from 'firebase/database'
+import { ref, push, onValue, get, update, set } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { MapaImoveis, buildEnderecoQuery, geocodeEndereco } from '../components/MapaImoveis'
@@ -283,6 +283,90 @@ export default function CadastrarInquilino() {
 
   const handleContaOrigem = (key, value) => {
     setForm(prev => ({ ...prev, contasOrigem: { ...prev.contasOrigem, [key]: value } }))
+  }
+
+  // ── Troca de Unidade: encerra a ocupação atual (guardada no histórico) e move o
+  // inquilino para um novo imóvel, com nova data de entrada e novo valor de aluguel.
+  const [trocaModal, setTrocaModal] = useState(false)
+  const [trocaForm, setTrocaForm] = useState({ dataSaidaAntiga: '', novoImovelId: '', dataEntradaNova: '', novoValorAluguel: '' })
+  const [trocaSaving, setTrocaSaving] = useState(false)
+  const [trocaError, setTrocaError] = useState(null)
+
+  const imoveisDisponiveisParaTroca = imoveis
+    .filter(im => im.status === 'Disponível' && im.id !== form.imovelId)
+    .sort((a, b) => (a.codigo || '').localeCompare(b.codigo || '', 'pt-BR'))
+
+  const abrirTrocaModal = () => {
+    const hoje = new Date().toISOString().substring(0, 10)
+    setTrocaForm({
+      dataSaidaAntiga: hoje,
+      novoImovelId: '',
+      dataEntradaNova: hoje,
+      novoValorAluguel: form.valorAluguel ? String(form.valorAluguel) : '',
+    })
+    setTrocaError(null)
+    setTrocaModal(true)
+  }
+
+  const fecharTrocaModal = () => {
+    if (trocaSaving) return
+    setTrocaModal(false)
+  }
+
+  const handleTrocaChange = (campo, valor) => {
+    setTrocaForm(prev => ({ ...prev, [campo]: valor }))
+  }
+
+  const handleConfirmarTroca = async () => {
+    if (!trocaForm.novoImovelId) { setTrocaError('Selecione o novo imóvel.'); return }
+    if (!trocaForm.dataSaidaAntiga || !trocaForm.dataEntradaNova) { setTrocaError('Informe a data de saída do imóvel antigo e a data de entrada no novo.'); return }
+
+    setTrocaSaving(true)
+    setTrocaError(null)
+    try {
+      const imovelAntigoId = form.imovelId
+      const imovelAntigo = imoveis.find(im => im.id === imovelAntigoId)
+      const imovelNovo = imoveis.find(im => im.id === trocaForm.novoImovelId)
+      const novoValorAluguel = parseFloat(trocaForm.novoValorAluguel) || 0
+
+      const histRef = push(ref(db, `inquilinos/${id}/historicoImoveis`))
+      const historicoEntry = {
+        imovelId: imovelAntigoId || null,
+        codigoImovel: imovelAntigo?.codigo || form.codigoImovel || null,
+        dataEntrada: form.dataEntrada || null,
+        dataSaida: trocaForm.dataSaidaAntiga,
+        valorAluguelAnterior: parseFloat(form.valorAluguel) || 0,
+      }
+      await set(histRef, historicoEntry)
+
+      if (imovelAntigoId) {
+        await update(ref(db, `imoveis/${imovelAntigoId}`), { status: 'Disponível', atualizadoEm: new Date().toISOString() })
+      }
+      await update(ref(db, `imoveis/${trocaForm.novoImovelId}`), { status: 'Ocupado', atualizadoEm: new Date().toISOString() })
+
+      const updates = {
+        imovelId: trocaForm.novoImovelId,
+        codigoImovel: imovelNovo?.codigo || '',
+        dataEntrada: trocaForm.dataEntradaNova,
+        dataSaida: '',
+        valorAluguel: novoValorAluguel,
+        atualizadoEm: new Date().toISOString(),
+      }
+      await update(ref(db, `inquilinos/${id}`), updates)
+
+      setForm(prev => ({
+        ...prev,
+        ...updates,
+        historicoImoveis: { ...(prev.historicoImoveis || {}), [histRef.key]: historicoEntry },
+      }))
+
+      setTrocaModal(false)
+    } catch (err) {
+      console.error('Erro ao trocar de imóvel:', err)
+      setTrocaError(`Falha ao trocar de imóvel: ${err.message || err}`)
+    } finally {
+      setTrocaSaving(false)
+    }
   }
 
   const handleSubmit = async (e) => {
@@ -940,6 +1024,11 @@ required
                         {' → '}
                         {h.dataSaida ? new Date(h.dataSaida + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}
                       </span>
+                      {h.valorAluguelAnterior ? (
+                        <span style={{ color: 'var(--text-secondary)', marginLeft: 'auto' }}>
+                          Aluguel: {formatMoney(h.valorAluguelAnterior)}
+                        </span>
+                      ) : null}
                     </div>
                   ))}
               </div>
@@ -951,11 +1040,89 @@ required
           <button type="button" className="btn btn-secondary" onClick={() => navigate('/inquilinos')}>
             Cancelar
           </button>
+          {isEdit && (
+            <button type="button" className="btn btn-secondary" onClick={abrirTrocaModal}>
+              🔁 Troca de Unidade
+            </button>
+          )}
           <button type="submit" className="btn btn-primary" disabled={loading}>
             {loading ? 'Salvando...' : '💾 Salvar Inquilino'}
           </button>
         </div>
       </form>
+
+      {trocaModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 20, width: '100%', maxWidth: 420 }}>
+            <h3 style={{ margin: '0 0 4px' }}>Troca de Unidade</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 12, color: 'var(--text-secondary)' }}>
+              {form.nome || 'O inquilino'} sairá de {form.codigoImovel || 'imóvel atual'} e passará a ocupar o novo imóvel selecionado.
+              O imóvel atual entra no histórico abaixo.
+            </p>
+            {trocaError && <div className="error-msg" style={{ marginBottom: 12 }}>{trocaError}</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Data de saída do imóvel atual *
+                </label>
+                <input
+                  type="date"
+                  value={trocaForm.dataSaidaAntiga}
+                  onChange={e => handleTrocaChange('dataSaidaAntiga', e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Novo imóvel *
+                </label>
+                <select
+                  value={trocaForm.novoImovelId}
+                  onChange={e => handleTrocaChange('novoImovelId', e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}
+                >
+                  <option value="">Selecione um imóvel disponível...</option>
+                  {imoveisDisponiveisParaTroca.map(im => (
+                    <option key={im.id} value={im.id}>{im.codigo} — {im.endereco?.rua || ''} {im.endereco?.numero || ''}</option>
+                  ))}
+                </select>
+                {imoveisDisponiveisParaTroca.length === 0 && (
+                  <p style={{ margin: '4px 0 0', fontSize: 11, color: '#b45309' }}>Nenhum imóvel disponível no momento.</p>
+                )}
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Nova data de entrada *
+                </label>
+                <input
+                  type="date"
+                  value={trocaForm.dataEntradaNova}
+                  onChange={e => handleTrocaChange('dataEntradaNova', e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Novo valor do aluguel (R$) *
+                </label>
+                <input
+                  type="number" step="0.01" min="0"
+                  value={trocaForm.novoValorAluguel}
+                  onChange={e => handleTrocaChange('novoValorAluguel', e.target.value)}
+                  placeholder="0,00"
+                  style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, boxSizing: 'border-box' }}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" className="btn btn-secondary" onClick={fecharTrocaModal} disabled={trocaSaving}>Cancelar</button>
+              <button type="button" className="btn btn-primary" onClick={handleConfirmarTroca} disabled={trocaSaving || !trocaForm.novoImovelId}>
+                {trocaSaving ? 'Salvando...' : 'Confirmar Troca'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   )
 }
