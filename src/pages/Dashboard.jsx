@@ -52,6 +52,7 @@ const desenharLogoRelatorio = async (doc, pageWidth, margin) => {
 import {
   Building2,
   Users,
+  Handshake,
   TriangleAlert,
   Wallet,
   ChevronLeft,
@@ -1866,29 +1867,21 @@ export default function Dashboard() {
     [inquilinos]
   )
 
-  // Inquilinos ativos que já utilizaram caução/adiantamento, somando os pagamentos com essa forma
-  // em todos os meses (não só o período selecionado), com o total cadastrado no próprio inquilino
-  const garantiasUtilizadas = useMemo(() => {
-    const utilizadoPorInquilino = {}
-    inadimplencias.forEach(debito => {
-      if (debito.status !== 'pago_caucao' || !debito.inquilinoId) return
-      utilizadoPorInquilino[debito.inquilinoId] = (utilizadoPorInquilino[debito.inquilinoId] || 0) + getDebtValue(debito)
-    })
-
-    return inquilinos
-      .filter(i => i.status === 'Ativo' && (i.garantia === 'caucao' || i.garantia === 'adiantamento') && utilizadoPorInquilino[i.id] > 0)
-      .map(i => {
-        const total = parseFloat(i.valorGarantia) || 0
-        const utilizado = utilizadoPorInquilino[i.id] || 0
-        const aberto = Math.max(0, total - utilizado)
-        return { id: i.id, nome: i.nome, total, utilizado, aberto }
-      })
-      .sort((a, b) => b.utilizado - a.utilizado)
-  }, [inadimplencias, inquilinos])
+  const acordosInadimplencias = useMemo(() => inadimplencias
+    .filter(debito => ['acordo', 'Acordo'].includes(debito.status) && debito.inquilinoId)
+    .map(debito => ({
+      id: debito.id,
+      inquilinoId: debito.inquilinoId,
+      nome: inquilinoMap[debito.inquilinoId]?.nome || debito.inquilinoNome || 'Inquilino sem nome',
+      dataUltimaCobranca: debito.ultimaCobranca || '',
+    }))
+    .sort((a, b) => (a.dataUltimaCobranca || '').localeCompare(b.dataUltimaCobranca || '')),
+  [inadimplencias, inquilinoMap])
 
   const proximasOcupacoes = useMemo(() => {
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
+    const hojeKey = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`
 
     return inquilinos
       .filter(i => {
@@ -1902,6 +1895,7 @@ export default function Dashboard() {
         nome: i.nome || 'Inquilino sem nome',
         dataEntrada: i.dataEntrada,
         garantia: i.garantia || 'sem_garantia',
+        hoje: i.dataEntrada === hojeKey,
       }))
       .sort((a, b) => a.dataEntrada.localeCompare(b.dataEntrada))
   }, [inquilinos])
@@ -2726,7 +2720,7 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      {inquilinosCarregado && (segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0 || garantiasUtilizadas.length > 0 || proximasOcupacoes.length > 0) && (
+      {inquilinosCarregado && (segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0 || acordosInadimplencias.length > 0 || proximasOcupacoes.length > 0) && (
         <motion.div
           key="alertas-reais"
           className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap"
@@ -2779,22 +2773,22 @@ export default function Dashboard() {
             </Card>
             </motion.div>
           )}
-          {garantiasUtilizadas.length > 0 && (
+          {acordosInadimplencias.length > 0 && (
             <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
             <Card className="w-full border-red-300" style={{ background: '#fef2f2' }}>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b91c1c' }}>
-                  <Wallet className="size-4" />
-                  Caução/Adiantamento utilizado ({garantiasUtilizadas.length})
+                  <Handshake className="size-4" />
+                  Inadimplências em acordo ({acordosInadimplencias.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="">
                 <div className="flex flex-col gap-1">
-                  {garantiasUtilizadas.map(i => (
-                    <div key={i.id} className="flex flex-col gap-1 text-xs">
+                  {acordosInadimplencias.map(i => (
+                    <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
                       <span className="font-medium text-slate-800">{i.nome}</span>
                       <span className="text-muted-foreground">
-                        Total: {fmtMoney(i.total)}{' · '}Utilizado: <strong className="text-red-700">{fmtMoney(i.utilizado)}</strong>{' · '}Em aberto: {fmtMoney(i.aberto)}
+                        Data acordada: {i.dataUltimaCobranca ? formatarDataCurta(i.dataUltimaCobranca) : 'Não informada'}
                       </span>
                     </div>
                   ))}
@@ -2815,7 +2809,11 @@ export default function Dashboard() {
               <CardContent className="">
                 <div className="flex flex-col gap-1">
                   {proximasOcupacoes.map(i => (
-                    <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
+                    <div
+                      key={i.id}
+                      className={`flex items-center justify-between gap-2 rounded px-1 py-0.5 text-xs ${i.hoje ? 'border border-cyan-500 bg-cyan-100 font-semibold text-cyan-950' : ''}`}
+                      title={i.hoje ? 'Inquilino ocupando o imóvel hoje' : undefined}
+                    >
                       <label className="flex min-w-0 items-center gap-2">
                         <input
                           type="checkbox"
