@@ -2153,7 +2153,7 @@ export default function Dashboard() {
 
     if (item.campo === 'seguroAcionado') {
       const novo = normalizarHistoricoValor(item.valorNovoKey || item.valorNovoLabel)
-      return ['acionado', 'pagamentoaprovado', 'pagamentoreprovado', 'juridico'].includes(novo)
+      return ['acionado', 'pagamentoaprovado', 'pagamentoreprovado', 'pagopelaseguradora', 'juridico'].includes(novo)
     }
 
     if (item.campo === 'status') {
@@ -2191,8 +2191,9 @@ export default function Dashboard() {
   const deveMostrarDataPagamento = (item) => {
     const novo = normalizarHistoricoValor(item.valorNovoKey || item.valorNovoLabel)
     const ehPagamentoAprovado = item.campo === 'seguroAcionado' && novo === 'pagamentoaprovado'
+    const ehPagoPelaSeguradora = item.campo === 'seguroAcionado' && novo === 'pagopelaseguradora'
     const ehPago = item.campo === 'status' && novo === 'pago'
-    return ehPagamentoAprovado || ehPago
+    return ehPagamentoAprovado || ehPagoPelaSeguradora || ehPago
   }
 
   // Índice rápido para achar a inadimplência ligada a um registro do histórico

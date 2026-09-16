@@ -89,7 +89,7 @@ const GARANTIDA_STYLE = {
 
 const isStatusRecuperado = status => status === 'pago' || status === 'pago_caucao'
 const isSeguroRecuperado = seguroAcionado => seguroAcionado === 'pago_pela_seguradora'
-const podeInformarDataPagamento = d => d.status === 'pago' || d.status === 'pago_caucao' || d.seguroAcionado === 'pagamento_aprovado'
+const podeInformarDataPagamento = d => d.status === 'pago' || d.status === 'pago_caucao' || d.seguroAcionado === 'pagamento_aprovado' || d.seguroAcionado === 'pago_pela_seguradora'
 
 const fmtMoney = (v) =>
   'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
