@@ -947,6 +947,7 @@ export default function Dashboard() {
   const [faixaAluguelPeriodEnd, setFaixaAluguelPeriodEnd] = useState('')
   const [tempoRecebimentoPeriodStart, setTempoRecebimentoPeriodStart] = useState(previousMonth)
   const [tempoRecebimentoPeriodEnd, setTempoRecebimentoPeriodEnd] = useState(currentMonth)
+  const [tempoRecebimentoFiltro, setTempoRecebimentoFiltro] = useState('pagamento')
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [selectedMonth, setSelectedMonth] = useState(currentMonth)
   const [topFilter, setTopFilter] = useState('valor')
@@ -1290,12 +1291,18 @@ export default function Dashboard() {
   [inadimplencias])
 
   const inadimplenciasRecebidasFiltradas = useMemo(() => inadimplenciasRecebidas.filter(debito => {
+    const mesPagamento = debito.dataPagamento?.slice(0, 7)
     const mesVencimento = debito.dataVencimento?.slice(0, 7)
-    if (!mesVencimento) return false
-    if (tempoRecebimentoPeriodStart && mesVencimento < tempoRecebimentoPeriodStart) return false
-    if (tempoRecebimentoPeriodEnd && mesVencimento > tempoRecebimentoPeriodEnd) return false
-    return true
-  }), [inadimplenciasRecebidas, tempoRecebimentoPeriodStart, tempoRecebimentoPeriodEnd])
+    const dentroDoPeriodo = mes => (
+      mes &&
+      (!tempoRecebimentoPeriodStart || mes >= tempoRecebimentoPeriodStart) &&
+      (!tempoRecebimentoPeriodEnd || mes <= tempoRecebimentoPeriodEnd)
+    )
+
+    if (tempoRecebimentoFiltro === 'vencimento') return dentroDoPeriodo(mesVencimento)
+    if (tempoRecebimentoFiltro === 'ambos') return dentroDoPeriodo(mesPagamento) && dentroDoPeriodo(mesVencimento)
+    return dentroDoPeriodo(mesPagamento)
+  }), [inadimplenciasRecebidas, tempoRecebimentoPeriodStart, tempoRecebimentoPeriodEnd, tempoRecebimentoFiltro])
 
   const mediaDiasAtePagamento = useMemo(() => {
     if (inadimplenciasRecebidasFiltradas.length === 0) return 0
@@ -4648,6 +4655,18 @@ export default function Dashboard() {
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <label className="text-muted-foreground" htmlFor="tempo-recebimento-filtro">Filtrar por</label>
+              <select
+                id="tempo-recebimento-filtro"
+                value={tempoRecebimentoFiltro}
+                onChange={e => setTempoRecebimentoFiltro(e.target.value)}
+                className="h-7 rounded-md border bg-background px-1.5 text-xs"
+                aria-label="Filtrar por pagamento, vencimento ou ambos"
+              >
+                <option value="pagamento">Pagamento</option>
+                <option value="vencimento">Vencimento</option>
+                <option value="ambos">Pagamento e vencimento</option>
+              </select>
               <label className="text-muted-foreground" htmlFor="tempo-recebimento-inicio">De</label>
               <input
                 id="tempo-recebimento-inicio"
@@ -4655,7 +4674,7 @@ export default function Dashboard() {
                 value={tempoRecebimentoPeriodStart}
                 onChange={e => setTempoRecebimentoPeriodStart(e.target.value)}
                 className="h-7 rounded-md border px-1.5 text-xs"
-                aria-label="Mês inicial de referência do boleto"
+                aria-label="Mês inicial do pagamento"
               />
               <label className="text-muted-foreground" htmlFor="tempo-recebimento-fim">Até</label>
               <input
@@ -4664,7 +4683,7 @@ export default function Dashboard() {
                 value={tempoRecebimentoPeriodEnd}
                 onChange={e => setTempoRecebimentoPeriodEnd(e.target.value)}
                 className="h-7 rounded-md border px-1.5 text-xs"
-                aria-label="Mês final de referência do boleto"
+                aria-label="Mês final do pagamento"
               />
             </div>
             {inadimplenciasRecebidasFiltradas.length > 0 && (
