@@ -2365,8 +2365,25 @@ export default function Dashboard() {
         { label: 'Jurídico', valor: contagemStatus['Jurídico'] || 0, color: '#ef4444' },
         { label: 'Aberto', valor: contagemStatus['Aberto'] || 0, color: '#eab308' },
       ]
+      const getAlteracaoStatusInfo = (item) => {
+        const novo = normalizarHistoricoValor(item.valorNovoKey || item.valorNovoLabel)
+        const valoresAtuais = getHistoricoValoresAtuais(item)
+        if (item.campo === 'status' && novo === 'pago') {
+          return { label: 'Pago', color: '#16a34a', paymentDate: valoresAtuais.dataPagamento ? fmtDataCurta(valoresAtuais.dataPagamento) : null }
+        }
+        if (item.campo === 'seguroAcionado' && novo === 'pagamentoaprovado') {
+          return { label: 'Pagamento Aprovado', color: '#22c55e', paymentDate: valoresAtuais.dataPagamento ? fmtDataCurta(valoresAtuais.dataPagamento) : null }
+        }
+        if (item.campo === 'seguroAcionado' && novo === 'pagopelaseguradora') {
+          return { label: 'Pago pela seguradora', color: RECOVERY_COLORS.pagoSeguradora, paymentDate: valoresAtuais.dataPagamento ? fmtDataCurta(valoresAtuais.dataPagamento) : null }
+        }
+        return null
+      }
       const doc = await gerarRelatorioHistoricoPDF('Histórico de Alterações', periodoLabel, itens, item => {
         const valoresAtuais = getHistoricoValoresAtuais(item)
+        const dataPagamento = deveMostrarDataPagamento(item) && valoresAtuais.dataPagamento
+          ? `Data Pagamento: ${fmtDataCurta(valoresAtuais.dataPagamento)}`
+          : null
         return [
           `${item.inquilinoNome || 'Sem nome'}${item.codigoImovel ? ` (${item.codigoImovel})` : ''} — ${fmtDataHora(item.data)}`,
           `${item.campoLabel || (item.campo === 'seguroAcionado' ? 'Seguro Acionado' : 'Status')}: ${item.valorAnteriorLabel || '—'} -> ${item.valorNovoLabel || '—'}`,
@@ -2374,8 +2391,9 @@ export default function Dashboard() {
             (valoresAtuais.valorRecebido > 0 ? ` · Recebido: ${fmtMoney(valoresAtuais.valorRecebido)}` : '') +
             (valoresAtuais.mesReferencia ? ` · ${getMonthLabel(valoresAtuais.mesReferencia)}` : '') +
             (valoresAtuais.dataSeguro ? ` · Data Seguro: ${fmtDataCurta(valoresAtuais.dataSeguro)}` : ''),
+          ...(dataPagamento ? [dataPagamento] : []),
         ]
-      }, resumoStatus, { posicao: 'inicio' })
+      }, resumoStatus, { posicao: 'inicio', getItemStatus: getAlteracaoStatusInfo })
       doc.save(`historico-alteracoes_${relatorioInicio || 'inicio'}_${relatorioFim || 'fim'}.pdf`)
     } else if (relatorioTipo === 'seguradoras') {
       const itens = eventosTimelineOrdenados.filter(item => dentroDoPeriodo(item.criadoEm))
