@@ -273,6 +273,7 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
     tipo: tipoGrafico = 'barra',
     posicao: posicaoGrafico = 'fim',
     getItemStatus = null,
+    agruparPorStatus = false,
     dadosMensais = null,
     mesDestaqueKey = null,
     indicadores = null,
@@ -347,7 +348,7 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
     y += 8
   } else {
     if (graficoNoInicio && resumoStatus && resumoStatus.length > 0) {
-      desenharTituloSecao(doc, margin, y, 'Resumo por Status', '#2563eb')
+      desenharTituloSecao(doc, margin, y, 'Resumo', '#2563eb')
       y += 8
       y = tipoGrafico === 'pizza'
         ? desenharResumoPizza(doc, margin, y, contentWidth, resumoStatus)
@@ -382,14 +383,37 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
     doc.text('Nenhum registro encontrado no período selecionado.', margin, y)
   }
 
+  const itensParaRenderizar = agruparPorStatus && getItemStatus
+    ? [...itens].sort((a, b) => {
+      const statusA = getItemStatus(a)?.label || ''
+      const statusB = getItemStatus(b)?.label || ''
+      const prioridadeStatus = {
+        Pago: 0,
+        'Pago pela seguradora': 1,
+        'Pagamento Aprovado': 2,
+        Acionado: 3,
+      }
+      const prioridadeA = prioridadeStatus[statusA] ?? 4
+      const prioridadeB = prioridadeStatus[statusB] ?? 4
+      return prioridadeA - prioridadeB || statusA.localeCompare(statusB, 'pt-BR')
+    })
+    : itens
   const badgeWidth = getItemStatus ? 38 : 0
   const indent = getItemStatus ? 3.5 : 0
-  itens.forEach((item, idx) => {
+  let statusGrupoAnterior = null
+  itensParaRenderizar.forEach((item, idx) => {
     const linhas = formatarItem(item)
     const statusInfo = getItemStatus ? getItemStatus(item) : null
+    const novoGrupoStatus = agruparPorStatus && statusInfo?.label !== statusGrupoAnterior
     if (y > pageHeight - margin - 10) {
       doc.addPage()
       y = margin
+    }
+    if (novoGrupoStatus) {
+      if (idx > 0) y += 3
+      desenharTituloSecao(doc, margin, y, statusInfo.label, statusInfo.color)
+      y += 7
+      statusGrupoAnterior = statusInfo.label
     }
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(8)
@@ -426,7 +450,7 @@ const gerarRelatorioHistoricoPDF = async (titulo, periodoLabel, itens, formatarI
     })
     doc.setTextColor(0)
     y += 2
-    if (idx < itens.length - 1) {
+    if (idx < itensParaRenderizar.length - 1) {
       doc.setDrawColor(230)
       doc.line(margin, y - 1.5, pageWidth - margin, y - 1.5)
     }
@@ -2371,15 +2395,33 @@ export default function Dashboard() {
         if (item.campo === 'status' && novo === 'pago') {
           return { label: 'Pago', color: '#16a34a', paymentDate: valoresAtuais.dataPagamento ? fmtDataCurta(valoresAtuais.dataPagamento) : null }
         }
+        if (item.campo === 'status' && novo === 'pagocaucao') {
+          return { label: 'Utilização caução/adiantamento', color: '#0f766e' }
+        }
+        if (item.campo === 'status' && novo === 'seguroaprovado') {
+          return { label: 'Aprovado', color: '#22c55e' }
+        }
+        if (item.campo === 'status' && novo === 'juridico') {
+          return { label: 'Jurídico', color: '#ef4444' }
+        }
         if (item.campo === 'seguroAcionado' && novo === 'pagamentoaprovado') {
           return { label: 'Pagamento Aprovado', color: '#22c55e', paymentDate: valoresAtuais.dataPagamento ? fmtDataCurta(valoresAtuais.dataPagamento) : null }
         }
         if (item.campo === 'seguroAcionado' && novo === 'pagopelaseguradora') {
           return { label: 'Pago pela seguradora', color: RECOVERY_COLORS.pagoSeguradora, paymentDate: valoresAtuais.dataPagamento ? fmtDataCurta(valoresAtuais.dataPagamento) : null }
         }
-        return null
+        if (item.campo === 'seguroAcionado' && novo === 'aguardarparaacionar') {
+          return { label: 'Aguardar para acionar', color: '#64748b' }
+        }
+        if (item.campo === 'seguroAcionado' && novo === 'acionado') {
+          return { label: 'Acionado', color: '#3b82f6' }
+        }
+        if (item.campo === 'seguroAcionado' && novo === 'juridico') {
+          return { label: 'Jurídico', color: '#ef4444' }
+        }
+        return { label: 'Aberto', color: '#eab308' }
       }
-      const doc = await gerarRelatorioHistoricoPDF('Histórico de Alterações', periodoLabel, itens, item => {
+      const doc = await gerarRelatorioHistoricoPDF('Relatório de Inadimplência', periodoLabel, itens, item => {
         const valoresAtuais = getHistoricoValoresAtuais(item)
         const dataPagamento = deveMostrarDataPagamento(item) && valoresAtuais.dataPagamento
           ? `Data Pagamento: ${fmtDataCurta(valoresAtuais.dataPagamento)}`
@@ -2393,7 +2435,7 @@ export default function Dashboard() {
             (valoresAtuais.dataSeguro ? ` · Data Seguro: ${fmtDataCurta(valoresAtuais.dataSeguro)}` : ''),
           ...(dataPagamento ? [dataPagamento] : []),
         ]
-      }, resumoStatus, { posicao: 'inicio', getItemStatus: getAlteracaoStatusInfo })
+      }, resumoStatus, { posicao: 'inicio', getItemStatus: getAlteracaoStatusInfo, agruparPorStatus: true })
       doc.save(`historico-alteracoes_${relatorioInicio || 'inicio'}_${relatorioFim || 'fim'}.pdf`)
     } else if (relatorioTipo === 'seguradoras') {
       const itens = eventosTimelineOrdenados.filter(item => dentroDoPeriodo(item.criadoEm))
