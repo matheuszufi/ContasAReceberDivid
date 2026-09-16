@@ -1514,25 +1514,23 @@ export default function ImoveisTodos() {
                             ? { bg: '#fee2e2', border: '#fca5a5', color: '#991b1b', icon: '' }
                             : { bg: '#f1f5f9', border: '#e2e8f0', color: '#94a3b8', icon: '' }
  
-                        const cellBg = cellTravado
-                          ? '#bbf7d0'
-                          : isDesocupacao
-                            ? '#cbd5e1'
-                            : variavelAlerta
-                              ? '#eed2a12a'
-                              : isCellGreen
-                                ? '#dcfce7'
-                                : isCellYellow
-                                  ? '#fee2e2'
-                                  : summary
-                                    ? STATUS_STYLE[summary]?.bg
-                                    : isReajuste
-                                      ? (isCur ? '#eff6ff' : '#fffbeb')
-                                      : isCur
-                                        ? '#eff6ff'
-                                        : temExtra
-                                          ? '#fff7ed'
-                                          : undefined
+                        const cellBg = isDesocupacao
+                          ? '#cbd5e1'
+                          : variavelAlerta
+                            ? '#eed2a12a'
+                            : isCellGreen
+                              ? '#dcfce7'
+                              : isCellYellow
+                                ? '#fee2e2'
+                                : summary
+                                  ? STATUS_STYLE[summary]?.bg
+                                  : isReajuste
+                                    ? (isCur ? '#eff6ff' : '#fffbeb')
+                                    : isCur
+                                      ? '#eff6ff'
+                                      : temExtra
+                                        ? '#fff7ed'
+                                        : undefined
  
                         return (
                           <td
@@ -1541,6 +1539,8 @@ export default function ImoveisTodos() {
                               ...tdC,
                               position: 'relative',
                               ...(cellBg ? { background: cellBg } : {}),
+                              // Célula travada não muda de cor, apenas fica com opacidade reduzida
+                              ...(cellTravado ? { opacity: 0.5 } : {}),
                               ...(cellTravado ? { boxShadow: 'inset 0 0 0 1.5px #22c55e' } : {}),
                               ...(isReajuste ? { borderBottom: '2.5px solid #f59e0b' } : {}),
                               ...(isDesocupacao ? { borderLeft: '3px solid #ef4444' } : {}),
