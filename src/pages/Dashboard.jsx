@@ -2181,9 +2181,39 @@ export default function Dashboard() {
     return ehPagamentoAprovado || ehPago
   }
 
+  // Índice rápido para achar a inadimplência ligada a um registro do histórico
+  const inadimplenciaPorId = useMemo(
+    () => Object.fromEntries(inadimplencias.map(d => [d.id, d])),
+    [inadimplencias]
+  )
+
+  // Os cards de histórico guardavam um snapshot do valor/mês/data no momento da alteração; para que
+  // uma edição feita depois na inadimplência (valor, recebido, data etc.) apareça atualizada no card,
+  // sempre que o débito ainda existir seus valores atuais têm prioridade sobre o snapshot salvo.
+  const getHistoricoValoresAtuais = (item) => {
+    const live = inadimplenciaPorId[item.debitoId]
+    if (!live) {
+      return {
+        valorTotal: item.valorTotal,
+        valorRecebido: item.valorRecebido,
+        mesReferencia: item.mesReferencia,
+        dataPagamento: item.dataPagamento,
+        dataSeguro: item.dataSeguro,
+      }
+    }
+    return {
+      valorTotal: live.valorTotal || live.valorOriginal || item.valorTotal,
+      valorRecebido: live.valorRecebido ?? item.valorRecebido,
+      mesReferencia: live.mesReferencia || item.mesReferencia,
+      dataPagamento: live.dataPagamento || item.dataPagamento,
+      dataSeguro: live.dataSeguro || item.dataSeguro,
+    }
+  }
+
   const getHistoricoDataIndicada = (item) => {
     const mostrarPagamento = deveMostrarDataPagamento(item)
-    const value = item.dataPagamento || item.dataSeguro || null
+    const { dataPagamento, dataSeguro } = getHistoricoValoresAtuais(item)
+    const value = dataPagamento || dataSeguro || null
     if (!value) return null
     return {
       label: mostrarPagamento ? 'Data Pagamento' : 'Data Seguro',
@@ -2320,14 +2350,17 @@ export default function Dashboard() {
         { label: 'Jurídico', valor: contagemStatus['Jurídico'] || 0, color: '#ef4444' },
         { label: 'Aberto', valor: contagemStatus['Aberto'] || 0, color: '#eab308' },
       ]
-      const doc = await gerarRelatorioHistoricoPDF('Histórico de Alterações', periodoLabel, itens, item => [
-        `${item.inquilinoNome || 'Sem nome'}${item.codigoImovel ? ` (${item.codigoImovel})` : ''} — ${fmtDataHora(item.data)}`,
-        `${item.campoLabel || (item.campo === 'seguroAcionado' ? 'Seguro Acionado' : 'Status')}: ${item.valorAnteriorLabel || '—'} -> ${item.valorNovoLabel || '—'}`,
-        `Total c/ Encargos: ${fmtMoney(item.valorTotal)}` +
-          (item.valorRecebido > 0 ? ` · Recebido: ${fmtMoney(item.valorRecebido)}` : '') +
-          (item.mesReferencia ? ` · ${getMonthLabel(item.mesReferencia)}` : '') +
-          (item.dataSeguro ? ` · Data Seguro: ${fmtDataCurta(item.dataSeguro)}` : ''),
-      ], resumoStatus, { posicao: 'inicio' })
+      const doc = await gerarRelatorioHistoricoPDF('Histórico de Alterações', periodoLabel, itens, item => {
+        const valoresAtuais = getHistoricoValoresAtuais(item)
+        return [
+          `${item.inquilinoNome || 'Sem nome'}${item.codigoImovel ? ` (${item.codigoImovel})` : ''} — ${fmtDataHora(item.data)}`,
+          `${item.campoLabel || (item.campo === 'seguroAcionado' ? 'Seguro Acionado' : 'Status')}: ${item.valorAnteriorLabel || '—'} -> ${item.valorNovoLabel || '—'}`,
+          `Total c/ Encargos: ${fmtMoney(valoresAtuais.valorTotal)}` +
+            (valoresAtuais.valorRecebido > 0 ? ` · Recebido: ${fmtMoney(valoresAtuais.valorRecebido)}` : '') +
+            (valoresAtuais.mesReferencia ? ` · ${getMonthLabel(valoresAtuais.mesReferencia)}` : '') +
+            (valoresAtuais.dataSeguro ? ` · Data Seguro: ${fmtDataCurta(valoresAtuais.dataSeguro)}` : ''),
+        ]
+      }, resumoStatus, { posicao: 'inicio' })
       doc.save(`historico-alteracoes_${relatorioInicio || 'inicio'}_${relatorioFim || 'fim'}.pdf`)
     } else if (relatorioTipo === 'seguradoras') {
       const itens = eventosTimelineOrdenados.filter(item => dentroDoPeriodo(item.criadoEm))
@@ -4041,6 +4074,7 @@ export default function Dashboard() {
               {historicoFiltrado.map(item => {
                 const campoStyle = HISTORICO_CAMPO_STYLE[item.campo] || HISTORICO_CAMPO_STYLE.status
                 const dataIndicada = getHistoricoDataIndicada(item)
+                const valoresAtuais = getHistoricoValoresAtuais(item)
                 return (
                   <div
                     key={item.id}
@@ -4073,9 +4107,9 @@ export default function Dashboard() {
                           <span className="break-words font-medium text-foreground">{item.valorNovoLabel || '—'}</span>
                         </p>
                         <p className="flex flex-wrap items-center gap-1 break-words text-muted-foreground">
-                          <span className="break-words">Total c/ Encargos: {fmtMoney(item.valorTotal)}</span>
-                          {item.valorRecebido > 0 && <span className="break-words">· Recebido: {fmtMoney(item.valorRecebido)}</span>}
-                          {item.mesReferencia && <span className="break-words">· {getMonthLabel(item.mesReferencia)}</span>}
+                          <span className="break-words">Total c/ Encargos: {fmtMoney(valoresAtuais.valorTotal)}</span>
+                          {valoresAtuais.valorRecebido > 0 && <span className="break-words">· Recebido: {fmtMoney(valoresAtuais.valorRecebido)}</span>}
+                          {valoresAtuais.mesReferencia && <span className="break-words">· {getMonthLabel(valoresAtuais.mesReferencia)}</span>}
                           {dataIndicada && <span className="break-words">· {dataIndicada.label}: {fmtDataCurta(dataIndicada.value)}</span>}
                         </p>
                       </div>

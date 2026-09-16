@@ -67,6 +67,22 @@ function getCellSummary(items) {
 const fmtBRL = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const padM   = n => String(n).padStart(2, '0')
 
+// Arredonda um valor monetário para no máximo 2 casas decimais (evita arrastar dízimas de
+// ponto flutuante, ex.: rateio proporcional) e formata como string plana para os inputs
+// da "Composição do Valor Mensal"
+const fmt2 = (v) => {
+  const n = Math.round((Number(v) || 0) * 100) / 100
+  return n ? String(n) : ''
+}
+
+// Trunca o texto digitado pelo usuário para no máximo 2 casas decimais, sem atrapalhar
+// a digitação em andamento (ex.: "12." continua válido)
+const capDecimals = (str) => {
+  if (str === '' || str == null) return str
+  const match = String(str).match(/^-?\d*\.?\d{0,2}/)
+  return match ? match[0] : str
+}
+
 // Retorna a quantidade de dias do mês referenciado por uma chave "YYYY-MM"
 const getDiasNoMes = (mesKey) => {
   if (!mesKey) return 30
@@ -592,9 +608,10 @@ export default function ImoveisTodos() {
  
   const handleVarValue = (contaKey, rawValue) => {
     const valorAnterior = varValues[contaKey]
-    setVarValues(prev => ({ ...prev, [contaKey]: rawValue }))
+    const valorDigitado = capDecimals(rawValue)
+    setVarValues(prev => ({ ...prev, [contaKey]: valorDigitado }))
     if (modal?.inquilino?.id && modal?.key) {
-      const novoValor = parseFloat(rawValue) || 0
+      const novoValor = Math.round((parseFloat(valorDigitado) || 0) * 100) / 100
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), {
         [contaKey]: novoValor,
       }).catch(err => { console.error('Erro ao salvar valor:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
@@ -1847,7 +1864,7 @@ export default function ImoveisTodos() {
  
               const EditableRow = ({ icon, label, baseVal, vKey, showSeguro, registradoKey }) => {
                 const hasOv      = vKey in varValues
-                const curVal     = hasOv ? varValues[vKey] : String(baseVal || '')
+                const curVal     = hasOv ? varValues[vKey] : fmt2(baseVal)
                 const isModified = hasOv && parseFloat(varValues[vKey]) !== baseVal
                 const bc         = isModified ? '#fcd34d' : '#e2e8f0'
                 const registrada = registradoKey ? !!registradoVar[registradoKey] : false
@@ -1871,7 +1888,7 @@ export default function ImoveisTodos() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <input
                         type="number" step="0.01"
-                        placeholder={String(baseVal || '0,00')}
+                        placeholder={fmt2(baseVal) || '0,00'}
                         value={curVal}
                         onChange={e => handleVarValue(vKey, e.target.value)}
                         style={{ width: 110, padding: '4px 8px', border: `1.5px solid ${bc}`, borderRadius: 6, fontSize: 13, textAlign: 'right', outline: 'none', background: isModified ? '#fffbeb' : '#fff', color: isModified ? '#92400e' : '#334155', fontWeight: 600 }}
@@ -1976,7 +1993,7 @@ export default function ImoveisTodos() {
 
                     {allContas.map(({ key, label, icone, value, isVariavel, origem }) => {
                       const hasOverride = key in varValues
-                      const inputVal    = hasOverride ? varValues[key] : String(value || '')
+                      const inputVal    = hasOverride ? varValues[key] : fmt2(value)
                       const isModified  = hasOverride && parseFloat(varValues[key]) !== value
                       const isProporcional = contasProporcionaisModal.includes(key)
                       const borderColor = isVariavel ? '#c4b5fd' : isModified ? '#fcd34d' : '#e2e8f0'
@@ -2016,7 +2033,7 @@ export default function ImoveisTodos() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                               <input
                                 type="number" step="0.01"
-                                placeholder={String(value || '0,00')}
+                                placeholder={fmt2(value) || '0,00'}
                                 value={inputVal}
                                 onChange={e => handleVarValue(key, e.target.value)}
                                 style={{
