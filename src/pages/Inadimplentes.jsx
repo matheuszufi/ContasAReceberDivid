@@ -50,6 +50,7 @@ const GARANTIA_LABELS = {
   seguro:       'S.F.',
   caucao:       'Caução',
   adiantamento: 'Adiantamento',
+  carta_fianca: 'Carta Fiança',
   sem_garantia: 'Sem Garantia',
 }
 
@@ -63,6 +64,7 @@ const GARANTIA_OPCOES = [
   { value: 'seguro',       label: 'Seguro' },
   { value: 'caucao',       label: 'Caução' },
   { value: 'adiantamento', label: 'Adiantamento' },
+  { value: 'carta_fianca', label: 'Carta Fiança' },
   { value: 'sem_garantia', label: 'Sem Garantia' },
 ]
 
@@ -70,6 +72,7 @@ const GARANTIA_STYLE = {
   seguro:       { bg: '#ede9fe', color: '#7c3aed', border: '#c4b5fd', icon: '🛡️' },
   caucao:       { bg: '#f0fdf4', color: '#166534', border: '#86efac', icon: '💰' },
   adiantamento: { bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd', icon: '💵' },
+  carta_fianca: { bg: '#fff7ed', color: '#c2410c', border: '#fdba74', icon: '📄' },
   sem_garantia: { bg: '#f1f5f9', color: '#64748b', border: '#e2e8f0', icon: '🚫' },
 }
 

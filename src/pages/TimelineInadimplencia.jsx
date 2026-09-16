@@ -150,7 +150,7 @@ export default function TimelineInadimplencia() {
               </span>
             </div>
             {(() => {
-              const GARANTIA_LABELS = { seguro: 'Seguro Fiança', caucao: 'Caução', adiantamento: 'Adiantamento', sem_garantia: 'Sem Garantia' }
+              const GARANTIA_LABELS = { seguro: 'Seguro Fiança', caucao: 'Caução', adiantamento: 'Adiantamento', carta_fianca: 'Carta Fiança', sem_garantia: 'Sem Garantia' }
               const SEGURO_LABELS   = { credaluga: 'Credaluga', credpago: 'Credpago', lado_bom: 'Lado Bom Seguros' }
               const g = debito.garantia || inquilino?.garantia
               const s = debito.seguro   || inquilino?.seguro

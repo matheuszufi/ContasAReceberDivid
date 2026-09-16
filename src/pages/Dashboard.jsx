@@ -90,6 +90,7 @@ const GARANTIA_LABELS = {
   seguro:       'S.F.',
   caucao:       'Caução',
   adiantamento: 'Adiantamento',
+  carta_fianca: 'Carta Fiança',
   sem_garantia: 'Sem Garantia',
 }
 
@@ -115,6 +116,7 @@ const GARANTIA_CHART_COLORS = {
   seguro_outro:     '#a855f7',
   caucao:           '#22c55e',
   adiantamento:     '#eab308',
+  carta_fianca:     '#f97316',
   sem_garantia:     '#64748b',
 }
 
@@ -1904,6 +1906,24 @@ export default function Dashboard() {
       .sort((a, b) => a.dataEntrada.localeCompare(b.dataEntrada))
   }, [inquilinos])
 
+  const handleCadastroOutroSistemaChange = async (inquilinoId, checked) => {
+    setInquilinos(prev => prev.map(inquilino => (
+      inquilino.id === inquilinoId
+        ? { ...inquilino, cadastradoOutroSistema: checked }
+        : inquilino
+    )))
+    try {
+      await update(ref(db, `inquilinos/${inquilinoId}`), { cadastradoOutroSistema: checked })
+    } catch (err) {
+      setInquilinos(prev => prev.map(inquilino => (
+        inquilino.id === inquilinoId
+          ? { ...inquilino, cadastradoOutroSistema: !checked }
+          : inquilino
+      )))
+      console.error('Erro ao atualizar marcação de cadastro em outro sistema:', err)
+    }
+  }
+
 
   // Detalha, por débito, quem compõe cada uma das categorias do card de recuperação (para os tooltips)
   const categoryBreakdown = useMemo(() => {
@@ -2796,7 +2816,16 @@ export default function Dashboard() {
                 <div className="flex flex-col gap-1">
                   {proximasOcupacoes.map(i => (
                     <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="font-small">{i.nome}</span>
+                      <label className="flex min-w-0 items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={!!inquilinos.find(inquilino => inquilino.id === i.id)?.cadastradoOutroSistema}
+                          onChange={event => handleCadastroOutroSistemaChange(i.id, event.target.checked)}
+                          aria-label={`Marcar ${i.nome} como cadastrado em outro sistema`}
+                          className="size-3.5 shrink-0 cursor-pointer"
+                        />
+                        <span className="font-small">{i.nome}</span>
+                      </label>
                       <span className="text-muted-foreground">
                         {GARANTIA_LABELS[i.garantia] || i.garantia || 'Sem garantia'} · {formatarDataCurta(i.dataEntrada)}
                       </span>

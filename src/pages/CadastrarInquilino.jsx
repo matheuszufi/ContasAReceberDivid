@@ -12,6 +12,7 @@ const GARANTIA_OPCOES = [
   { value: 'seguro',       label: 'Seguro' },
   { value: 'caucao',       label: 'Caução' },
   { value: 'adiantamento', label: 'Adiantamento' },
+  { value: 'carta_fianca', label: 'Carta Fiança' },
   { value: 'sem_garantia', label: 'Sem Garantia' },
 ]
 
