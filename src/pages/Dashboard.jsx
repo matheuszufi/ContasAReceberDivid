@@ -1222,12 +1222,12 @@ export default function Dashboard() {
       .filter(debito => debito.seguroAcionado === 'aguardar_para_acionar')
       .map(debito => {
         const valor = Number(debito.valorTotal || debito.valorOriginal || 0)
-        const dataVencimento = debito.dataVencimento || null
-        let diasAtraso = null
-        if (dataVencimento) {
-          const data = new Date(`${dataVencimento}T00:00:00`)
+        const dataSeguro = debito.dataSeguro || null
+        let diasParaAcionamento = null
+        if (dataSeguro) {
+          const data = new Date(`${dataSeguro}T00:00:00`)
           if (!Number.isNaN(data.getTime())) {
-            diasAtraso = Math.floor((hoje - data) / (1000 * 60 * 60 * 24))
+            diasParaAcionamento = data.getDate() - hoje.getDate()
           }
         }
         const inquilino = inquilinoMap[debito.inquilinoId]
@@ -1237,13 +1237,13 @@ export default function Dashboard() {
         return {
           ...debito,
           valor,
-          dataVencimento,
-          diasAtraso,
+          dataSeguro,
+          diasParaAcionamento,
           nome: debito.inquilinoNome || 'Inquilino sem nome',
           seguroLabel,
         }
       })
-      .sort((a, b) => (b.diasAtraso ?? -Infinity) - (a.diasAtraso ?? -Infinity))
+      .sort((a, b) => (a.diasParaAcionamento ?? Infinity) - (b.diasParaAcionamento ?? Infinity))
   }, [inadimplencias, inquilinoMap])
 
   const totalProximosAcionamentos = useMemo(
@@ -4039,15 +4039,15 @@ export default function Dashboard() {
                     <li key={item.id} className="payment-platform-card acionamento-card">
                       <div className="payment-platform-card-header">
                         <span className="payment-platform-name" title={item.nome}>{item.nome}</span>
-                        {item.diasAtraso !== null && (
+                        {item.diasParaAcionamento !== null && (
                           <span className="payment-platform-pill acionamento-pill">
-                            {item.diasAtraso > 0 ? `${item.diasAtraso}d ` : 'Em dia'}
+                            {item.diasParaAcionamento}d
                           </span>
                         )}
                       </div>
 
                       <div className="payment-platform-amount-row">
-                        <span className="payment-platform-date">{item.dataVencimento ? formatarDataCurta(item.dataVencimento) : 'Sem vencimento'}</span>
+                        <span className="payment-platform-date">{item.dataSeguro ? formatarDataCurta(item.dataSeguro) : 'Sem Data Seguro'}</span>
                         <strong className="payment-platform-amount">{fmtMoney(item.valor)}</strong>
                       </div>
 
