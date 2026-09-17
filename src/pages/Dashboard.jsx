@@ -180,6 +180,16 @@ const EVENTO_STATUS_DEFAULT = EVENTO_STATUS_OPCOES[0].value
 const fmtMoney = (value) =>
   'R$ ' + Number(value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
+const formatarTempoMedioContrato = meses => {
+  if (!meses) return '—'
+  const mesesArredondados = Math.round(meses)
+  const anos = Math.floor(mesesArredondados / 12)
+  const mesesRestantes = mesesArredondados % 12
+  if (anos === 0) return `${mesesRestantes} ${mesesRestantes === 1 ? 'mês' : 'meses'}`
+  if (mesesRestantes === 0) return `${anos} ${anos === 1 ? 'ano' : 'anos'}`
+  return `${anos} ${anos === 1 ? 'ano' : 'anos'} e ${mesesRestantes} ${mesesRestantes === 1 ? 'mês' : 'meses'}`
+}
+
 const fmtMoneyCompact = (value) => {
   const num = Number(value || 0)
   if (Math.abs(num) >= 1000) {
@@ -1153,6 +1163,21 @@ export default function Dashboard() {
     if (ativos.length === 0) return 0
     const soma = ativos.reduce((sum, i) => sum + (parseFloat(i.valorAluguel) || 0), 0)
     return soma / ativos.length
+  }, [inquilinos])
+
+  const tempoMedioContrato = useMemo(() => {
+    const contratos = inquilinos
+      .map(inquilino => {
+        if (!inquilino.dataEntrada || !inquilino.dataSaida) return null
+        const inicio = new Date(`${inquilino.dataEntrada}T00:00:00`)
+        const fim = new Date(`${inquilino.dataSaida}T00:00:00`)
+        if (Number.isNaN(inicio.getTime()) || Number.isNaN(fim.getTime()) || fim < inicio) return null
+        return (fim - inicio) / (1000 * 60 * 60 * 24 * 30.4375)
+      })
+      .filter(duracao => duracao !== null)
+
+    if (contratos.length === 0) return 0
+    return contratos.reduce((soma, duracao) => soma + duracao, 0) / contratos.length
   }, [inquilinos])
 
   const faixasAluguel = useMemo(() => {
@@ -2627,7 +2652,7 @@ export default function Dashboard() {
   return (
     <Layout title="Dashboard" subtitle="Visão geral do sistema de gestão">
       <div className="dashboard-page" ref={dashboardPageRef}>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 mb-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-3">
         <motion.div className="min-w-0" {...cardHoverMotion}>
         <Card className="min-w-0">
           <CardContent className="flex items-center gap-2">
@@ -2689,6 +2714,19 @@ export default function Dashboard() {
             <div className="min-w-0">
               <p className="truncate text-lg font-semibold tracking-tight">{fmtMoney(valorMedioAluguel)}</p>
               <p className="truncate text-xs text-muted-foreground">Valor Médio dos Aluguéis</p>
+            </div>
+          </CardContent>
+        </Card>
+        </motion.div>
+        <motion.div {...cardHoverMotion}>
+        <Card>
+          <CardContent className="flex items-center gap-2">
+            <div className="flex size-9 shrink-0 items-center justify-center bg-orange-500/10 text-orange-600">
+              <Clock className="size-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-lg font-semibold tracking-tight">{formatarTempoMedioContrato(tempoMedioContrato)}</p>
+              <p className="truncate text-xs text-muted-foreground">Tempo Médio de Contrato</p>
             </div>
           </CardContent>
         </Card>
