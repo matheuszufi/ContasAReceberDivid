@@ -12,6 +12,12 @@ import './Perfil.css'
 
 const novoUsuarioInicial = { email: '', password: '', role: 'user' }
 const senhaFormInicial = { senhaAtual: '', novaSenha: '', confirmarSenha: '' }
+const simulacaoInicial = { valor: '', meses: '', juros: '', taxaAntecipacao: '', taxa: '' }
+
+const formatarMoeda = value => Number(value || 0).toLocaleString('pt-BR', {
+  style: 'currency',
+  currency: 'BRL',
+})
 
 export default function Perfil() {
   const { user, isAdmin, createUser } = useAuth()
@@ -27,6 +33,7 @@ export default function Perfil() {
   const [alterandoSenha, setAlterandoSenha] = useState(false)
   const [senhaErro, setSenhaErro] = useState(null)
   const [senhaSucesso, setSenhaSucesso] = useState(false)
+  const [simulacao, setSimulacao] = useState(simulacaoInicial)
 
   useEffect(() => {
     return onValue(ref(db, 'usuariosMeta/hasAdmin'), snap => setHasAdmin(snap.val() === true))
@@ -96,6 +103,33 @@ export default function Perfil() {
     const { name, value } = e.target
     setSenhaForm(prev => ({ ...prev, [name]: value }))
   }
+
+  const handleSimulacaoChange = e => {
+    const { name, value } = e.target
+    setSimulacao(prev => ({ ...prev, [name]: value }))
+  }
+
+  const valorBase = Number(simulacao.valor) || 0
+  const quantidadeMeses = Math.max(0, Number(simulacao.meses) || 0)
+  const taxaPercentual = Number(simulacao.juros) || 0
+  const taxaAntecipacaoMensal = Number(simulacao.taxaAntecipacao) || 0
+  const taxaFixa = Number(simulacao.taxa) || 0
+  const diasEntreParcelas = 32
+  const taxaCobrancaTotal = taxaPercentual * quantidadeMeses
+  const parcelaBruta = quantidadeMeses > 0 ? valorBase / quantidadeMeses : 0
+  const descontoPercentual = valorBase * (taxaCobrancaTotal / 100)
+  const totalSemAntecipacao = Math.max(0, valorBase - descontoPercentual - taxaFixa)
+  const parcelaSemAntecipacao = quantidadeMeses > 0 ? totalSemAntecipacao / quantidadeMeses : 0
+  const antecipacaoTotal = quantidadeMeses > 0
+    ? Array.from({ length: quantidadeMeses }, (_, index) => {
+      const diasAteVencimento = (index + 1) * diasEntreParcelas
+      const desconto = parcelaSemAntecipacao
+        * (taxaAntecipacaoMensal / 100)
+        * (diasAteVencimento / 30)
+      return desconto
+    }).reduce((total, desconto) => total + desconto, 0)
+    : 0
+  const totalComAntecipacao = Math.max(0, totalSemAntecipacao - antecipacaoTotal)
 
   const traduzirErroSenha = (err) => {
     switch (err?.code) {
@@ -178,6 +212,68 @@ export default function Perfil() {
               {hasAdmin ? 'Já existe um administrador no sistema' : 'Tornar-se Administrador'}
             </button>
           )}
+        </div>
+      </div>
+
+      <div className="form-section calculadora-panel">
+        <div className="form-section-header">
+          <span className="form-section-icon">🧮</span>
+          <div>
+            <h3>Calculadora de cobranças</h3>
+            <p className="section-caption">Simule recebimento parcelado normal e com antecipação.</p>
+          </div>
+        </div>
+        <div className="form-section-body">
+          <div className="calculadora-conteudo">
+            <div className="calculadora-grid">
+            <div className="form-group">
+              <label htmlFor="simulacao-valor">Valor da cobrança</label>
+              <input id="simulacao-valor" name="valor" type="number" min="0" step="0.01" value={simulacao.valor} onChange={handleSimulacaoChange} placeholder="0,00" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="simulacao-meses">Quantidade de meses</label>
+              <input id="simulacao-meses" name="meses" type="number" min="1" step="1" value={simulacao.meses} onChange={handleSimulacaoChange} placeholder="Ex.: 12" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="simulacao-juros">Taxa de cobrança mensal (%)</label>
+              <input id="simulacao-juros" name="juros" type="number" min="0" step="0.01" value={simulacao.juros} onChange={handleSimulacaoChange} placeholder="Ex.: 2,99" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="simulacao-taxa-antecipacao">Taxa de antecipação mensal (%)</label>
+              <input id="simulacao-taxa-antecipacao" name="taxaAntecipacao" type="number" min="0" step="0.01" value={simulacao.taxaAntecipacao} onChange={handleSimulacaoChange} placeholder="Ex.: 0,5" />
+            </div>
+            <div className="form-group">
+              <label htmlFor="simulacao-taxa">Valor da taxa</label>
+              <input id="simulacao-taxa" name="taxa" type="number" min="0" step="0.01" value={simulacao.taxa} onChange={handleSimulacaoChange} placeholder="0,00" />
+            </div>
+            </div>
+            <div className="resultado-simulacao">
+            <h4>Resultado da simulação</h4>
+            <div className="resultado-linha resultado-total">
+              <strong>A cobrança deverá ser</strong>
+              <strong>{formatarMoeda(valorBase)}</strong>
+            </div>
+            <p>{quantidadeMeses || 0} parcelas de {formatarMoeda(parcelaBruta)}</p>
+            <h4>Você recebe (sem antecipação)</h4>
+            <div className="resultado-linha">
+              <span>Uma parcela a cada {diasEntreParcelas} dias</span>
+              <strong>{formatarMoeda(totalSemAntecipacao)}</strong>
+            </div>
+            <div className="resultado-linha resultado-detalhe">
+              <span>{quantidadeMeses || 0} parcelas de {formatarMoeda(parcelaSemAntecipacao)}</span>
+              <span>Taxa: {taxaPercentual.toFixed(2).replace('.', ',')}% ao mês ({taxaCobrancaTotal.toFixed(2).replace('.', ',')}% no total) + {formatarMoeda(taxaFixa)}</span>
+            </div>
+            <h4>Você recebe (com antecipação)</h4>
+            <div className="resultado-linha">
+              <span>Receber todas as parcelas em até 1 dia útil</span>
+              <strong>{formatarMoeda(totalComAntecipacao)}</strong>
+            </div>
+            <div className="resultado-linha resultado-detalhe">
+              <span>{quantidadeMeses || 0} parcelas de {formatarMoeda(quantidadeMeses > 0 ? totalComAntecipacao / quantidadeMeses : 0)}</span>
+              <span>Antecipação: {taxaAntecipacaoMensal.toFixed(2).replace('.', ',')}% ao mês</span>
+            </div>
+            </div>
+          </div>
         </div>
       </div>
 
