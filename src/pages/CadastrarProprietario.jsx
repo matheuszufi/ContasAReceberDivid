@@ -329,15 +329,15 @@ export default function CadastrarProprietario() {
     })
   }
 
-  const getInquilinoNoMes = (imovelId) => {
-    const encontrados = inquilinos.filter(inquilino => {
+  const getInquilinosNoMes = (imovelId) => {
+    return inquilinos.filter(inquilino => {
       if (inquilino.imovelId !== imovelId) return false
+      if (inquilino.status !== 'Ativo') return false
       const entrada = inquilino.dataEntrada?.substring(0, 7)
       const saida = inquilino.dataSaida?.substring(0, 7)
       return (!entrada || extratoMes >= entrada) && (!saida || extratoMes <= saida)
     })
-    if (encontrados.length === 0) return null
-    return encontrados.sort((a, b) => (b.dataEntrada || '').localeCompare(a.dataEntrada || ''))[0]
+      .sort((a, b) => (b.dataEntrada || '').localeCompare(a.dataEntrada || ''))
   }
 
   // Busca o valor de um componente (aluguel, serviços, iptu ou condomínio) para o inquilino no mês.
@@ -379,10 +379,11 @@ export default function CadastrarProprietario() {
   //
   // O repasse ao proprietário é: base Adm. − taxa Adm. − taxa Contrato (quando houver) + contas do mês.
   const extratoImoveis = useMemo(() => {
-    return Object.entries(imoveisVinculos).map(([imovelId, v]) => {
+    return Object.entries(imoveisVinculos).flatMap(([imovelId, v]) => {
       const imovel = imoveis.find(im => im.id === imovelId)
-      const inquilino = getInquilinoNoMes(imovelId)
       const nomeImovel = v.nomeImovel || imovelLabel(imovel)
+
+      return getInquilinosNoMes(imovelId).map(inquilino => {
 
       const mesEntrada = inquilino?.dataEntrada ? inquilino.dataEntrada.substring(0, 7) : null
       const mesSaida = inquilino?.dataSaida ? inquilino.dataSaida.substring(0, 7) : null
@@ -455,27 +456,28 @@ export default function CadastrarProprietario() {
       // Repasse = Base Adm. − Taxa Adm. − Taxa Contrato (quando houver, só no 1º mês) + Contas do mês
       const repasse = baseTotal - taxaAdmValor - taxaContratoValor
 
-      return {
-        imovelId,
-        nomeImovel,
-        inquilino,
-        dentroDoPeriodo,
-        primeiroMes,
-        aluguel,
-        baseComponentes,
-        baseTotal,
-        pctAdm,
-        pctContrato,
-        taxaAdmValor,
-        taxaContratoValor,
-        contasMes,
-        totalContas,
-        repasse,
-        geraDimob: !!v.geraDimob,
-        geraNf: !!v.geraNf,
-        repasseTipo: v.repasseTipo || 'nao_garantido',
-        repasseMeses: v.repasseMeses,
-      }
+        return {
+          imovelId,
+          nomeImovel,
+          inquilino,
+          dentroDoPeriodo,
+          primeiroMes,
+          aluguel,
+          baseComponentes,
+          baseTotal,
+          pctAdm,
+          pctContrato,
+          taxaAdmValor,
+          taxaContratoValor,
+          contasMes,
+          totalContas,
+          repasse,
+          geraDimob: !!v.geraDimob,
+          geraNf: !!v.geraNf,
+          repasseTipo: v.repasseTipo || 'nao_garantido',
+          repasseMeses: v.repasseMeses,
+        }
+      })
     })
   }, [imoveisVinculos, imoveis, inquilinos, contasCatalogo, valoresVariaveis, extratoMes])
 
