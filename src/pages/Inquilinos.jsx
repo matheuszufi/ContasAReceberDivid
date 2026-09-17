@@ -322,6 +322,8 @@ export default function Inquilinos() {
   const [imoveis, setImoveis] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
   const [desocModal, setDesocModal] = useState(null)
   const [desocDate, setDesocDate] = useState('')
   const [desocValues, setDesocValues] = useState({})
@@ -771,6 +773,26 @@ export default function Inquilinos() {
       normalizeText(imoveisById[i.imovelId]?.codigo || i.codigoImovel).includes(normalizeText(search))
     ) && matchesColFilters(i)
   )
+
+  const toggleSort = (field) => {
+    if (sortBy === field) setSortDir(dir => dir === 'asc' ? 'desc' : 'asc')
+    else {
+      setSortBy(field)
+      setSortDir('asc')
+    }
+  }
+
+  const sortArrow = (field) => sortBy === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
+
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    if (!sortBy) return 0
+    const valueA = getColValue(a, sortBy)
+    const valueB = getColValue(b, sortBy)
+    const comparison = typeof valueA === 'number' && typeof valueB === 'number'
+      ? valueA - valueB
+      : String(valueA).localeCompare(String(valueB), 'pt-BR', { sensitivity: 'base', numeric: true })
+    return sortDir === 'asc' ? comparison : -comparison
+  })
 
   const ativos   = inquilinos.filter(i => i.status === 'Ativo').length
   const inativos = inquilinos.filter(i => i.status === 'Inativo').length
@@ -1272,7 +1294,11 @@ export default function Inquilinos() {
             <table className="inquilinos-table inquilinos-list-table">
               <thead>
                 <tr>
-                  <th className="col-sticky-th">{COLUMNS_BY_KEY.nome.label}</th>
+                  <th className="col-sticky-th">
+                    <button type="button" className="sortable-header" onClick={() => toggleSort('nome')} aria-label="Ordenar por Nome">
+                      {COLUMNS_BY_KEY.nome.label}<span aria-hidden="true">{sortArrow('nome')}</span>
+                    </button>
+                  </th>
                   {columnOrder.map(key => (
                     <th
                       key={key}
@@ -1284,7 +1310,9 @@ export default function Inquilinos() {
                         onPointerDown={handleDragHandlePointerDown(key)}
                         title="Arraste para reordenar a coluna"
                       >⠿</span>
-                      {COLUMNS_BY_KEY[key].label}
+                      <button type="button" className="sortable-header" onClick={() => toggleSort(key)} aria-label={`Ordenar por ${COLUMNS_BY_KEY[key].label}`}>
+                        {COLUMNS_BY_KEY[key].label}<span aria-hidden="true">{sortArrow(key)}</span>
+                      </button>
                     </th>
                   ))}
                   <th className="col-actions-sticky">Ações</th>
@@ -1314,7 +1342,7 @@ export default function Inquilinos() {
                       </div>
                     </td>
                   </tr>
-                ) : filtered.map(inq => {
+                ) : sortedFiltered.map(inq => {
                   const cells = buildRowCells(inq)
                   return (
                     <tr key={inq.id}>

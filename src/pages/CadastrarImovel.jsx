@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ref, push, onValue, get, update } from 'firebase/database'
 import { db } from '../firebase'
@@ -39,6 +40,9 @@ export default function CadastrarImovel() {
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
   const autoLocateAttemptedRef = useRef(false)
+  const proprietarioInputRef = useRef(null)
+  const [proprietarioBusca, setProprietarioBusca] = useState('')
+  const [proprietarioDropdownRect, setProprietarioDropdownRect] = useState(null)
 
   useEffect(() => {
     return onValue(ref(db, 'proprietarios'), snap => {
@@ -69,6 +73,32 @@ export default function CadastrarImovel() {
   const inquilinosInativos = inquilinos.filter(inq => inq.status !== 'Ativo')
   const proprietarioSelecionado = proprietarios.find(p => p.id === form.proprietarioId)
   const vinculoProprietario = id ? proprietarioSelecionado?.imoveisVinculos?.[id] : null
+
+  useEffect(() => {
+    if (!proprietarioInputRef.current || !proprietarioBusca) return
+    const updateRect = () => {
+      const rect = proprietarioInputRef.current?.getBoundingClientRect()
+      if (rect) setProprietarioDropdownRect({ top: rect.bottom + 4, left: rect.left, width: rect.width })
+    }
+    updateRect()
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+    return () => {
+      window.removeEventListener('scroll', updateRect, true)
+      window.removeEventListener('resize', updateRect)
+    }
+  }, [proprietarioBusca])
+
+  const proprietariosFiltrados = proprietarios.filter(proprietario =>
+    normalizeText(`${proprietario.nome || ''} ${proprietario.cpf || proprietario.cpfCnpj || ''}`)
+      .includes(normalizeText(proprietarioBusca))
+  )
+
+  const handleProprietarioSelect = (proprietario) => {
+    setForm(prev => ({ ...prev, proprietarioId: proprietario.id }))
+    setProprietarioBusca(proprietario.nome || '')
+    setProprietarioDropdownRect(null)
+  }
 
   useEffect(() => {
     if (!isEdit) return
@@ -309,12 +339,39 @@ export default function CadastrarImovel() {
             <div className="form-grid-2">
               <div className="form-group fg-full">
                 <label>Proprietário do Imóvel</label>
-                <select name="proprietarioId" value={form.proprietarioId} onChange={handleChange}>
-                  <option value="">Selecione o proprietário...</option>
-                  {proprietarios.map(p => (
-                    <option key={p.id} value={p.id}>{p.nome}{p.cpf ? ` — ${p.cpf}` : ''}</option>
-                  ))}
-                </select>
+                <div className="owner-autocomplete">
+                  <input
+                    ref={proprietarioInputRef}
+                    value={proprietarioBusca || proprietarioSelecionado?.nome || ''}
+                    placeholder="Digite o nome do proprietário..."
+                    onChange={e => {
+                      setProprietarioBusca(e.target.value)
+                      setForm(prev => ({ ...prev, proprietarioId: '' }))
+                    }}
+                    autoComplete="off"
+                  />
+                  {proprietarioBusca && proprietarioDropdownRect && createPortal(
+                    <div
+                      className="owner-autocomplete-options"
+                      style={{ top: proprietarioDropdownRect.top, left: proprietarioDropdownRect.left, width: proprietarioDropdownRect.width }}
+                    >
+                      {proprietariosFiltrados.length > 0 ? proprietariosFiltrados.map(proprietario => (
+                        <button
+                          key={proprietario.id}
+                          type="button"
+                          className="owner-autocomplete-option"
+                          onClick={() => handleProprietarioSelect(proprietario)}
+                        >
+                          <strong>{proprietario.nome}</strong>
+                          {(proprietario.cpf || proprietario.cpfCnpj) && <span>{proprietario.cpf || proprietario.cpfCnpj}</span>}
+                        </button>
+                      )) : (
+                        <div className="owner-autocomplete-empty">Nenhum proprietário encontrado.</div>
+                      )}
+                    </div>,
+                    document.body
+                  )}
+                </div>
                 {proprietarios.length === 0 && (
                   <div className="info-banner" style={{ marginTop: '10px' }}>
                     <p style={{ margin: 0 }}>Nenhum proprietário cadastrado. <button type="button" className="link-btn" onClick={() => navigate('/proprietarios/cadastrar')}>Cadastrar agora</button></p>

@@ -174,6 +174,8 @@ export default function Proprietarios() {
   const [valoresVariaveis, setValoresVariaveis] = useState({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
   const [columnOrder, setColumnOrder] = useState(loadColumnOrder)
   const [draggingKey, setDraggingKey] = useState(null)
   const [dragOverKey, setDragOverKey] = useState(null)
@@ -669,6 +671,40 @@ export default function Proprietarios() {
     p.email?.toLowerCase().includes(search.toLowerCase())
   )
 
+  const getSortValue = (proprietario, key) => {
+    const values = {
+      nome: proprietario.nome || '',
+      tipoDocumento: proprietario.tipoDocumento || '',
+      cpfCnpj: proprietario.cpfCnpj || proprietario.cpf || '',
+      telefone: proprietario.telefone || '',
+      email: proprietario.email || '',
+      status: proprietario.status || 'Ativo',
+      banco: proprietario.banco || '',
+      agencia: proprietario.agencia || '',
+      conta: proprietario.conta || '',
+      tipoConta: proprietario.tipoConta || '',
+      pix: proprietario.pix || '',
+      observacao: proprietario.observacao || '',
+    }
+    return values[key] ?? ''
+  }
+
+  const toggleSort = (field) => {
+    if (sortBy === field) setSortDir(dir => dir === 'asc' ? 'desc' : 'asc')
+    else {
+      setSortBy(field)
+      setSortDir('asc')
+    }
+  }
+
+  const sortArrow = (field) => sortBy === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
+
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    if (!sortBy) return 0
+    const comparison = String(getSortValue(a, sortBy)).localeCompare(String(getSortValue(b, sortBy)), 'pt-BR', { sensitivity: 'base', numeric: true })
+    return sortDir === 'asc' ? comparison : -comparison
+  })
+
   const buildRowCells = (p) => {
     const cells = {
       nome: (
@@ -919,7 +955,11 @@ export default function Proprietarios() {
             <table className="inquilinos-table proprietarios-table">
               <thead>
                 <tr>
-                  <th className="col-sticky-th">{COLUMNS_BY_KEY.nome.label}</th>
+                  <th className="col-sticky-th">
+                    <button type="button" className="sortable-header" onClick={() => toggleSort('nome')} aria-label="Ordenar por Nome">
+                      {COLUMNS_BY_KEY.nome.label}<span aria-hidden="true">{sortArrow('nome')}</span>
+                    </button>
+                  </th>
                   {columnOrder.map(key => (
                     <th
                       key={key}
@@ -931,7 +971,9 @@ export default function Proprietarios() {
                         onPointerDown={handleDragHandlePointerDown(key)}
                         title="Arraste para reordenar a coluna"
                       >⠿</span>
-                      {COLUMNS_BY_KEY[key].label}
+                      <button type="button" className="sortable-header" onClick={() => toggleSort(key)} aria-label={`Ordenar por ${COLUMNS_BY_KEY[key].label}`}>
+                        {COLUMNS_BY_KEY[key].label}<span aria-hidden="true">{sortArrow(key)}</span>
+                      </button>
                     </th>
                   ))}
                   <th className="col-actions-sticky">Ações</th>
@@ -948,7 +990,7 @@ export default function Proprietarios() {
                       </div>
                     </td>
                   </tr>
-                ) : filtered.map(p => {
+                ) : sortedFiltered.map(p => {
                   const cells = buildRowCells(p)
                   return (
                     <tr key={p.id}>

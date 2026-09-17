@@ -136,6 +136,8 @@ export default function Imoveis() {
   const [contaDraft, setContaDraft] = useState({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
   const [columnOrder, setColumnOrder] = useState(loadColumnOrder)
   const [draggingKey, setDraggingKey] = useState(null)
   const [dragOverKey, setDragOverKey] = useState(null)
@@ -331,6 +333,43 @@ export default function Imoveis() {
     im.endereco?.rua?.toLowerCase().includes(search.toLowerCase()) ||
     (proprietariosById[im.proprietarioId]?.nome || im.proprietarioNome)?.toLowerCase().includes(search.toLowerCase())
   )
+
+  const getSortValue = (im, key) => {
+    const values = {
+      codigo: im.codigo || '',
+      proprietario: proprietariosById[im.proprietarioId]?.nome || im.proprietarioNome || '',
+      modelo: im.modelo || '',
+      status: im.status || '',
+      cep: im.endereco?.cep || '',
+      rua: im.endereco?.rua || '',
+      numero: im.endereco?.numero || '',
+      complemento: im.endereco?.complemento || '',
+      bairro: im.endereco?.bairro || '',
+      cidade: im.endereco?.cidade || '',
+      estado: im.endereco?.estado || '',
+      ucEnergia: im.ucEnergia || '',
+      ucAgua: im.ucAgua || '',
+      contas: (im.contasInclusas || []).map(contaId => contasCatalogo.find(conta => conta.id === contaId)?.nome || '').join(' '),
+      observacao: im.observacao || '',
+    }
+    return values[key] ?? ''
+  }
+
+  const toggleSort = (field) => {
+    if (sortBy === field) setSortDir(dir => dir === 'asc' ? 'desc' : 'asc')
+    else {
+      setSortBy(field)
+      setSortDir('asc')
+    }
+  }
+
+  const sortArrow = (field) => sortBy === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
+
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    if (!sortBy) return 0
+    const comparison = String(getSortValue(a, sortBy)).localeCompare(String(getSortValue(b, sortBy)), 'pt-BR', { sensitivity: 'base', numeric: true })
+    return sortDir === 'asc' ? comparison : -comparison
+  })
 
   const buildRowCells = (im) => {
     const cells = {
@@ -643,7 +682,11 @@ export default function Imoveis() {
             <table className="inquilinos-table imoveis-list-table">
               <thead>
                 <tr>
-                  <th className="col-sticky-th">{COLUMNS_BY_KEY.codigo.label}</th>
+                  <th className="col-sticky-th">
+                    <button type="button" className="sortable-header" onClick={() => toggleSort('codigo')} aria-label="Ordenar por Código">
+                      {COLUMNS_BY_KEY.codigo.label}<span aria-hidden="true">{sortArrow('codigo')}</span>
+                    </button>
+                  </th>
                   {columnOrder.map(key => (
                     <th
                       key={key}
@@ -655,7 +698,9 @@ export default function Imoveis() {
                         onPointerDown={handleDragHandlePointerDown(key)}
                         title="Arraste para reordenar a coluna"
                       >⠿</span>
-                      {COLUMNS_BY_KEY[key].label}
+                      <button type="button" className="sortable-header" onClick={() => toggleSort(key)} aria-label={`Ordenar por ${COLUMNS_BY_KEY[key].label}`}>
+                        {COLUMNS_BY_KEY[key].label}<span aria-hidden="true">{sortArrow(key)}</span>
+                      </button>
                     </th>
                   ))}
                   <th className="col-actions-sticky">Ações</th>
@@ -672,7 +717,7 @@ export default function Imoveis() {
                       </div>
                     </td>
                   </tr>
-                ) : filtered.map(im => {
+                ) : sortedFiltered.map(im => {
                   const cells = buildRowCells(im)
                   return (
                     <tr key={im.id}>
