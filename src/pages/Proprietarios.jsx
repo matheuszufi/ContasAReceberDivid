@@ -222,17 +222,18 @@ export default function Proprietarios() {
   // ao extrato de CadastrarProprietario.jsx. As contas do mês são calculadas e exibidas à
   // parte (informativo), mas não entram no valor de repasse.
   const calcularExtrato = (proprietario, mes) => {
-    const itens = Object.entries(proprietario?.imoveisVinculos || {}).map(([imovelId, vinculo]) => {
-      const inquilino = inquilinos
+    const itens = Object.entries(proprietario?.imoveisVinculos || {}).flatMap(([imovelId, vinculo]) => {
+      const inquilinosDoImovel = inquilinos
         .filter(item => {
           if (item.imovelId !== imovelId) return false
+          if (item.status !== 'Ativo') return false
           const entrada = item.dataEntrada?.slice(0, 7)
           const saida = item.dataSaida?.slice(0, 7)
           return (!entrada || mes >= entrada) && (!saida || mes <= saida)
         })
-        .sort((a, b) => (b.dataEntrada || '').localeCompare(a.dataEntrada || ''))[0]
+        .sort((a, b) => (b.dataEntrada || '').localeCompare(a.dataEntrada || ''))
 
-      if (!inquilino) return null
+      return inquilinosDoImovel.map(inquilino => {
 
       const valoresMes = valoresVariaveis[inquilino.id]?.[mes] || {}
       const { extras = {}, _registrado = {}, _obs, ...valoresLancados } = valoresMes
@@ -247,20 +248,6 @@ export default function Proprietarios() {
       // Só considera na base da taxa adm os itens explicitamente marcados em incidenciaTaxaAdm
       // deste imóvel. Se nada estiver marcado, a base é zero (sem fallback automático).
       const incidencia = vinculo.incidenciaTaxaAdm?.length ? vinculo.incidenciaTaxaAdm : []
-      const baseAdministrativa = incidencia.reduce((total, item) => {
-        if (item === 'aluguel') return total + aluguel
-
-        const termo = item === 'condominio' ? 'condom' : item === 'iptu' ? 'iptu' : 'serv'
-        const contaIds = new Set([
-          ...Object.keys(inquilino.contasValores || {}),
-          ...Object.keys(valoresLancados).filter(key => !key.startsWith('_')),
-        ])
-        const valorContas = [...contaIds].reduce((soma, contaId) => {
-          const nomeConta = normalizeText(contasCatalogo.find(conta => conta.id === contaId)?.nome || contaId)
-          return nomeConta.includes(termo) ? soma + getValorConta(contaId) : soma
-        }, 0)
-        return total + valorContas
-      }, 0)
 
       // Inclui tanto contas já configuradas no cadastro do inquilino (contasValores) quanto as
       // lançadas especificamente neste mês, para que uma conta recém-adicionada ao inquilino
@@ -308,6 +295,17 @@ export default function Proprietarios() {
 
       const lancamentosMes = [...contasMes, ...contasEspeciais, ...contasExtras]
       const totalContas = lancamentosMes.reduce((total, conta) => total + conta.valorLiquido, 0)
+      const baseAdministrativa = incidencia.reduce((total, item) => {
+        if (item === 'aluguel') return total + aluguel
+        if (item === 'servicos') return total + totalContas
+
+        const termo = item === 'condominio' ? 'condom' : 'iptu'
+        const valorContas = lancamentosMes.reduce((soma, conta) => {
+          const nomeConta = normalizeText(conta.nome)
+          return nomeConta.includes(termo) ? soma + conta.valorLiquido : soma
+        }, 0)
+        return total + valorContas
+      }, 0)
 
       const taxaAdministrativa = baseAdministrativa * ((Number(vinculo.taxaAdministracao) || 0) / 100)
       const primeiroAluguel = inquilino.dataEntrada?.slice(0, 7) === mes
@@ -315,7 +313,7 @@ export default function Proprietarios() {
         ? aluguel * ((Number(vinculo.taxaContrato) || 0) / 100)
         : 0
 
-      return {
+        return {
         imovelId,
         imovel: vinculo.nomeImovel || imovelId,
         inquilino: inquilino.nome || '—',
@@ -329,8 +327,9 @@ export default function Proprietarios() {
         lancamentosMes,
         totalContas,
         repasse: baseAdministrativa - taxaAdministrativa - taxaContrato,
-      }
-    }).filter(Boolean)
+        }
+      })
+    })
 
     const totais = itens.reduce((total, item) => ({
       aluguel: total.aluguel + item.aluguel,
@@ -425,7 +424,9 @@ export default function Proprietarios() {
 
       try {
         const logo = await loadImage(dividLogo)
-        document.addImage(logo, 'PNG', margin, 14, 42, 7)
+        const larguraLogo = 42
+        const alturaLogo = (logo.height / logo.width) * larguraLogo
+        document.addImage(logo, 'PNG', margin, 14, larguraLogo, alturaLogo)
       } catch {
         document.setFont('helvetica', 'bold')
         document.setFontSize(25)
