@@ -851,7 +851,7 @@ export default function Proprietarios() {
 
       <div className="mb-6 grid gap-2 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
         <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-6 gap-2.5">
             <Card>
               <CardContent className="flex items-center gap-2 px-2.5 py-2">
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-blue-500/10 text-blue-600">
