@@ -128,11 +128,11 @@ export default function CadastrarProprietario() {
     nomeImovel: imovelLabel(im),
     taxaContrato: '',
     taxaAdministracao: '',
-    geraDimob: false,
-    geraNf: false,
-    repasseTipo: 'nao_garantido',
+    geraDimob: true,
+    geraNf: true,
+    repasseTipo: 'garantido',
     repasseMeses: '',
-    incidenciaTaxaAdm: [],
+    incidenciaTaxaAdm: ['aluguel'],
   })
 
   useEffect(() => {
@@ -193,9 +193,9 @@ export default function CadastrarProprietario() {
             taxaAdministracao: salvo.taxaAdministracao ?? '',
             geraDimob: !!salvo.geraDimob,
             geraNf: !!salvo.geraNf,
-            repasseTipo: salvo.repasseTipo || 'nao_garantido',
+            repasseTipo: salvo.repasseTipo || 'garantido',
             repasseMeses: salvo.repasseMeses ?? '',
-            incidenciaTaxaAdm: Array.isArray(salvo.incidenciaTaxaAdm) ? salvo.incidenciaTaxaAdm : [],
+            incidenciaTaxaAdm: Array.isArray(salvo.incidenciaTaxaAdm) ? salvo.incidenciaTaxaAdm : ['aluguel'],
           }
         })
         setImoveisVinculos(vinculos)
@@ -407,9 +407,8 @@ export default function CadastrarProprietario() {
       const baseComponentes = itensIncidencia.map(item => ({
         item,
         label: INCIDENCIA_TAXA_ADM_LABELS[item] || item,
-        valor: dentroDoPeriodo ? getValorComponente(inquilino, item, valoresLancados) : 0,
+        valor: dentroDoPeriodo && item !== 'servicos' ? getValorComponente(inquilino, item, valoresLancados) : 0,
       }))
-      const baseTotal = baseComponentes.reduce((s, c) => s + c.valor, 0)
 
       // Inclui tanto contas já configuradas no cadastro do inquilino (contasValores) quanto as
       // lançadas especificamente neste mês, para que uma conta recém-adicionada ao inquilino
@@ -447,6 +446,13 @@ export default function CadastrarProprietario() {
 
       const contasMes = [...contasRegistradas, ...contasEspeciais, ...contasExtras]
       const totalContas = contasMes.reduce((total, conta) => total + conta.valorLiquido, 0)
+
+      if (dentroDoPeriodo && itensIncidencia.includes('servicos')) {
+        const totalServicos = contasMes.reduce((total, conta) => total + conta.valorLiquido, 0)
+        const servicos = baseComponentes.find(componente => componente.item === 'servicos')
+        if (servicos) servicos.valor = totalServicos
+      }
+      const baseTotal = baseComponentes.reduce((s, c) => s + c.valor, 0)
 
       const pctAdm = Number(v.taxaAdministracao) || 0
       const pctContrato = Number(v.taxaContrato) || 0
@@ -1116,7 +1122,7 @@ export default function CadastrarProprietario() {
                     </thead>
                     <tbody>
                       {extratoImoveis.map(e => (
-                        <tr key={e.imovelId} style={!e.dentroDoPeriodo ? { opacity: 0.55 } : undefined}>
+                        <tr key={`${e.imovelId}-${e.inquilino?.id || 'sem-inquilino'}`} style={!e.dentroDoPeriodo ? { opacity: 0.55 } : undefined}>
                           <td>{e.nomeImovel}</td>
                           <td>
                             {e.inquilino ? (
