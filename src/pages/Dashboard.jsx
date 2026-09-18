@@ -1923,16 +1923,20 @@ export default function Dashboard() {
     [inquilinos]
   )
 
-  const acordosInadimplencias = useMemo(() => inadimplencias
-    .filter(debito => ['acordo', 'Acordo'].includes(debito.status) && debito.inquilinoId)
-    .map(debito => ({
-      id: debito.id,
-      inquilinoId: debito.inquilinoId,
-      nome: inquilinoMap[debito.inquilinoId]?.nome || debito.inquilinoNome || 'Inquilino sem nome',
-      dataUltimaCobranca: debito.ultimaCobranca || '',
-    }))
-    .sort((a, b) => (a.dataUltimaCobranca || '').localeCompare(b.dataUltimaCobranca || '')),
-  [inadimplencias, inquilinoMap])
+  const acordosInadimplencias = useMemo(() => {
+    const hojeKey = toYmd(new Date())
+
+    return inadimplencias
+      .filter(debito => ['acordo', 'Acordo'].includes(debito.status) && debito.inquilinoId)
+      .map(debito => ({
+        id: debito.id,
+        inquilinoId: debito.inquilinoId,
+        nome: inquilinoMap[debito.inquilinoId]?.nome || debito.inquilinoNome || 'Inquilino sem nome',
+        dataUltimaCobranca: debito.ultimaCobranca || '',
+        hoje: debito.ultimaCobranca === hojeKey,
+      }))
+      .sort((a, b) => (a.dataUltimaCobranca || '').localeCompare(b.dataUltimaCobranca || ''))
+  }, [inadimplencias, inquilinoMap])
 
   const proximasOcupacoes = useMemo(() => {
     const hoje = new Date()
@@ -2891,9 +2895,14 @@ export default function Dashboard() {
               <CardContent className="">
                 <div className="flex flex-col gap-1">
                   {acordosInadimplencias.map(i => (
-                    <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
+                    <div
+                      key={i.id}
+                      className={`flex items-center justify-between gap-2 rounded px-1 py-0.5 text-xs ${i.hoje ? 'border border-red-500 bg-red-100 font-semibold text-cyan-950' : ''}`}
+                      title={i.hoje ? 'Acordo com data acordada para hoje' : undefined}
+                    >
                       <span className="font-medium text-slate-800">{i.nome}</span>
                       <span className="text-muted-foreground">
+                        {i.hoje && <span className="mr-1 font-bold text-cyan-800">Hoje</span>}
                         Data acordada: {i.dataUltimaCobranca ? formatarDataCurta(i.dataUltimaCobranca) : 'Não informada'}
                       </span>
                     </div>
