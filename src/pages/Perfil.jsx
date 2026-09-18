@@ -12,46 +12,6 @@ import './Perfil.css'
 
 const novoUsuarioInicial = { email: '', password: '', role: 'user' }
 const senhaFormInicial = { senhaAtual: '', novaSenha: '', confirmarSenha: '' }
-const simulacaoInicial = {
-  modo: 'cobranca',        // 'cobranca' = informo quanto vou cobrar | 'liquido' = informo quanto quero receber
-  valor: '',               // total a cobrar (modo 'cobranca')
-  liquidoDesejado: '',     // quanto quero receber com antecipação (modo 'liquido')
-  meses: '',
-  juros: '2.99',           // taxa do cartão para esse parcelamento (%) - aplicada UMA vez
-  taxaAntecipacao: '1.7',  // taxa de antecipação (% ao mês)
-  taxa: '0.49',            // taxa fixa em R$
-}
-
-// Intervalo usado pela adquirente entre uma parcela e outra
-const DIAS_ENTRE_PARCELAS = 32
-// Meio dia a mais em cada parcela: calibrado com as simulações de referência
-// (2x, 7x e 12x). Ajuste aqui se o simulador da adquirente mudar.
-const AJUSTE_DIAS = 0.5
-
-const formatarMoeda = value => Number(value || 0).toLocaleString('pt-BR', {
-  style: 'currency',
-  currency: 'BRL',
-})
-
-const formatarPercentual = value => Number(value || 0).toFixed(2).replace('.', ',')
-
-/**
- * Fator de desconto da antecipação.
- *
- * A parcela k (1..n) é antecipada por (32k + 0,5) dias e o desconto é linear
- * (juros simples), proporcional a 30 dias:
- *   desconto_k = parcela * (taxaMensal/100) * (dias_k / 30)
- *
- * Como todas as parcelas têm o mesmo valor, a soma vira um fator único:
- *   diasMedios = DIAS_ENTRE_PARCELAS * (n + 1) / 2 + AJUSTE_DIAS
- *   fator      = (taxaMensal/100) * diasMedios / 30
- */
-function calcularFatorAntecipacao(taxaMensal, meses, dias = DIAS_ENTRE_PARCELAS) {
-  if (meses <= 0) return 0
-  const diasMedios = dias * ((meses + 1) / 2) + AJUSTE_DIAS
-  const fator = (Number(taxaMensal) / 100) * (diasMedios / 30)
-  return Math.min(Math.max(fator, 0), 0.999999)
-}
 
 export default function Perfil() {
   const { user, isAdmin, createUser } = useAuth()
@@ -67,7 +27,6 @@ export default function Perfil() {
   const [alterandoSenha, setAlterandoSenha] = useState(false)
   const [senhaErro, setSenhaErro] = useState(null)
   const [senhaSucesso, setSenhaSucesso] = useState(false)
-  const [simulacao, setSimulacao] = useState(simulacaoInicial)
 
   useEffect(() => {
     return onValue(ref(db, 'usuariosMeta/hasAdmin'), snap => setHasAdmin(snap.val() === true))
@@ -137,45 +96,6 @@ export default function Perfil() {
     const { name, value } = e.target
     setSenhaForm(prev => ({ ...prev, [name]: value }))
   }
-
-  const handleSimulacaoChange = e => {
-    const { name, value } = e.target
-    setSimulacao(prev => ({ ...prev, [name]: value }))
-  }
-
-  const handleModoChange = modo => setSimulacao(prev => ({ ...prev, modo }))
-
-  // ---------------------------------------------------------------
-  // Cálculo da simulação
-  // ---------------------------------------------------------------
-  const quantidadeMeses = Math.max(0, Math.floor(Number(simulacao.meses) || 0))
-  const taxaCartao = Number(simulacao.juros) || 0          // % aplicada uma única vez
-  const taxaAntecipacaoMensal = Number(simulacao.taxaAntecipacao) || 0
-  const taxaFixa = Number(simulacao.taxa) || 0
-
-  const fatorCartao = 1 - taxaCartao / 100
-  const fatorAntecipacao = calcularFatorAntecipacao(taxaAntecipacaoMensal, quantidadeMeses)
-
-  let valorBase = 0            // total a cobrar do cliente
-  let totalSemAntecipacao = 0  // líquido recebido parcela a parcela
-  let totalComAntecipacao = 0  // líquido recebido à vista
-
-  if (simulacao.modo === 'liquido') {
-    // Caminho inverso: parto do que quero receber e descubro quanto cobrar
-    const desejado = Math.max(0, Number(simulacao.liquidoDesejado) || 0)
-    totalComAntecipacao = desejado
-    totalSemAntecipacao = desejado / (1 - fatorAntecipacao)
-    valorBase = fatorCartao > 0 ? (totalSemAntecipacao + taxaFixa) / fatorCartao : 0
-  } else {
-    // Caminho direto: parto do valor da cobrança
-    valorBase = Math.max(0, Number(simulacao.valor) || 0)
-    totalSemAntecipacao = Math.max(0, valorBase * fatorCartao - taxaFixa)
-    totalComAntecipacao = totalSemAntecipacao * (1 - fatorAntecipacao)
-  }
-
-  const parcelaCliente = quantidadeMeses > 0 ? valorBase / quantidadeMeses : 0
-  const parcelaSemAntecipacao = quantidadeMeses > 0 ? totalSemAntecipacao / quantidadeMeses : 0
-  const custoAntecipacao = totalSemAntecipacao - totalComAntecipacao
 
   const traduzirErroSenha = (err) => {
     switch (err?.code) {
@@ -258,172 +178,6 @@ export default function Perfil() {
               {hasAdmin ? 'Já existe um administrador no sistema' : 'Tornar-se Administrador'}
             </button>
           )}
-        </div>
-      </div>
-
-      <div className="form-section calculadora-panel">
-        <div className="form-section-header">
-          <span className="form-section-icon">🧮</span>
-          <div>
-            <h3>Simulador de vendas no cartão</h3>
-            <p className="section-caption">
-              Simule cobranças parceladas no cartão de crédito, recebendo cada parcela a cada {DIAS_ENTRE_PARCELAS} dias.
-            </p>
-          </div>
-        </div>
-        <div className="form-section-body">
-          <div className="calculadora-conteudo">
-            <div className="calculadora-form">
-              <div className="modo-switch">
-                <button
-                  type="button"
-                  className={`modo-switch-btn ${simulacao.modo === 'cobranca' ? 'is-active' : ''}`}
-                  onClick={() => handleModoChange('cobranca')}
-                >
-                  Sei quanto vou cobrar
-                </button>
-                <button
-                  type="button"
-                  className={`modo-switch-btn ${simulacao.modo === 'liquido' ? 'is-active' : ''}`}
-                  onClick={() => handleModoChange('liquido')}
-                >
-                  Sei quanto quero receber
-                </button>
-              </div>
-
-              <div className="calculadora-grid">
-                {simulacao.modo === 'cobranca' ? (
-                  <div className="form-group">
-                    <label htmlFor="simulacao-valor">Total a cobrar</label>
-                    <input
-                      id="simulacao-valor"
-                      name="valor"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={simulacao.valor}
-                      onChange={handleSimulacaoChange}
-                      placeholder="0,00"
-                    />
-                  </div>
-                ) : (
-                  <div className="form-group">
-                    <label htmlFor="simulacao-liquido">Quanto quero receber (com antecipação)</label>
-                    <input
-                      id="simulacao-liquido"
-                      name="liquidoDesejado"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={simulacao.liquidoDesejado}
-                      onChange={handleSimulacaoChange}
-                      placeholder="0,00"
-                    />
-                  </div>
-                )}
-
-                <div className="form-group">
-                  <label htmlFor="simulacao-meses">Número de parcelas</label>
-                  <input
-                    id="simulacao-meses"
-                    name="meses"
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={simulacao.meses}
-                    onChange={handleSimulacaoChange}
-                    placeholder="Ex.: 12"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="simulacao-juros">Taxa do cartão para esse parcelamento (%)</label>
-                  <input
-                    id="simulacao-juros"
-                    name="juros"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={simulacao.juros}
-                    onChange={handleSimulacaoChange}
-                    placeholder="Ex.: 2,99"
-                  />
-                  <small className="form-hint">Aplicada uma única vez sobre o total da cobrança.</small>
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="simulacao-taxa">Taxa fixa por cobrança (R$)</label>
-                  <input
-                    id="simulacao-taxa"
-                    name="taxa"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={simulacao.taxa}
-                    onChange={handleSimulacaoChange}
-                    placeholder="Ex.: 0,49"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="simulacao-taxa-antecipacao">Taxa de antecipação (% ao mês)</label>
-                  <input
-                    id="simulacao-taxa-antecipacao"
-                    name="taxaAntecipacao"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={simulacao.taxaAntecipacao}
-                    onChange={handleSimulacaoChange}
-                    placeholder="Ex.: 1,7"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setSimulacao(simulacaoInicial)}
-              >
-                Nova simulação
-              </button>
-            </div>
-
-            <div className="resultado-simulacao">
-              <h4>Resultado da simulação</h4>
-
-              <div className="resultado-linha resultado-total">
-                <strong>{simulacao.modo === 'liquido' ? 'A cobrança deverá ser' : 'Se a cobrança for'}</strong>
-                <strong>{formatarMoeda(valorBase)}</strong>
-              </div>
-              <p className="resultado-detalhe">
-                {quantidadeMeses || 0} parcelas de {formatarMoeda(parcelaCliente)}
-              </p>
-
-              <h4>Você recebe (sem antecipação)</h4>
-              <div className="resultado-linha">
-                <span>Uma parcela a cada {DIAS_ENTRE_PARCELAS} dias</span>
-                <strong>{formatarMoeda(totalSemAntecipacao)}</strong>
-              </div>
-              <div className="resultado-linha resultado-detalhe">
-                <span>{quantidadeMeses || 0} parcelas de {formatarMoeda(parcelaSemAntecipacao)}</span>
-                <span>Taxa: {formatarPercentual(taxaCartao)}% + {formatarMoeda(taxaFixa)}</span>
-              </div>
-
-              <h4>Você recebe (com antecipação)</h4>
-              <div className="resultado-linha">
-                <span>Receber todas as parcelas em até 1 dia útil</span>
-                <strong>{formatarMoeda(totalComAntecipacao)}</strong>
-              </div>
-              <div className="resultado-linha resultado-detalhe">
-                <span>1 parcela de {formatarMoeda(totalComAntecipacao)}</span>
-                <span>
-                  Antecipação: {formatarPercentual(taxaAntecipacaoMensal)}% ao mês
-                  ({formatarMoeda(custoAntecipacao)})
-                </span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 

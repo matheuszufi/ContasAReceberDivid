@@ -34,6 +34,7 @@ const navSections = [
     label: 'Contas a receber',
     items: [
       { path: '/imoveis-todos', icon: '', label: 'Planilha de Cobrança' },
+      { path: '/simulador-vendas', icon: '', label: 'Simulador de Vendas' },
     ]
   }
 ]

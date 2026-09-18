@@ -1,0 +1,23 @@
+.simulador-vendas { overflow: hidden; border: 1px solid #dbe5f0; border-radius: 8px; background: #fff; }
+.simulador-vendas-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 18px 20px; border-bottom: 1px solid #dbe5f0; background: #f8fbff; }
+.simulador-vendas-header h2, .simulador-vendas-result h3 { margin: 0; color: #172554; font-size: 18px; }
+.simulador-vendas-header p, .simulador-vendas-result p { margin: 5px 0 0; color: #64748b; font-size: 13px; line-height: 1.5; }
+.simulador-vendas-badge { flex: none; border-radius: 999px; padding: 5px 9px; background: #dbeafe; color: #1d4ed8; font-size: 11px; font-weight: 700; }
+.simulador-vendas-content { display: grid; grid-template-columns: minmax(260px, .9fr) minmax(340px, 1.1fr); gap: 20px; padding: 20px; }
+.simulador-vendas-form { display: flex; flex-direction: column; gap: 16px; }
+.simulador-modo-switch { display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border: 1px solid #dbe5f0; border-radius: 8px; background: #f1f5f9; }
+.simulador-modo-switch button, .simulador-reset { border: 0; border-radius: 6px; padding: 9px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.simulador-modo-switch button { color: #64748b; background: transparent; }
+.simulador-modo-switch button.is-active { background: #fff; color: #1d4ed8; box-shadow: 0 1px 3px rgba(15, 23, 42, .12); }
+.simulador-vendas-fields { display: grid; gap: 12px; }
+.simulador-vendas-fields label { display: grid; gap: 6px; color: #475569; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.simulador-vendas-fields input { width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 9px 10px; color: #0f172a; font-size: 14px; outline: none; }
+.simulador-vendas-fields input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
+.simulador-reset { align-self: flex-start; padding-inline: 13px; border: 1px solid #cbd5e1; background: #fff; color: #334155; }
+.simulador-reset:hover { background: #f8fafc; }
+.simulador-vendas-result { padding: 18px; border: 1px solid #bfdbfe; border-radius: 8px; background: linear-gradient(145deg, #eff6ff, #fff 55%); }
+.simulador-result-featured, .simulador-result-row { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid #dbe5f0; color: #334155; font-size: 13px; }
+.simulador-result-featured { margin-top: 10px; color: #1e3a8a; font-weight: 600; }
+.simulador-result-featured strong, .simulador-result-row strong { white-space: nowrap; color: #172554; font-size: 16px; }
+.simulador-vendas-result .simulador-result-row + p, .simulador-vendas-result .simulador-result-featured + p { padding-bottom: 12px; }
+@media (max-width: 760px) { .simulador-vendas-header, .simulador-vendas-content { display: flex; flex-direction: column; } .simulador-vendas-header, .simulador-vendas-content { padding: 14px; } .simulador-vendas-content { gap: 14px; } .simulador-vendas-form, .simulador-vendas-result { width: 100%; } }
