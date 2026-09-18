@@ -1938,7 +1938,6 @@ export default function Dashboard() {
         if (topFilter === 'quantidade') return b.count - a.count
         return b.total - a.total
       })
-      .slice(0, 14)
   }, [periodDebts, inquilinoMap, topFilter])
 
   const pie = getPieSegments(
@@ -3430,7 +3429,7 @@ export default function Dashboard() {
         </motion.div>
         <motion.div variants={staggerItemVariants}>
         <CardContent className="p-2">
-          <div className="grid grid-cols-1 gap-2 xl:grid-cols-[0.5fr_0.8fr_300px]">
+          <div className="grid grid-cols-1 gap-2 xl:grid-cols-[340px_minmax(0,1fr)_300px]">
             <div className="recovery-panel flex min-w-0 flex-col border bg-card p-2">
               <div className="recovery-panel-header mb-2">
                 <div>
@@ -3559,7 +3558,7 @@ export default function Dashboard() {
                       <div className="flex cursor-default items-center justify-between gap-2">
                         <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
                           <span className="dot dot-paid shrink-0"></span>
-                          <span className="truncate">Recuperado</span>
+                          <span>Recuperado</span>
                         </span>
                         <span className="shrink-0 font-medium">
                           {fmtMoneyWithPercent(selectedMonthTotals.recuperado, pie.recoveredPercent)}
@@ -3573,7 +3572,7 @@ export default function Dashboard() {
                       <div className="flex cursor-default items-center justify-between gap-2">
                         <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
                           <span className="shrink-0" style={{ width: 8, height: 8, borderRadius: '9999px', display: 'inline-block', background: RECOVERY_COLORS.pagoSeguradora }}></span>
-                          <span className="truncate">Pago pela seguradora</span>
+                          <span>Pago pela seguradora</span>
                         </span>
                         <span className="shrink-0 font-medium">
                           {fmtMoneyWithPercent(selectedMonthTotals.pagoSeguradora, pie.insurerPaidPercent)}
@@ -3587,7 +3586,7 @@ export default function Dashboard() {
                       <div className="flex cursor-default items-center justify-between gap-2">
                         <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
                           <span className="shrink-0" style={{ width: 8, height: 8, borderRadius: '9999px', display: 'inline-block', background: RECOVERY_COLORS.utilizacaoCaucao }}></span>
-                          <span className="truncate">Utilização caução/adiantamento</span>
+                          <span>Utilização caução/adiantamento</span>
                         </span>
                         <span className="shrink-0 font-medium">
                           {fmtMoneyWithPercent(selectedMonthTotals.utilizacaoCaucao, pie.utilizationPercent)}
@@ -3601,7 +3600,7 @@ export default function Dashboard() {
                       <div className="flex cursor-default items-center justify-between gap-2">
                         <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
                           <span className="dot dot-approved shrink-0"></span>
-                          <span className="truncate">Aprovado seguradora</span>
+                          <span>Aprovado seguradora</span>
                         </span>
                         <span className="shrink-0 font-medium">
                           {fmtMoneyWithPercent(selectedMonthTotals.aprovadoSeguradora, pie.approvedPercent)}
@@ -3618,7 +3617,7 @@ export default function Dashboard() {
                             className="shrink-0"
                             style={{ width: 8, height: 8, borderRadius: '9999px', display: 'inline-block', background: RECOVERY_COLORS.reprovado }}
                           ></span>
-                          <span className="truncate">Pagamento reprovado</span>
+                          <span>Pagamento reprovado</span>
                         </span>
                         <span className="shrink-0 font-medium">
                           {fmtMoneyWithPercent(selectedMonthTotals.reprovado, pie.reprovadoPercent)}
@@ -3632,7 +3631,7 @@ export default function Dashboard() {
                       <div className="flex cursor-default items-center justify-between gap-2">
                         <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
                           <span className="dot dot-waiting shrink-0"></span>
-                          <span className="truncate">Aguardar para acionar</span>
+                          <span>Aguardar para acionar</span>
                         </span>
                         <span className="shrink-0 font-medium">
                           {fmtMoneyWithPercent(selectedMonthTotals.aguardarAcionar, pie.waitingPercent)}
@@ -3649,7 +3648,7 @@ export default function Dashboard() {
                             className="shrink-0"
                             style={{ width: 8, height: 8, borderRadius: '9999px', display: 'inline-block', background: RECOVERY_COLORS.acionado }}
                           ></span>
-                          <span className="truncate">Acionado</span>
+                          <span>Acionado</span>
                         </span>
                         <span className="shrink-0 font-medium">
                           {fmtMoneyWithPercent(selectedMonthTotals.acionado, pie.acionadoPercent)}
@@ -3666,7 +3665,7 @@ export default function Dashboard() {
                             className="shrink-0"
                             style={{ width: 8, height: 8, borderRadius: '9999px', display: 'inline-block', background: RECOVERY_COLORS.juridico }}
                           ></span>
-                          <span className="truncate">Jurídico</span>
+                          <span>Jurídico</span>
                         </span>
                         <span className="shrink-0 font-medium">
                           {fmtMoneyWithPercent(selectedMonthTotals.juridico, pie.juridicoPercent)}
@@ -3680,7 +3679,7 @@ export default function Dashboard() {
                       <div className="flex cursor-default items-center justify-between gap-2">
                         <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
                           <span className="dot dot-pending shrink-0"></span>
-                          <span className="truncate">Aberto</span>
+                          <span>Aberto</span>
                         </span>
                         <span className="shrink-0 font-medium">
                           {fmtMoneyWithPercent(selectedMonthTotals.inadimplente, pie.inadimplentePercent)}
@@ -3713,7 +3712,7 @@ export default function Dashboard() {
               </AnimatePresence>
             </div>
 
-            <div className="flex min-w-0 flex-col border bg-card p-2">
+            <div className="flex h-full min-h-0 min-w-0 flex-col border bg-card p-2">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-medium">Pagamentos por mês</h4>
@@ -3788,26 +3787,35 @@ export default function Dashboard() {
                   )
                 })}
               </div>
-              <div className="mt-3 h-[250px] min-h-0 w-full rounded-lg border border-slate-200 bg-slate-50/70 p-2 shadow-inner">
+              <div className="period-chart-panel mt-3 min-h-0 w-full rounded-lg border border-slate-200 bg-slate-50/70 p-3 shadow-inner">
+                <div className="period-chart-heading">
+                  <div>
+                    <p className="period-chart-title">Valores por tipo de garantia</p>
+                    <p className="period-chart-subtitle">Distribuição dos débitos em {selectedPeriodLabel}</p>
+                  </div>
+                  <strong className="period-chart-total">{fmtMoney(totalPeriodValue)}</strong>
+                </div>
                 {periodDebts.length === 0 ? (
-                  <div className="flex h-full items-center justify-center text-center text-xs text-muted-foreground">
+                  <div className="period-chart-empty">
                     Nenhuma inadimplência registrada em {selectedPeriodLabel}.
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={garantiaStatusChartData.data} margin={{ top: 8, right: 8, left: 4, bottom: 4 }}>
-                      <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+                  <>
+                    <div className="period-chart-canvas">
+                    <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={garantiaStatusChartData.data} margin={{ top: 12, right: 8, left: 4, bottom: 8 }}>
+                      <CartesianGrid vertical={false} stroke="#dbe5f0" strokeDasharray="4 4" />
                       <XAxis
                         dataKey="garantia"
                         tickLine={false}
                         axisLine={false}
-                        tick={{ fontSize: 9, fill: '#64748b' }}
+                        tick={{ fontSize: 10, fill: '#475569', fontWeight: 600 }}
                         interval={0}
                       />
                       <YAxis
                         tickLine={false}
                         axisLine={false}
-                        tick={{ fontSize: 9, fill: '#64748b' }}
+                        tick={{ fontSize: 10, fill: '#64748b' }}
                         width={58}
                         tickFormatter={value => fmtMoneyCompact(value)}
                       />
@@ -3821,10 +3829,9 @@ export default function Dashboard() {
                           border: '1px solid #dbe3ef',
                           backgroundColor: '#ffffff',
                           boxShadow: '0 8px 22px rgba(15, 23, 42, 0.1)',
-                          fontSize: 11,
+                          fontSize: 12,
                         }}
                       />
-                      <Legend wrapperStyle={{ fontSize: 9, paddingTop: 2 }} />
                       <Bar dataKey="inadimplente" name={garantiaStatusChartData.labels.inadimplente} stackId="status" fill="#f97316" />
                       <Bar dataKey="juridico" name={garantiaStatusChartData.labels.juridico} stackId="status" fill="#ef4444" />
                       <Bar dataKey="acionado" name={garantiaStatusChartData.labels.acionado} stackId="status" fill="#3b82f6" />
@@ -3835,12 +3842,22 @@ export default function Dashboard() {
                       <Bar dataKey="pagoSeguradora" name={garantiaStatusChartData.labels.pagoSeguradora} stackId="status" fill="#0891b2" />
                       <Bar dataKey="recuperado" name={garantiaStatusChartData.labels.recuperado} stackId="status" fill="#22c55e" radius={[4, 4, 0, 0]} />
                     </BarChart>
-                  </ResponsiveContainer>
+                    </ResponsiveContainer>
+                    </div>
+                    <div className="period-chart-legend" aria-label="Legenda dos status">
+                      {garantiaStatusChartData.statusKeys.map(status => (
+                        <span key={status} className="period-chart-legend-item">
+                          <span className={`period-chart-legend-dot period-chart-legend-dot-${status}`} />
+                          {garantiaStatusChartData.labels[status]}
+                        </span>
+                      ))}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
 
-            <div className="flex min-h-0 min-w-0 flex-col border bg-card p-2">
+            <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border bg-card p-2">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-medium">Maiores inadimplentes</h4>
@@ -3853,7 +3870,7 @@ export default function Dashboard() {
                   </TabsList>
                 </Tabs>
               </div>
-              <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
+              <div className="flex min-h-0 max-h-[760px] flex-1 flex-col gap-0.5 overflow-y-auto pr-1">
                 <AnimatePresence mode="wait">
                 {topInadimplentes.length === 0 ? (
                   <motion.p
