@@ -17,9 +17,9 @@ const simulacaoInicial = {
   valor: '',               // total a cobrar (modo 'cobranca')
   liquidoDesejado: '',     // quanto quero receber com antecipação (modo 'liquido')
   meses: '',
-  juros: '',               // taxa do cartão para esse parcelamento (%) - aplicada UMA vez
-  taxaAntecipacao: '',     // taxa de antecipação (% ao mês)
-  taxa: '',                // taxa fixa em R$ (ex.: 0,49)
+  juros: '2.99',           // taxa do cartão para esse parcelamento (%) - aplicada UMA vez
+  taxaAntecipacao: '1.7',  // taxa de antecipação (% ao mês)
+  taxa: '0.49',            // taxa fixa em R$
 }
 
 // Intervalo usado pela adquirente entre uma parcela e outra
