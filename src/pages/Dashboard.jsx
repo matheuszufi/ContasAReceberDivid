@@ -4281,7 +4281,7 @@ export default function Dashboard() {
               <Clock className="size-4" />
             </div>
             <div className="min-w-0">
-              <CardTitle className="text-sm">Histórico de Alterações</CardTitle>
+              <CardTitle className="text-sm">Histórico de Alterações na Inadimplência</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Atualizações de Status e Seguro Acionado na planilha de inadimplentes.
               </CardDescription>
@@ -4396,7 +4396,7 @@ export default function Dashboard() {
               <History className="size-4" />
             </div>
             <div className="min-w-0">
-              <CardTitle className="text-sm">Histórico Seguradoras</CardTitle>
+              <CardTitle className="text-sm">Histórico de Documentos Solicitados pela Seguradora</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Eventos registrados na timeline das inadimplências, mais recentes primeiro.
               </CardDescription>
