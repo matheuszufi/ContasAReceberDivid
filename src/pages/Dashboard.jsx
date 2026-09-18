@@ -4274,22 +4274,24 @@ export default function Dashboard() {
         viewport={{ once: true, amount: 0.15 }}
       >
       <motion.div variants={staggerItemVariants}>
-      <Card>
-        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
+      <Card className="h-full rounded-2xl border border-sky-100 bg-gradient-to-b from-sky-50/40 via-white to-white shadow-sm">
+        <CardHeader className="flex w-full flex-col gap-3 border-b border-sky-100 bg-white/75 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <Clock className="size-4 text-muted-foreground" />
-            <div>
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-700">
+              <Clock className="size-4" />
+            </div>
+            <div className="min-w-0">
               <CardTitle className="text-sm">Histórico de Alterações</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Atualizações de Status e Seguro Acionado na planilha de inadimplentes.
               </CardDescription>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:justify-end">
             <select
               value={historicoMesFiltro}
               onChange={e => setHistoricoMesFiltro(e.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              className="h-8 min-w-0 flex-1 rounded-md border border-sky-200 bg-white px-2 text-xs shadow-sm sm:flex-none"
             >
               <option value={currentMonth}>{getMonthLabel(currentMonth)}</option>
               {historicoMesesDisponiveis.filter(m => m !== currentMonth).map(m => (
@@ -4297,23 +4299,26 @@ export default function Dashboard() {
               ))}
               <option value="todos">Todos os meses</option>
             </select>
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => abrirRelatorioModal('alteracoes')}>
+            <Button variant="outline" size="sm" className="h-8 border-sky-200 bg-white text-xs hover:bg-sky-50" onClick={() => abrirRelatorioModal('alteracoes')}>
               <FileText className="size-3.5" /> Gerar Relatório
             </Button>
-            <Badge variant="secondary" className="shrink-0 text-xs">
+            <Badge variant="secondary" className="h-8 shrink-0 rounded-full bg-sky-100 px-2.5 text-xs font-semibold text-sky-700">
               {historicoFiltrado.length} registro{historicoFiltrado.length === 1 ? '' : 's'}
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="p-2">
+        <CardContent className="p-3">
           {historicoFiltrado.length === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">
-              {historicoMesFiltro === 'todos'
-                ? 'Nenhuma alteração de status ou seguro acionado registrada ainda.'
-                : `Nenhuma alteração registrada em ${getMonthLabel(historicoMesFiltro)}.`}
-            </p>
+            <div className="flex min-h-40 flex-col items-center justify-center rounded-xl border border-dashed border-sky-200 bg-sky-50/40 px-4 text-center">
+              <Clock className="mb-2 size-5 text-sky-500" />
+              <p className="text-xs text-muted-foreground">
+                {historicoMesFiltro === 'todos'
+                  ? 'Nenhuma alteração de status ou seguro acionado registrada ainda.'
+                  : `Nenhuma alteração registrada em ${getMonthLabel(historicoMesFiltro)}.`}
+              </p>
+            </div>
           ) : (
-            <div className="flex max-h-96 flex-col divide-y overflow-y-auto">
+            <div className="flex max-h-96 flex-col gap-2 overflow-y-auto pr-1">
               {historicoFiltrado.map(item => {
                 const campoStyle = HISTORICO_CAMPO_STYLE[item.campo] || HISTORICO_CAMPO_STYLE.status
                 const dataIndicada = getHistoricoDataIndicada(item)
@@ -4321,7 +4326,7 @@ export default function Dashboard() {
                 return (
                   <div
                     key={item.id}
-                    className="group flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0 cursor-pointer hover:bg-slate-50/70 dark:hover:bg-slate-900/30"
+                    className="group flex cursor-pointer flex-col gap-2 rounded-xl border border-slate-200 bg-white p-2.5 text-xs shadow-sm transition hover:border-sky-200 hover:bg-sky-50/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 sm:flex-row sm:items-center sm:justify-between"
                     onClick={() => handleAbrirHistoricoDebito(item.debitoId)}
                     role="button"
                     tabIndex={0}
@@ -4332,7 +4337,7 @@ export default function Dashboard() {
                       }
                     }}
                   >
-                    <div className="flex min-w-0 flex-1 basis-56 flex-col items-start gap-1">
+                    <div className="flex min-w-0 flex-1 basis-56 flex-col items-start gap-1.5">
                       <span
                         className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
                         style={{ background: campoStyle.bg, color: campoStyle.color, border: `1px solid ${campoStyle.border}` }}
@@ -4340,25 +4345,25 @@ export default function Dashboard() {
                         {item.campoLabel || (item.campo === 'seguroAcionado' ? 'Seguro Acionado' : 'Status')}
                       </span>
                       <div className="min-w-0">
-                        <p className="break-words font-medium">
+                        <p className="break-words font-semibold text-slate-800">
                           {item.inquilinoNome || 'Sem nome'}
                           {item.codigoImovel ? ` (${item.codigoImovel})` : ''}
                         </p>
-                        <p className="flex flex-wrap items-center gap-1 break-words text-muted-foreground">
-                          <span className="break-words">{item.valorAnteriorLabel || '—'}</span>
-                          <ArrowRight className="size-3 shrink-0" />
-                          <span className="break-words font-medium text-foreground">{item.valorNovoLabel || '—'}</span>
+                        <p className="flex flex-wrap items-center gap-1.5 break-words text-muted-foreground">
+                          <span className="rounded-md bg-slate-100 px-1.5 py-0.5">{item.valorAnteriorLabel || '—'}</span>
+                          <ArrowRight className="size-3 shrink-0 text-sky-600" />
+                          <span className="rounded-md bg-sky-100 px-1.5 py-0.5 font-medium text-sky-800">{item.valorNovoLabel || '—'}</span>
                         </p>
-                        <p className="flex flex-wrap items-center gap-1 break-words text-muted-foreground">
-                          <span className="break-words">Total c/ Encargos: {fmtMoney(valoresAtuais.valorTotal)}</span>
-                          {valoresAtuais.valorRecebido > 0 && <span className="break-words">· Recebido: {fmtMoney(valoresAtuais.valorRecebido)}</span>}
-                          {valoresAtuais.mesReferencia && <span className="break-words">· {getMonthLabel(valoresAtuais.mesReferencia)}</span>}
-                          {dataIndicada && <span className="break-words">· {dataIndicada.label}: {fmtDataCurta(dataIndicada.value)}</span>}
+                        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 break-words text-[11px] text-muted-foreground">
+                          <span>Total c/ Encargos: {fmtMoney(valoresAtuais.valorTotal)}</span>
+                          {valoresAtuais.valorRecebido > 0 && <span>Recebido: {fmtMoney(valoresAtuais.valorRecebido)}</span>}
+                          {valoresAtuais.mesReferencia && <span>{getMonthLabel(valoresAtuais.mesReferencia)}</span>}
+                          {dataIndicada && <span>{dataIndicada.label}: {fmtDataCurta(dataIndicada.value)}</span>}
                         </p>
                       </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-muted-foreground">{fmtDataHora(item.data)}</span>
+                    <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
+                      <span className="rounded-md bg-slate-50 px-1.5 py-1 text-[10px] text-muted-foreground">{fmtDataHora(item.data)}</span>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -4384,22 +4389,24 @@ export default function Dashboard() {
 
       {/* ── Histórico de Eventos da Timeline ── */}
       <motion.div variants={staggerItemVariants}>
-      <Card>
-        <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
+      <Card className="h-full rounded-2xl border border-violet-100 bg-gradient-to-b from-violet-50/40 via-white to-white shadow-sm">
+        <CardHeader className="flex w-full flex-col gap-3 border-b border-violet-100 bg-white/75 px-3 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <History className="size-4 text-muted-foreground" />
-            <div>
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-700">
+              <History className="size-4" />
+            </div>
+            <div className="min-w-0">
               <CardTitle className="text-sm">Histórico Seguradoras</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Eventos registrados na timeline das inadimplências, mais recentes primeiro.
               </CardDescription>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto sm:justify-end">
             <select
               value={eventosMesFiltro}
               onChange={e => setEventosMesFiltro(e.target.value)}
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              className="h-8 min-w-0 flex-1 rounded-md border border-violet-200 bg-white px-2 text-xs shadow-sm sm:flex-none"
             >
               <option value={currentMonth}>{getMonthLabel(currentMonth)}</option>
               {eventosMesesDisponiveis.filter(m => m !== currentMonth).map(m => (
@@ -4407,28 +4414,31 @@ export default function Dashboard() {
               ))}
               <option value="todos">Todos os meses</option>
             </select>
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => abrirRelatorioModal('seguradoras')}>
+            <Button variant="outline" size="sm" className="h-8 border-violet-200 bg-white text-xs hover:bg-violet-50" onClick={() => abrirRelatorioModal('seguradoras')}>
               <FileText className="size-3.5" /> Gerar Relatório
             </Button>
-            <Badge variant="secondary" className="shrink-0 text-xs">
+            <Badge variant="secondary" className="h-8 shrink-0 rounded-full bg-violet-100 px-2.5 text-xs font-semibold text-violet-700">
               {eventosFiltrados.length} evento{eventosFiltrados.length === 1 ? '' : 's'}
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="p-2">
+        <CardContent className="p-3">
           {eventosFiltrados.length === 0 ? (
-            <p className="py-6 text-center text-xs text-muted-foreground">
-              {eventosMesFiltro === 'todos'
-                ? 'Nenhum evento registrado na timeline ainda.'
-                : `Nenhum evento registrado em ${getMonthLabel(eventosMesFiltro)}.`}
-            </p>
+            <div className="flex min-h-40 flex-col items-center justify-center rounded-xl border border-dashed border-violet-200 bg-violet-50/40 px-4 text-center">
+              <History className="mb-2 size-5 text-violet-500" />
+              <p className="text-xs text-muted-foreground">
+                {eventosMesFiltro === 'todos'
+                  ? 'Nenhum evento registrado na timeline ainda.'
+                  : `Nenhum evento registrado em ${getMonthLabel(eventosMesFiltro)}.`}
+              </p>
+            </div>
           ) : (
-            <div className="flex max-h-96 flex-col divide-y overflow-y-auto">
+            <div className="flex max-h-96 flex-col gap-2 overflow-y-auto pr-1">
               {eventosFiltrados.map(item => {
                 const tipoStyle = EVENTO_TIPO_STYLE[item.tipo] || EVENTO_TIPO_STYLE.Outros
                 return (
-                  <div key={item.id} className="group flex flex-wrap items-start justify-between gap-x-3 gap-y-1 py-2 text-xs first:pt-0 last:pb-0">
-                    <div className="flex min-w-0 flex-1 basis-56 flex-col items-start gap-1">
+                  <div key={item.id} className="group flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-2.5 text-xs shadow-sm transition hover:border-violet-200 hover:bg-violet-50/40 hover:shadow-md sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex min-w-0 flex-1 basis-56 flex-col items-start gap-1.5">
                       <span
                         className="shrink-0 whitespace-nowrap rounded-sm px-1.5 py-0.5 text-[10px] font-semibold"
                         style={{ background: tipoStyle.bg, color: tipoStyle.color, border: `1px solid ${tipoStyle.border}` }}
@@ -4436,7 +4446,7 @@ export default function Dashboard() {
                         {item.tipo}
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate font-medium">
+                        <p className="truncate font-semibold text-slate-800">
                           {item.inquilinoNome}
                           {item.nomeImovel ? ` (${item.nomeImovel})` : ''}
                         </p>
@@ -4448,7 +4458,7 @@ export default function Dashboard() {
                         )}
                       </div>
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                    <div className="flex shrink-0 flex-row items-center justify-between gap-2 sm:flex-col sm:items-end">
                       <select
                         value={item.statusEvento}
                         onChange={e => handleStatusEventoChange(item.debitoId, item.eventoKey, e.target.value)}
@@ -4459,9 +4469,9 @@ export default function Dashboard() {
                           <option key={o.value} value={o.value}>{o.label}</option>
                         ))}
                       </select>
-                      <span className="text-[10px] text-muted-foreground">{fmtDataHora(item.criadoEm)}</span>
+                      <span className="rounded-md bg-slate-50 px-1.5 py-1 text-[10px] text-muted-foreground">{fmtDataHora(item.criadoEm)}</span>
                       {item.valorTotal > 0 && (
-                        <span className="text-[10px] font-medium text-foreground/80">{fmtMoney(item.valorTotal)}</span>
+                        <span className="rounded-md bg-violet-50 px-1.5 py-1 text-[10px] font-medium text-violet-800">{fmtMoney(item.valorTotal)}</span>
                       )}
                       <Button
                         variant="ghost"
