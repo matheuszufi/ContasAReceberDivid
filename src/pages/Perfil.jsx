@@ -24,6 +24,9 @@ const simulacaoInicial = {
 
 // Intervalo usado pela adquirente entre uma parcela e outra
 const DIAS_ENTRE_PARCELAS = 32
+// Meio dia a mais em cada parcela: calibrado com as simulações de referência
+// (2x, 7x e 12x). Ajuste aqui se o simulador da adquirente mudar.
+const AJUSTE_DIAS = 0.5
 
 const formatarMoeda = value => Number(value || 0).toLocaleString('pt-BR', {
   style: 'currency',
@@ -35,14 +38,18 @@ const formatarPercentual = value => Number(value || 0).toFixed(2).replace('.', '
 /**
  * Fator de desconto da antecipação.
  *
- * Cada parcela k (1..n) é antecipada por k * DIAS_ENTRE_PARCELAS dias.
- * Desconto da parcela k = parcela * (taxaMensal/100) * (k * dias / 30)
- * Somando as n parcelas iguais e dividindo pelo total:
- *   fator = (taxaMensal/100) * (dias/30) * (n + 1) / 2
+ * A parcela k (1..n) é antecipada por (32k + 0,5) dias e o desconto é linear
+ * (juros simples), proporcional a 30 dias:
+ *   desconto_k = parcela * (taxaMensal/100) * (dias_k / 30)
+ *
+ * Como todas as parcelas têm o mesmo valor, a soma vira um fator único:
+ *   diasMedios = DIAS_ENTRE_PARCELAS * (n + 1) / 2 + AJUSTE_DIAS
+ *   fator      = (taxaMensal/100) * diasMedios / 30
  */
 function calcularFatorAntecipacao(taxaMensal, meses, dias = DIAS_ENTRE_PARCELAS) {
   if (meses <= 0) return 0
-  const fator = (Number(taxaMensal) / 100) * (dias / 30) * ((meses + 1) / 2)
+  const diasMedios = dias * ((meses + 1) / 2) + AJUSTE_DIAS
+  const fator = (Number(taxaMensal) / 100) * (diasMedios / 30)
   return Math.min(Math.max(fator, 0), 0.999999)
 }
 
