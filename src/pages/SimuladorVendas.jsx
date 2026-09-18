@@ -115,7 +115,7 @@ export default function SimuladorVendas() {
 
           <div className="simulador-vendas-result">
             <h3>Resultado da simulação</h3>
-            <div className="simulador-result-featured"><span>{simulacao.modo === 'liquido' ? 'A cobrança deverá ser' : simulacao.repassarTaxasCartao ? 'Total cobrado do cliente' : 'Se a cobrança for'}</span><strong>{formatarMoeda(valorBase)}</strong></div>
+            <div className="simulador-result-featured"><span>{simulacao.modo === 'liquido' ? 'A cobrança deverá ser' : simulacao.repassarTaxasCartao ? 'Total cobrado do cliente' : 'Se a cobrança for'}</span><i>{formatarMoeda(valorBase)}</i></div>
             <p>{quantidadeMeses} parcelas de {formatarMoeda(parcelaCliente)}</p>
             {simulacao.repassarTaxasCartao && valorBase > 0 && (
               <p>Valor da cobrança {formatarMoeda(totalSemAntecipacao)} + {formatarMoeda(valorBase - totalSemAntecipacao)} de taxas do cartão repassadas.</p>

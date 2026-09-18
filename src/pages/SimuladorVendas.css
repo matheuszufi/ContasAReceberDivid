@@ -23,7 +23,8 @@
 .simulador-vendas-result { padding: 18px; border: 1px solid #bfdbfe; border-radius: 8px; background: linear-gradient(145deg, #eff6ff, #fff 55%); }
 .simulador-result-featured, .simulador-result-row { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid #dbe5f0; color: #334155; font-size: 13px; }
 .simulador-result-featured { margin-top: 10px; color: #1e3a8a; font-weight: 600; }
-.simulador-result-featured strong, .simulador-result-row strong { white-space: nowrap; color: #172554; font-size: 16px; }
+.simulador-result-featured strong, .simulador-result-row strong { white-space: nowrap; color: #3e7946; font-size: 16px; }
+.simulador-result-featured strong, .simulador-result-row i { white-space: nowrap; color: #57b351; font-size: 16px; }
 .simulador-result-input { align-items: center; }
 .simulador-result-input input { width: 150px; border: 1px solid #93c5fd; border-radius: 6px; padding: 7px 9px; color: #172554; font-size: 16px; font-weight: 700; text-align: right; outline: none; }
 .simulador-result-input input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
