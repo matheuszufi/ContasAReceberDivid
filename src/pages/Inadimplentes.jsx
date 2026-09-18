@@ -1160,7 +1160,7 @@ export default function Inadimplentes() {
                       })()}
                     </td>
                     <td>
-                      {(() => {
+                      {getGarantia(d).key === 'seguro' && (() => {
                         const current = SEGURO_ACIONADO_OPCOES.find(o => o.value === d.seguroAcionado) || SEGURO_ACIONADO_OPCOES[0]
                         return (
                           <select
@@ -1174,7 +1174,7 @@ export default function Inadimplentes() {
                               cursor: 'pointer'
                             }}
                           >
-                            {SEGURO_ACIONADO_OPCOES.filter(o => o.value !== 'pago_pela_seguradora' || getGarantia(d).key === 'seguro').map(o => (
+                            {SEGURO_ACIONADO_OPCOES.map(o => (
                               <option key={o.value} value={o.value}>{o.label}</option>
                             ))}
                           </select>
