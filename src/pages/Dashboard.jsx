@@ -2944,7 +2944,7 @@ export default function Dashboard() {
       )}
       </AnimatePresence>
 
-      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
+      <motion.div className="dashboard-late-section" variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
       <Card className="mb-3">
         <motion.div variants={staggerItemVariants}>
         <CardHeader className="flex w-full flex-col flex-wrap gap-2 border-b py-2 lg:flex-row lg:items-center lg:justify-between">
@@ -3044,7 +3044,7 @@ export default function Dashboard() {
       </motion.div>
 
       <motion.div
-        className="mb-3 grid grid-cols-1 gap-2 lg:grid-cols-3"
+        className="dashboard-late-section mb-3 grid grid-cols-1 gap-2 lg:grid-cols-3"
         variants={staggerContainerVariants}
         initial="hidden"
         whileInView="visible"
@@ -4746,7 +4746,7 @@ export default function Dashboard() {
         : 'Nenhuma inadimplência recebida no período de referência selecionado.'}
     </p>
   ) : (
-    <div className="flex flex-col divide-y">
+    <div className="flex max-h-[360px] flex-col divide-y overflow-y-auto pr-1">
       {/* cabeçalho só aparece a partir do breakpoint sm, onde cabe a tabela completa */}
       <div className="hidden grid-cols-[minmax(180px,1fr)_110px_110px_90px] gap-2 px-2 py-1.5 text-[11px] font-semibold text-muted-foreground sm:grid">
         <span>Inquilino</span>

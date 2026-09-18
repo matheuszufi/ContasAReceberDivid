@@ -412,7 +412,13 @@ body {
   }
 
 .dashboard-page {
+    display: flex;
+    flex-direction: column;
     color: var(--text-primary);
+  }
+
+.dashboard-page .dashboard-late-section {
+    order: 999;
   }
 
 .dashboard-page .payment-platform-panel {
