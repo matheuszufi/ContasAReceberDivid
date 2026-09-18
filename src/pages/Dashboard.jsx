@@ -3429,7 +3429,7 @@ export default function Dashboard() {
         </motion.div>
         <motion.div variants={staggerItemVariants}>
         <CardContent className="p-2">
-          <div className="grid grid-cols-1 gap-2 xl:grid-cols-[370px_minmax(0,1fr)_300px]">
+          <div className="grid grid-cols-1 gap-2 xl:grid-cols-[460px_minmax(0,1fr)_300px]">
             <div className="recovery-panel flex min-w-0 flex-col border bg-card p-2">
               <div className="recovery-panel-header mb-2">
                 <div>
