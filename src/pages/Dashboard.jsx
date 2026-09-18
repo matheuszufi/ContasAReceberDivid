@@ -3815,6 +3815,7 @@ export default function Dashboard() {
                         cursor={{ fill: 'rgba(14, 165, 233, 0.08)' }}
                         formatter={(value, name) => [fmtMoney(value), garantiaStatusChartData.labels[name] || name]}
                         labelFormatter={label => `Garantia: ${label}`}
+                        wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
                         contentStyle={{
                           borderRadius: 10,
                           border: '1px solid #dbe3ef',
