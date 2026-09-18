@@ -2035,11 +2035,11 @@ export default function Dashboard() {
 
   const renderBreakdownTooltip = (list) => (
     list.length === 0 ? (
-      <span>Nenhuma inadimplência nesta categoria</span>
+      <span className="recovery-status-tooltip-empty">Nenhuma inadimplência nesta categoria</span>
     ) : (
-      <div className="flex max-h-60 flex-col gap-1 overflow-y-auto">
+      <div className="recovery-status-tooltip-list">
         {list.map((item, i) => (
-          <div key={i} className="flex items-center justify-between gap-2">
+          <div key={i} className="recovery-status-tooltip-row">
             <span className="truncate">{item.name}{item.imovel ? ` (${item.imovel})` : ''}</span>
             <span
               className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold"
@@ -3429,7 +3429,7 @@ export default function Dashboard() {
         </motion.div>
         <motion.div variants={staggerItemVariants}>
         <CardContent className="p-2">
-          <div className="grid grid-cols-1 gap-2 xl:grid-cols-[340px_minmax(0,1fr)_300px]">
+          <div className="grid grid-cols-1 gap-2 xl:grid-cols-[370px_minmax(0,1fr)_300px]">
             <div className="recovery-panel flex min-w-0 flex-col border bg-card p-2">
               <div className="recovery-panel-header mb-2">
                 <div>
@@ -3565,7 +3565,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.recuperado)}</TooltipContent>
+                    <TooltipContent className="recovery-status-tooltip max-w-none">{renderBreakdownTooltip(categoryBreakdown.recuperado)}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -3579,7 +3579,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.pagoSeguradora)}</TooltipContent>
+                    <TooltipContent className="recovery-status-tooltip max-w-none">{renderBreakdownTooltip(categoryBreakdown.pagoSeguradora)}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -3593,7 +3593,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.utilizacaoCaucao)}</TooltipContent>
+                    <TooltipContent className="recovery-status-tooltip max-w-none">{renderBreakdownTooltip(categoryBreakdown.utilizacaoCaucao)}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -3607,7 +3607,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.aprovadoSeguradora)}</TooltipContent>
+                    <TooltipContent className="recovery-status-tooltip max-w-none">{renderBreakdownTooltip(categoryBreakdown.aprovadoSeguradora)}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -3624,7 +3624,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.reprovado)}</TooltipContent>
+                    <TooltipContent className="recovery-status-tooltip max-w-none">{renderBreakdownTooltip(categoryBreakdown.reprovado)}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -3638,7 +3638,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.aguardarAcionar)}</TooltipContent>
+                    <TooltipContent className="recovery-status-tooltip max-w-none">{renderBreakdownTooltip(categoryBreakdown.aguardarAcionar)}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -3655,7 +3655,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.acionado)}</TooltipContent>
+                    <TooltipContent className="recovery-status-tooltip max-w-none">{renderBreakdownTooltip(categoryBreakdown.acionado)}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -3672,7 +3672,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.juridico)}</TooltipContent>
+                    <TooltipContent className="recovery-status-tooltip max-w-none">{renderBreakdownTooltip(categoryBreakdown.juridico)}</TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -3686,7 +3686,7 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-none">{renderBreakdownTooltip(categoryBreakdown.inadimplente)}</TooltipContent>
+                    <TooltipContent className="recovery-status-tooltip max-w-none">{renderBreakdownTooltip(categoryBreakdown.inadimplente)}</TooltipContent>
                   </Tooltip>
                 </div>
               </TooltipProvider>
