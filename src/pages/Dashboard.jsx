@@ -1680,6 +1680,46 @@ export default function Dashboard() {
     return filteredInadimplencias.filter(d => keys.has(getMonthKey(d)))
   }, [filteredInadimplencias, periodMonthKeys])
 
+  const garantiaStatusChartData = useMemo(() => {
+    const statusKeys = [
+      'inadimplente',
+      'juridico',
+      'acionado',
+      'aguardarAcionar',
+      'reprovado',
+      'aprovadoSeguradora',
+      'utilizacaoCaucao',
+      'pagoSeguradora',
+      'recuperado',
+    ]
+    const garantiaKeys = ['seguro', 'caucao', 'adiantamento', 'carta_fianca', 'sem_garantia']
+    const labels = {
+      inadimplente: 'Aberto',
+      juridico: 'Jurídico',
+      acionado: 'Acionado',
+      aguardarAcionar: 'Aguardar para acionar',
+      reprovado: 'Pagamento reprovado',
+      aprovadoSeguradora: 'Aprovado pela seguradora',
+      utilizacaoCaucao: 'Utilizado caução',
+      pagoSeguradora: 'Pago pela seguradora',
+      recuperado: 'Recuperado',
+    }
+
+    const data = Object.fromEntries(garantiaKeys.map(key => [key, {
+      garantia: GARANTIA_LABELS[key],
+      ...Object.fromEntries(statusKeys.map(status => [status, 0])),
+    }]))
+
+    periodDebts.forEach(debito => {
+      const garantiaKey = getGarantia(debito).key
+      const statusKey = classifyDebt(debito)
+      if (!data[garantiaKey] || !statusKeys.includes(statusKey)) return
+      data[garantiaKey][statusKey] += getDebtValue(debito)
+    })
+
+    return { data: garantiaKeys.map(key => data[key]), statusKeys, labels }
+  }, [periodDebts, inquilinoMap])
+
   const getInquilinoRegistroKey = (debito) => {
     if (debito.inquilinoId) return `id:${debito.inquilinoId}`
     if (debito.inquilinoNome) return `nome:${normalizeText(debito.inquilinoNome)}`
@@ -3748,11 +3788,54 @@ export default function Dashboard() {
                   )
                 })}
               </div>
-              <div className="mt-3 flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center shadow-sm dark:border-amber-900/50 dark:bg-amber-950/30">
-                <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-amber-700 dark:text-amber-300">
-                  <span className="inline-block size-2 rounded-full bg-amber-500" />
-                  Clique em algum mês para ver os dados do mês referente
-                </span>
+              <div className="mt-3 h-[250px] min-h-0 w-full rounded-lg border border-slate-200 bg-slate-50/70 p-2 shadow-inner">
+                {periodDebts.length === 0 ? (
+                  <div className="flex h-full items-center justify-center text-center text-xs text-muted-foreground">
+                    Nenhuma inadimplência registrada em {selectedPeriodLabel}.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={garantiaStatusChartData.data} margin={{ top: 8, right: 8, left: 4, bottom: 4 }}>
+                      <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="garantia"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 9, fill: '#64748b' }}
+                        interval={0}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 9, fill: '#64748b' }}
+                        width={58}
+                        tickFormatter={value => fmtMoneyCompact(value)}
+                      />
+                      <RechartsTooltip
+                        cursor={{ fill: 'rgba(14, 165, 233, 0.08)' }}
+                        formatter={(value, name) => [fmtMoney(value), garantiaStatusChartData.labels[name] || name]}
+                        labelFormatter={label => `Garantia: ${label}`}
+                        contentStyle={{
+                          borderRadius: 10,
+                          border: '1px solid #dbe3ef',
+                          backgroundColor: '#ffffff',
+                          boxShadow: '0 8px 22px rgba(15, 23, 42, 0.1)',
+                          fontSize: 11,
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 9, paddingTop: 2 }} />
+                      <Bar dataKey="inadimplente" name={garantiaStatusChartData.labels.inadimplente} stackId="status" fill="#f97316" />
+                      <Bar dataKey="juridico" name={garantiaStatusChartData.labels.juridico} stackId="status" fill="#ef4444" />
+                      <Bar dataKey="acionado" name={garantiaStatusChartData.labels.acionado} stackId="status" fill="#3b82f6" />
+                      <Bar dataKey="aguardarAcionar" name={garantiaStatusChartData.labels.aguardarAcionar} stackId="status" fill="#64748b" />
+                      <Bar dataKey="reprovado" name={garantiaStatusChartData.labels.reprovado} stackId="status" fill="#dc2626" />
+                      <Bar dataKey="aprovadoSeguradora" name={garantiaStatusChartData.labels.aprovadoSeguradora} stackId="status" fill="#54ec26" />
+                      <Bar dataKey="utilizacaoCaucao" name={garantiaStatusChartData.labels.utilizacaoCaucao} stackId="status" fill="#0f766e" />
+                      <Bar dataKey="pagoSeguradora" name={garantiaStatusChartData.labels.pagoSeguradora} stackId="status" fill="#0891b2" />
+                      <Bar dataKey="recuperado" name={garantiaStatusChartData.labels.recuperado} stackId="status" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
               </div>
             </div>
 
