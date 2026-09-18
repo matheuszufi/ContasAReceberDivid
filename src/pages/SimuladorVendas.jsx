@@ -50,16 +50,13 @@ export default function SimuladorVendas() {
   let totalComAntecipacao = 0
 
   if (simulacao.modo === 'liquido') {
-    const desejado = Math.max(0, Number(simulacao.liquidoDesejado) || 0)
-    if (simulacao.repassarTaxasCartao && fatorCartao > 0) {
-      totalComAntecipacao = desejado
-      totalSemAntecipacao = desejado / (1 - fatorAntecipacao)
-      valorBase = (totalSemAntecipacao + taxaFixa) / fatorCartao
-    } else {
-      valorBase = desejado
-      totalSemAntecipacao = Math.max(0, valorBase * fatorCartao - taxaFixa)
-      totalComAntecipacao = totalSemAntecipacao * (1 - fatorAntecipacao)
-    }
+    totalComAntecipacao = Math.max(0, Number(simulacao.liquidoDesejado) || 0)
+    totalSemAntecipacao = fatorAntecipacao < 1
+      ? totalComAntecipacao / (1 - fatorAntecipacao)
+      : 0
+    valorBase = totalSemAntecipacao > 0 && fatorCartao > 0
+      ? (totalSemAntecipacao + taxaFixa) / fatorCartao
+      : 0
   } else {
     const valorInformado = Math.max(0, Number(simulacao.valor) || 0)
     valorBase = simulacao.repassarTaxasCartao && fatorCartao > 0
@@ -90,14 +87,12 @@ export default function SimuladorVendas() {
           <div className="simulador-vendas-form">
             <div className="simulador-modo-switch" aria-label="Modo de cálculo">
               <button type="button" className={simulacao.modo === 'cobranca' ? 'is-active' : ''} onClick={() => setSimulacao(prev => ({ ...prev, modo: 'cobranca' }))}>Sei quanto vou cobrar</button>
-              <button type="button" className={simulacao.modo === 'liquido' ? 'is-active' : ''} onClick={() => setSimulacao(prev => ({ ...prev, modo: 'liquido' }))}>Sei quanto quero receber</button>
+              <button type="button" className={simulacao.modo === 'liquido' ? 'is-active' : ''} onClick={() => setSimulacao(prev => ({ ...prev, modo: 'liquido' }))}>Sei quanto quero receber com a antecipação</button>
             </div>
 
             <div className="simulador-vendas-fields">
-              {simulacao.modo === 'cobranca' ? (
-                <label>Total a cobrar<input name="valor" type="number" min="0" step="0.01" value={simulacao.valor} onChange={handleSimulacaoChange} placeholder="0,00" /></label>
-              ) : (
-                <label>{simulacao.repassarTaxasCartao ? 'Quanto quero receber' : 'Valor da cobrança'}<input name="liquidoDesejado" type="number" min="0" step="0.01" value={simulacao.liquidoDesejado} onChange={handleSimulacaoChange} placeholder="0,00" /></label>
+              {simulacao.modo === 'cobranca' && (
+                <label>{simulacao.repassarTaxasCartao ? 'Valor a receber (antes da antecipação)' : 'Total a cobrar'}<input name="valor" type="number" min="0" step="0.01" value={simulacao.valor} onChange={handleSimulacaoChange} placeholder="0,00" /></label>
               )}
               <label>Número de parcelas<input name="meses" type="number" min="1" step="1" value={simulacao.meses} onChange={handleSimulacaoChange} placeholder="Ex.: 12" /></label>
               <label>Taxa do cartão (%)<input name="juros" type="number" min="0" step="0.01" value={simulacao.juros} onChange={handleSimulacaoChange} /></label>
@@ -120,11 +115,18 @@ export default function SimuladorVendas() {
 
           <div className="simulador-vendas-result">
             <h3>Resultado da simulação</h3>
-            <div className="simulador-result-featured"><span>{simulacao.modo === 'liquido' && simulacao.repassarTaxasCartao ? 'A cobrança deverá ser' : simulacao.repassarTaxasCartao ? 'Total cobrado do cliente' : 'Se a cobrança for'}</span><strong>{formatarMoeda(valorBase)}</strong></div>
+            <div className="simulador-result-featured"><span>{simulacao.modo === 'liquido' ? 'A cobrança deverá ser' : simulacao.repassarTaxasCartao ? 'Total cobrado do cliente' : 'Se a cobrança for'}</span><strong>{formatarMoeda(valorBase)}</strong></div>
             <p>{quantidadeMeses} parcelas de {formatarMoeda(parcelaCliente)}</p>
+            {simulacao.repassarTaxasCartao && valorBase > 0 && (
+              <p>Valor da cobrança {formatarMoeda(totalSemAntecipacao)} + {formatarMoeda(valorBase - totalSemAntecipacao)} de taxas do cartão repassadas.</p>
+            )}
             <div className="simulador-result-row"><span>Você recebe sem antecipação</span><strong>{formatarMoeda(totalSemAntecipacao)}</strong></div>
             <p>{quantidadeMeses} parcelas de {formatarMoeda(parcelaSemAntecipacao)} a cada {DIAS_ENTRE_PARCELAS} dias.</p>
-            <div className="simulador-result-row"><span>Você recebe com antecipação</span><strong>{formatarMoeda(totalComAntecipacao)}</strong></div>
+            {simulacao.modo === 'liquido' ? (
+              <label className="simulador-result-row simulador-result-input"><span>Você recebe com antecipação</span><input name="liquidoDesejado" type="number" min="0" step="0.01" value={simulacao.liquidoDesejado} onChange={handleSimulacaoChange} placeholder="0,00" /></label>
+            ) : (
+              <div className="simulador-result-row"><span>Você recebe com antecipação</span><strong>{formatarMoeda(totalComAntecipacao)}</strong></div>
+            )}
             <p>Taxas: cartão {formatarPercentual(taxaCartao)}%, antecipação {formatarPercentual(taxaAntecipacaoMensal)}% ao mês e {formatarMoeda(taxaFixa)} fixos. Custo da antecipação: {formatarMoeda(custoAntecipacao)}.</p>
           </div>
         </div>
