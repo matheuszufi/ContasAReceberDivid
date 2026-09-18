@@ -13,6 +13,11 @@
 .simulador-vendas-fields label { display: grid; gap: 6px; color: #475569; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
 .simulador-vendas-fields input { width: 100%; border: 1px solid #cbd5e1; border-radius: 6px; padding: 9px 10px; color: #0f172a; font-size: 14px; outline: none; }
 .simulador-vendas-fields input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, .12); }
+.simulador-fee-toggle { display: flex; align-items: flex-start; gap: 10px; padding: 11px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; color: #1e3a8a; cursor: pointer; }
+.simulador-fee-toggle input { width: 16px; height: 16px; margin: 1px 0 0; accent-color: #2563eb; }
+.simulador-fee-toggle span { display: grid; gap: 3px; }
+.simulador-fee-toggle strong { font-size: 12px; }
+.simulador-fee-toggle small { color: #475569; font-size: 11px; line-height: 1.4; }
 .simulador-reset { align-self: flex-start; padding-inline: 13px; border: 1px solid #cbd5e1; background: #fff; color: #334155; }
 .simulador-reset:hover { background: #f8fafc; }
 .simulador-vendas-result { padding: 18px; border: 1px solid #bfdbfe; border-radius: 8px; background: linear-gradient(145deg, #eff6ff, #fff 55%); }

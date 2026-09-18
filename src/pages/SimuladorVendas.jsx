@@ -10,6 +10,7 @@ const simulacaoInicial = {
   juros: '2.99',
   taxaAntecipacao: '1.7',
   taxa: '0.49',
+  repassarTaxasCartao: false,
 }
 
 const DIAS_ENTRE_PARCELAS = 32
@@ -54,8 +55,13 @@ export default function SimuladorVendas() {
     totalSemAntecipacao = desejado / (1 - fatorAntecipacao)
     valorBase = fatorCartao > 0 ? (totalSemAntecipacao + taxaFixa) / fatorCartao : 0
   } else {
-    valorBase = Math.max(0, Number(simulacao.valor) || 0)
-    totalSemAntecipacao = Math.max(0, valorBase * fatorCartao - taxaFixa)
+    const valorInformado = Math.max(0, Number(simulacao.valor) || 0)
+    valorBase = simulacao.repassarTaxasCartao && fatorCartao > 0
+      ? (valorInformado + taxaFixa) / fatorCartao
+      : valorInformado
+    totalSemAntecipacao = simulacao.repassarTaxasCartao
+      ? valorInformado
+      : Math.max(0, valorBase * fatorCartao - taxaFixa)
     totalComAntecipacao = totalSemAntecipacao * (1 - fatorAntecipacao)
   }
 
@@ -64,11 +70,11 @@ export default function SimuladorVendas() {
   const custoAntecipacao = totalSemAntecipacao - totalComAntecipacao
 
   return (
-    <Layout title="Simulador de Vendas" subtitle="Calcule vendas parceladas no cartão">
+    <Layout title="Simulador Asaas" subtitle="Calcule vendas parceladas no cartão">
       <section className="simulador-vendas">
         <div className="simulador-vendas-header">
           <div>
-            <h2>Simulador de vendas no cartão</h2>
+            <h2>Simulador Asaas</h2>
             <p>Simule cobranças parceladas e o valor líquido recebido com antecipação.</p>
           </div>
           <span className="simulador-vendas-badge">Cartão de crédito</span>
@@ -92,12 +98,23 @@ export default function SimuladorVendas() {
               <label>Taxa fixa por cobrança (R$)<input name="taxa" type="number" min="0" step="0.01" value={simulacao.taxa} onChange={handleSimulacaoChange} /></label>
               <label>Taxa de antecipação (% ao mês)<input name="taxaAntecipacao" type="number" min="0" step="0.01" value={simulacao.taxaAntecipacao} onChange={handleSimulacaoChange} /></label>
             </div>
+            <label className="simulador-fee-toggle">
+              <input
+                type="checkbox"
+                checked={simulacao.repassarTaxasCartao}
+                onChange={event => setSimulacao(prev => ({ ...prev, repassarTaxasCartao: event.target.checked }))}
+              />
+              <span>
+                <strong>Repassar taxas do cartão</strong>
+                <small>Acrescenta a taxa percentual e fixa ao valor pago por quem será cobrado.</small>
+              </span>
+            </label>
             <button type="button" className="simulador-reset" onClick={() => setSimulacao(simulacaoInicial)}>Nova simulação</button>
           </div>
 
           <div className="simulador-vendas-result">
             <h3>Resultado da simulação</h3>
-            <div className="simulador-result-featured"><span>{simulacao.modo === 'liquido' ? 'A cobrança deverá ser' : 'Se a cobrança for'}</span><strong>{formatarMoeda(valorBase)}</strong></div>
+            <div className="simulador-result-featured"><span>{simulacao.modo === 'liquido' ? 'A cobrança deverá ser' : simulacao.repassarTaxasCartao ? 'Total cobrado do cliente' : 'Se a cobrança for'}</span><strong>{formatarMoeda(valorBase)}</strong></div>
             <p>{quantidadeMeses} parcelas de {formatarMoeda(parcelaCliente)}</p>
             <div className="simulador-result-row"><span>Você recebe sem antecipação</span><strong>{formatarMoeda(totalSemAntecipacao)}</strong></div>
             <p>{quantidadeMeses} parcelas de {formatarMoeda(parcelaSemAntecipacao)} a cada {DIAS_ENTRE_PARCELAS} dias.</p>
