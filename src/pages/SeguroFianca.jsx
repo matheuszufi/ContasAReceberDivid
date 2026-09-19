@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { normalizeText } from '@/lib/utils'
-import { Shield, CircleCheck, Wallet, Search, Pencil, Link as LinkIcon } from 'lucide-react'
+import { Shield, CircleCheck, Wallet, Search, Pencil, TriangleAlert, Link as LinkIcon } from 'lucide-react'
 import './SeguroFianca.css'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
@@ -180,6 +180,8 @@ export default function SeguroFianca() {
 
   const totalMensal = seguradosFianca.reduce((s, i) => s + (Number(i.valorSeguro) || 0), 0)
   const ativos = seguradosFianca.filter(i => i.status === 'Ativo').length
+  const currentMonth = new Date().toISOString().slice(0, 7)
+  const segurosUltimoMes = seguradosFianca.filter(i => i.seguroFiancaMesFim === currentMonth)
 
   const abrirPortal = (inquilino) => {
     const nomeSeguro = String(inquilino.seguro || '').toLowerCase()
@@ -239,7 +241,7 @@ export default function SeguroFianca() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardContent className="flex items-center gap-2">
             <div className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600">
@@ -271,6 +273,28 @@ export default function SeguroFianca() {
               <p className="truncate text-lg font-semibold tracking-tight">{fmtMoney(totalMensal)}</p>
               <p className="truncate text-sm text-muted-foreground">Total Mensal em Seguros</p>
             </div>
+          </CardContent>
+        </Card>
+        <Card className="border-amber-300 bg-amber-50">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm text-amber-700">
+              <TriangleAlert className="size-4" />
+              Último mês de cobrança ({segurosUltimoMes.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {segurosUltimoMes.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhum seguro termina neste mês.</p>
+            ) : (
+              <div className="flex max-h-24 flex-col gap-1 overflow-y-auto">
+                {segurosUltimoMes.map(inquilino => (
+                  <div key={inquilino.id} className="flex items-center justify-between gap-2 text-xs">
+                    <span className="truncate">{inquilino.nome || 'Inquilino sem nome'}</span>
+                    <span className="shrink-0 text-muted-foreground">{SEGURO_LABELS[inquilino.seguro] || inquilino.seguro || '—'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

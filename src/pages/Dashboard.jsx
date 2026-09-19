@@ -1832,7 +1832,6 @@ export default function Dashboard() {
   const mesTaxaInadimplencia = selectedMonth || `${selectedYear}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const resumoTaxaInadimplencia = useMemo(() => {
     const inquilinosAtivosNoMes = inquilinos.filter(inquilino => {
-      if (inquilino.status !== 'Ativo') return false
       const entrada = inquilino.dataEntrada?.slice(0, 7)
       const saida = inquilino.dataSaida?.slice(0, 7)
       if (entrada && entrada > mesTaxaInadimplencia) return false
@@ -1962,6 +1961,40 @@ export default function Dashboard() {
     [inquilinos]
   )
 
+  const inquilinosAtivosComMaisInadimplencias = useMemo(() => {
+    const porInquilino = new Map()
+    inadimplencias.forEach(debito => {
+      const key = debito.inquilinoId || debito.inquilinoNome
+      if (!key) return
+      const atual = porInquilino.get(key) || { id: key, nome: '', quantidade: 0 }
+      atual.quantidade += 1
+      atual.nome = inquilinoMap[debito.inquilinoId]?.nome || debito.inquilinoNome || 'Inquilino sem nome'
+      porInquilino.set(key, atual)
+    })
+    return [...porInquilino.values()]
+      .filter(item => inquilinoMap[item.id]?.status === 'Ativo' && item.quantidade >= 3)
+      .sort((a, b) => b.quantidade - a.quantidade || a.nome.localeCompare(b.nome))
+  }, [inadimplencias, inquilinoMap])
+
+  const inquilinosQueUsaramGarantia = useMemo(() => {
+    const usadosPorInquilino = inadimplencias.reduce((acc, debito) => {
+      if (debito.status !== 'pago_caucao' || !debito.inquilinoId) return acc
+      acc[debito.inquilinoId] = (acc[debito.inquilinoId] || 0) + getDebtValue(debito)
+      return acc
+    }, {})
+
+    return inquilinos
+      .filter(inquilino => usadosPorInquilino[inquilino.id] > 0)
+      .map(inquilino => ({
+        ...inquilino,
+        garantiaRestante: Math.max(
+          0,
+          Number(inquilino.valorGarantiaRestante ?? Number(inquilino.valorGarantia || 0) - usadosPorInquilino[inquilino.id]) || 0
+        ),
+      }))
+      .sort((a, b) => a.nome.localeCompare(b.nome))
+  }, [inadimplencias, inquilinos])
+
   const acordosInadimplencias = useMemo(() => {
     const hojeKey = toYmd(new Date())
 
@@ -2014,6 +2047,20 @@ export default function Dashboard() {
           : inquilino
       )))
       console.error('Erro ao atualizar marcação de cadastro em outro sistema:', err)
+    }
+  }
+
+  const handleGarantiaPagaChange = async (inquilinoId, checked) => {
+    setInquilinos(prev => prev.map(inquilino => (
+      inquilino.id === inquilinoId ? { ...inquilino, garantiaPaga: checked } : inquilino
+    )))
+    try {
+      await update(ref(db, `inquilinos/${inquilinoId}`), { garantiaPaga: checked })
+    } catch (err) {
+      setInquilinos(prev => prev.map(inquilino => (
+        inquilino.id === inquilinoId ? { ...inquilino, garantiaPaga: !checked } : inquilino
+      )))
+      console.error('Erro ao atualizar pagamento da caução/adiantamento:', err)
     }
   }
 
@@ -2869,7 +2916,7 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      {inquilinosCarregado && (segurosExpirandoFianca.length > 0 || segurosExpirandoIncendio.length > 0 || acordosInadimplencias.length > 0 || proximasOcupacoes.length > 0) && (
+      {inquilinosCarregado && (inquilinosAtivosComMaisInadimplencias.length > 0 || inquilinosQueUsaramGarantia.length > 0 || acordosInadimplencias.length > 0 || proximasOcupacoes.length > 0) && (
         <motion.div
           key="alertas-reais"
           className="mb-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap"
@@ -2878,21 +2925,21 @@ export default function Dashboard() {
           animate="visible"
           exit="hidden"
         >
-          {segurosExpirandoFianca.length > 0 && (
+          {inquilinosAtivosComMaisInadimplencias.length > 0 && (
             <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
             <Card className="w-full border-amber-300" style={{ background: '#fffbeb' }}>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b45309' }}>
-                  <TriangleAlert className="size-4" />
-                  Seguro Fiança — Último mês de cobrança ({segurosExpirandoFianca.length})
+                  <Trophy className="size-4" />
+                  Inquilinos ativos com mais inadimplências
                 </CardTitle>
               </CardHeader>
               <CardContent className="">
-                <div className="flex flex-col gap-1">
-                  {segurosExpirandoFianca.map(i => (
+                <div className="flex max-h-28 flex-col gap-1 overflow-y-auto pr-1">
+                  {inquilinosAtivosComMaisInadimplencias.map(i => (
                     <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="font-small">{i.nome}</span>
-                      <span className="text-muted-foreground">{SEGURO_FIANCA_LABELS[i.seguro] || i.seguro || '—'}</span>
+                      <span className="truncate font-small">{i.nome}</span>
+                      <span className="shrink-0 text-muted-foreground">{i.quantidade} registro{i.quantidade === 1 ? '' : 's'}</span>
                     </div>
                   ))}
                 </div>
@@ -2900,21 +2947,21 @@ export default function Dashboard() {
             </Card>
             </motion.div>
           )}
-          {segurosExpirandoIncendio.length > 0 && (
+          {inquilinosQueUsaramGarantia.length > 0 && (
             <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
             <Card className="w-full border-orange-300" style={{ background: '#fff7ed' }}>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#c2410c' }}>
-                  <TriangleAlert className="size-4" />
-                  Seguro Incêndio — Último mês de cobrança ({segurosExpirandoIncendio.length})
+                  <Wallet className="size-4" />
+                  Caução/adiantamento utilizado ({inquilinosQueUsaramGarantia.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="">
-                <div className="flex flex-col gap-1">
-                  {segurosExpirandoIncendio.map(i => (
+                <div className="flex max-h-28 flex-col gap-1 overflow-y-auto">
+                  {inquilinosQueUsaramGarantia.map(i => (
                     <div key={i.id} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="font-small">{i.nome}</span>
-                      <span className="text-muted-foreground">Seguro Incêndio</span>
+                      <span className="truncate font-small">{i.nome || 'Inquilino sem nome'}</span>
+                      <span className="shrink-0 text-muted-foreground">Restante: {fmtMoney(i.garantiaRestante)}</span>
                     </div>
                   ))}
                 </div>
@@ -2979,7 +3026,20 @@ export default function Dashboard() {
                         <span className="font-small">{i.nome}</span>
                       </label>
                       <span className="text-muted-foreground">
-                        {GARANTIA_LABELS[i.garantia] || i.garantia || 'Sem garantia'} · {formatarDataCurta(i.dataEntrada)}
+                        {(i.garantia === 'caucao' || i.garantia === 'adiantamento') && (
+                          <label className="mr-2 inline-flex items-center gap-1">
+                            <input
+                              type="checkbox"
+                              checked={!!i.garantiaPaga}
+                              onChange={event => handleGarantiaPagaChange(i.id, event.target.checked)}
+                              aria-label={`Marcar ${GARANTIA_LABELS[i.garantia]} como paga para ${i.nome}`}
+                              className="size-3.5 cursor-pointer"
+                            />
+                            {GARANTIA_LABELS[i.garantia]}
+                          </label>
+                        )}
+                        {i.garantia !== 'caucao' && i.garantia !== 'adiantamento' && (GARANTIA_LABELS[i.garantia] || i.garantia || 'Sem garantia')}
+                        {' · '}{formatarDataCurta(i.dataEntrada)}
                       </span>
                     </div>
                   ))}
@@ -3038,54 +3098,6 @@ export default function Dashboard() {
         <motion.div variants={staggerItemVariants}>
         <CardContent className="p-2">
           <MapaImoveis imoveis={imoveisMapaFiltrados} />
-        </CardContent>
-        </motion.div>
-      </Card>
-      </motion.div>
-
-      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
-      <Card className="mb-3">
-        <motion.div variants={staggerItemVariants}>
-        <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-2">
-          <CardTitle className="text-sm">Ocupações por Mês</CardTitle>
-          <div className="flex shrink-0 items-center gap-1">
-            <Button variant="outline" size="icon" className="size-6" onClick={() => handleOcupacoesYearChange(-1)} aria-label="Ano anterior">
-              <ChevronLeft className="size-3.5" />
-            </Button>
-            <Badge variant="secondary" className="h-6 min-w-11 justify-center px-2 text-xs">{ocupacoesYear}</Badge>
-            <Button variant="outline" size="icon" className="size-6" onClick={() => handleOcupacoesYearChange(1)} aria-label="Próximo ano">
-              <ChevronRight className="size-3.5" />
-            </Button>
-          </div>
-        </CardHeader>
-        </motion.div>
-        <motion.div variants={staggerItemVariants}>
-        <CardContent className="px-2">
-          <motion.div className="flex gap-1 overflow-x-auto" variants={staggerContainerVariants}>
-            {MONTH_LABELS.map((label, index) => {
-              const saldo = ocupacoesPorMes[index] - desocupacoesPorMes[index]
-              return (
-                <motion.div key={label} variants={staggerItemVariants} className="min-w-[72px] flex-1 border bg-muted/20 px-1.5 py-1">
-                  <p className="text-[9px] font-medium text-muted-foreground">{label}</p>
-                  <div className="mt-0.5 flex items-center justify-between gap-1.5">
-                    <div className="flex items-center gap-1" title="Ocupações no mês">
-                      <Home className="size-3 text-muted-foreground" />
-                      <strong className="text-xs leading-none">{ocupacoesPorMes[index]}</strong>
-                    </div>
-                    <div className="text-[9px] text-muted-foreground" title="Desocupações no mês">
-                      <strong className="text-[11px] text-foreground">{desocupacoesPorMes[index]}</strong> D
-                    </div>
-                  </div>
-                  <p
-                    className={`mt-0.5 text-[9px] font-medium ${saldo > 0 ? 'text-emerald-600' : saldo < 0 ? 'text-red-600' : 'text-muted-foreground'}`}
-                    title="Diferença entre entradas e saídas no mês"
-                  >
-                    Saldo: {saldo > 0 ? `+${saldo}` : saldo}
-                  </p>
-                </motion.div>
-              )
-            })}
-          </motion.div>
         </CardContent>
         </motion.div>
       </Card>
@@ -3821,16 +3833,24 @@ export default function Dashboard() {
                       />
                       <RechartsTooltip
                         cursor={{ fill: 'rgba(14, 165, 233, 0.08)' }}
-                        formatter={(value, name) => [fmtMoney(value), garantiaStatusChartData.labels[name] || name]}
-                        labelFormatter={label => `Garantia: ${label}`}
-                        wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
-                        contentStyle={{
-                          borderRadius: 10,
-                          border: '1px solid #dbe3ef',
-                          backgroundColor: '#ffffff',
-                          boxShadow: '0 8px 22px rgba(15, 23, 42, 0.1)',
-                          fontSize: 12,
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null
+                          const total = payload.reduce((sum, item) => sum + Number(item.value || 0), 0)
+                          return (
+                            <div style={{ borderRadius: 10, border: '1px solid #dbe3ef', backgroundColor: '#ffffff', boxShadow: '0 8px 22px rgba(15, 23, 42, 0.1)', fontSize: 12, padding: 10 }}>
+                              <p style={{ margin: '0 0 6px', fontWeight: 600 }}>Garantia: {label}</p>
+                              {payload.map(item => (
+                                <p key={item.dataKey} style={{ margin: '2px 0', color: item.color }}>
+                                  {garantiaStatusChartData.labels[item.dataKey] || item.name}: {fmtMoney(item.value)}
+                                </p>
+                              ))}
+                              <p style={{ margin: '6px 0 0', borderTop: '1px solid #e2e8f0', paddingTop: 6, fontWeight: 700 }}>
+                                Total: {fmtMoney(total)}
+                              </p>
+                            </div>
+                          )
                         }}
+                        wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
                       />
                       <Bar dataKey="inadimplente" name={garantiaStatusChartData.labels.inadimplente} stackId="status" fill="#f97316" />
                       <Bar dataKey="juridico" name={garantiaStatusChartData.labels.juridico} stackId="status" fill="#ef4444" />
@@ -5004,6 +5024,54 @@ export default function Dashboard() {
         </motion.div>
       )}
       </AnimatePresence>
+
+      <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.2 }}>
+      <Card className="mb-3">
+        <motion.div variants={staggerItemVariants}>
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-2 border-b py-2">
+          <CardTitle className="text-sm">Ocupações por Mês</CardTitle>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button variant="outline" size="icon" className="size-6" onClick={() => handleOcupacoesYearChange(-1)} aria-label="Ano anterior">
+              <ChevronLeft className="size-3.5" />
+            </Button>
+            <Badge variant="secondary" className="h-6 min-w-11 justify-center px-2 text-xs">{ocupacoesYear}</Badge>
+            <Button variant="outline" size="icon" className="size-6" onClick={() => handleOcupacoesYearChange(1)} aria-label="Próximo ano">
+              <ChevronRight className="size-3.5" />
+            </Button>
+          </div>
+        </CardHeader>
+        </motion.div>
+        <motion.div variants={staggerItemVariants}>
+        <CardContent className="px-2">
+          <motion.div className="flex gap-1 overflow-x-auto" variants={staggerContainerVariants}>
+            {MONTH_LABELS.map((label, index) => {
+              const saldo = ocupacoesPorMes[index] - desocupacoesPorMes[index]
+              return (
+                <motion.div key={label} variants={staggerItemVariants} className="min-w-[72px] flex-1 border bg-muted/20 px-1.5 py-1">
+                  <p className="text-[9px] font-medium text-muted-foreground">{label}</p>
+                  <div className="mt-0.5 flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1" title="Ocupações no mês">
+                      <Home className="size-3 text-muted-foreground" />
+                      <strong className="text-xs leading-none">{ocupacoesPorMes[index]}</strong>
+                    </div>
+                    <div className="text-[9px] text-muted-foreground" title="Desocupações no mês">
+                      <strong className="text-[11px] text-foreground">{desocupacoesPorMes[index]}</strong> D
+                    </div>
+                  </div>
+                  <p
+                    className={`mt-0.5 text-[9px] font-medium ${saldo > 0 ? 'text-emerald-600' : saldo < 0 ? 'text-red-600' : 'text-muted-foreground'}`}
+                    title="Diferença entre entradas e saídas no mês"
+                  >
+                    Saldo: {saldo > 0 ? `+${saldo}` : saldo}
+                  </p>
+                </motion.div>
+              )
+            })}
+          </motion.div>
+        </CardContent>
+        </motion.div>
+      </Card>
+      </motion.div>
       </div>
     </Layout>
   )
