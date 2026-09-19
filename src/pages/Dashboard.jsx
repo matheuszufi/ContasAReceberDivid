@@ -2027,6 +2027,7 @@ export default function Dashboard() {
         nome: i.nome || 'Inquilino sem nome',
         dataEntrada: i.dataEntrada,
         garantia: i.garantia || 'sem_garantia',
+        garantiaPaga: !!i.garantiaPaga,
         hoje: i.dataEntrada === hojeKey,
       }))
       .sort((a, b) => a.dataEntrada.localeCompare(b.dataEntrada))
