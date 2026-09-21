@@ -1999,13 +1999,14 @@ export default function Dashboard() {
     const hojeKey = toYmd(new Date())
 
     return inadimplencias
-      .filter(debito => ['acordo', 'Acordo'].includes(debito.status) && debito.inquilinoId)
+      .filter(debito => ['acordo', 'Acordo', 'nao_responde', 'não responde', 'Não Responde'].includes(debito.status) && debito.inquilinoId)
       .map(debito => ({
         id: debito.id,
         inquilinoId: debito.inquilinoId,
         nome: inquilinoMap[debito.inquilinoId]?.nome || debito.inquilinoNome || 'Inquilino sem nome',
         dataUltimaCobranca: debito.ultimaCobranca || '',
         hoje: debito.ultimaCobranca === hojeKey,
+        semResposta: ['nao_responde', 'não responde', 'Não Responde'].includes(debito.status),
       }))
       .sort((a, b) => (a.dataUltimaCobranca || '').localeCompare(b.dataUltimaCobranca || ''))
   }, [inadimplencias, inquilinoMap])
@@ -2976,7 +2977,7 @@ export default function Dashboard() {
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b91c1c' }}>
                   <Handshake className="size-4" />
-                  Inadimplências em acordo ({acordosInadimplencias.length})
+                  Inadimplências em acordo ou sem resposta ({acordosInadimplencias.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="">
@@ -2984,13 +2985,19 @@ export default function Dashboard() {
                   {acordosInadimplencias.map(i => (
                     <div
                       key={i.id}
-                      className={`flex items-center justify-between gap-2 rounded px-1 py-0.5 text-xs ${i.hoje ? 'border border-red-500 bg-red-100 font-semibold text-cyan-950' : ''}`}
-                      title={i.hoje ? 'Acordo com data acordada para hoje' : undefined}
+                      className={`flex items-center justify-between gap-2 rounded px-1 py-0.5 text-xs ${i.semResposta ? 'border border-amber-400 bg-amber-100' : i.hoje ? 'border border-red-500 bg-red-100 font-semibold text-cyan-950' : ''}`}
+                      title={i.semResposta ? 'Inquilino não responde às cobranças' : i.hoje ? 'Acordo com data acordada para hoje' : undefined}
                     >
                       <span className="font-medium text-slate-800">{i.nome}</span>
                       <span className="text-muted-foreground">
-                        {i.hoje && <span className="mr-1 font-bold text-cyan-800">Hoje</span>}
-                        Data acordada: {i.dataUltimaCobranca ? formatarDataCurta(i.dataUltimaCobranca) : 'Não informada'}
+                        {i.semResposta ? (
+                          <span className="mr-1 rounded bg-amber-200 px-1 font-semibold text-amber-900">Não responde</span>
+                        ) : (
+                          <>
+                            {i.hoje && <span className="mr-1 font-bold text-cyan-800">Hoje</span>}
+                            Data acordada: {i.dataUltimaCobranca ? formatarDataCurta(i.dataUltimaCobranca) : 'Não informada'}
+                          </>
+                        )}
                       </span>
                     </div>
                   ))}
