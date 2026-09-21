@@ -2991,7 +2991,9 @@ export default function Dashboard() {
                       <span className="font-medium text-slate-800">{i.nome}</span>
                       <span className="text-muted-foreground">
                         {i.semResposta ? (
-                          <span className="mr-1 rounded bg-amber-200 px-1 font-semibold text-amber-900">Não responde</span>
+                          <span className="mr-1 rounded bg-amber-200 px-1 font-semibold text-amber-900">
+                            Recobrar: {i.dataUltimaCobranca ? formatarDataCurta(i.dataUltimaCobranca) : 'Não informada'}
+                          </span>
                         ) : (
                           <>
                             {i.hoje && <span className="mr-1 font-bold text-cyan-800">Hoje</span>}
