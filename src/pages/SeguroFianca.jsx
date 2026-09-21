@@ -322,6 +322,7 @@ export default function SeguroFianca() {
                   <th>Modelo</th>
                   <th>Seguradora</th>
                   <th>Valor do Seguro</th>
+                  <th>Cobrado no boleto do inquilino</th>
                   <th>1º Mês de Cobrança</th>
                   <th>Último Mês de Cobrança</th>
                   <th>Ações</th>
@@ -401,6 +402,7 @@ export default function SeguroFianca() {
                       />
                     </div>
                   </th>
+                  <th></th>
                   <th>
                     <input
                       type="month"
@@ -422,7 +424,7 @@ export default function SeguroFianca() {
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={9}><div className="empty-state">Nenhum inquilino com seguro fiança encontrado.</div></td></tr>
+                  <tr><td colSpan={10}><div className="empty-state">Nenhum inquilino com seguro fiança encontrado.</div></td></tr>
                 ) : filtered.map(inq => {
                   const imovel = imovelMap[inq.imovelId]
                   const cs = { cursor: 'pointer' }
@@ -528,6 +530,11 @@ export default function SeguroFianca() {
                             onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') stopEdit() }}
                           />
                         ) : fmtMoney(inq.valorSeguro)}
+                      </td>
+                      <td className="text-center" title="Definido no cadastro do inquilino">
+                        <span className={`badge ${inq.seguroCobradoBoleto ? 'badge-green' : 'badge-gray'}`}>
+                          {inq.seguroCobradoBoleto ? 'Sim' : 'Não'}
+                        </span>
                       </td>
                       <td>
                         <input
