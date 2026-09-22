@@ -124,9 +124,9 @@ const GARANTIA_CHART_COLORS = {
 // Cores usadas no card "Recuperação de Inadimplência" (donut + tooltips + cards mensais)
 const RECOVERY_COLORS = {
   recuperado: '#22c55e9f',
-  utilizacaoCaucao: '#0f766e',
-  pagoSeguradora: '#0891b2',
-  aprovadoSeguradora: '#54ec2686',
+  utilizacaoCaucao: '#0f766d8e',
+  pagoSeguradora: '#3affb0',
+  aprovadoSeguradora: '#79e85761',
   reprovado: '#dc262690',
   aguardarAcionar: '#64748b',
   juridico: '#ef4444a6',
@@ -139,7 +139,7 @@ const RELATORIO_PERIODO_COLORS = {
   recuperado: '#16a34a',
   utilizacaoCaucao: '#15803d',
   pagoSeguradora: '#22c55e',
-  aprovadoSeguradora: '#97de4a',
+  aprovadoSeguradora: '#97de4a81',
   reprovado: '#fb3636',
   aguardarAcionar: '#c8c1b5',
   juridico: '#b91c1c',
