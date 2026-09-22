@@ -164,12 +164,16 @@ function monthStats(list) {
 
 // Por padrão o filtro de status mostra tudo, exceto os débitos já pagos
 const DEFAULT_STATUS_FILTRO = STATUS_OPCOES.filter(o => !isStatusRecuperado(o.value)).map(o => o.value)
+const TODOS_STATUS_FILTRO = STATUS_OPCOES.map(o => o.value)
 
 const isDefaultStatusFiltro = (arr) =>
   arr.length === DEFAULT_STATUS_FILTRO.length && DEFAULT_STATUS_FILTRO.every(v => arr.includes(v))
 
+const isTodosStatusFiltro = (arr) =>
+  arr.length === TODOS_STATUS_FILTRO.length && TODOS_STATUS_FILTRO.every(v => arr.includes(v))
+
 // Guarda os filtros/ordenação da planilha do jeito que o usuário deixou, para restaurar na próxima visita
-const FILTROS_STORAGE_KEY = 'inadimplentes_filtros_v1'
+const FILTROS_STORAGE_KEY = 'inadimplentes_filtros_v2'
 
 const DEFAULT_COL_FILTERS = {
   inquilino: '',
@@ -233,6 +237,7 @@ export default function Inadimplentes() {
     return {
       ...DEFAULT_COL_FILTERS,
       ...saved,
+      status: Array.isArray(saved.status) ? saved.status : DEFAULT_STATUS_FILTRO,
       seguroAcionado: Array.isArray(saved.seguroAcionado)
         ? saved.seguroAcionado
         : saved.seguroAcionado ? [saved.seguroAcionado] : [],
@@ -267,8 +272,25 @@ export default function Inadimplentes() {
         : [...prev.seguroAcionado, value],
     }))
 
-  const limparColFilters = () =>
-    setColFilters({ ...DEFAULT_COL_FILTERS })
+  const limparColFilters = () => {
+    setSearch('')
+    setMesSelecionado(null)
+    setCardsDataInicio('')
+    setCardsDataFim('')
+    setSortBy(null)
+    setSortDir('asc')
+    setColFilters({
+      ...DEFAULT_COL_FILTERS,
+      seguroAcionado: [],
+      status: TODOS_STATUS_FILTRO,
+    })
+    setStatusFilterOpen(false)
+    setSeguroAcionadoFilterOpen(false)
+    try {
+      localStorage.removeItem(FILTROS_STORAGE_KEY)
+      localStorage.removeItem('inadimplentes_filtros_v1')
+    } catch {}
+  }
 
   const toggleSort = (field) => {
     if (sortBy === field) {
@@ -836,7 +858,7 @@ export default function Inadimplentes() {
                 Limpar período dos cards
               </Button>
             )}
-            {(colFilters.inquilino || colFilters.imovel || colFilters.modelo || colFilters.garantia || colFilters.garantida || colFilters.seguroAcionado.length > 0 || colFilters.mesReferencia || colFilters.vencimento || colFilters.pagamentoInicio || colFilters.pagamentoFim || colFilters.dataSeguro || colFilters.ultimaCobranca || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || !isDefaultStatusFiltro(colFilters.status)) && (
+            {(colFilters.inquilino || colFilters.imovel || colFilters.modelo || colFilters.garantia || colFilters.garantida || colFilters.seguroAcionado.length > 0 || colFilters.mesReferencia || colFilters.vencimento || colFilters.pagamentoInicio || colFilters.pagamentoFim || colFilters.dataSeguro || colFilters.ultimaCobranca || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || (!isDefaultStatusFiltro(colFilters.status) && !isTodosStatusFiltro(colFilters.status))) && (
               <Button variant="outline" size="sm" onClick={limparColFilters}>
                 Limpar filtros
               </Button>
