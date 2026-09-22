@@ -219,6 +219,8 @@ export default function Inadimplentes() {
   const [search, setSearch] = useState(() => filtrosIniciais.search || '')
   const [mesSelecionado, setMesSelecionado] = useState(() => filtrosIniciais.mesSelecionado ?? null)
   const [showRankingModal, setShowRankingModal] = useState(false)
+  const [showHistoricoContatos, setShowHistoricoContatos] = useState(false)
+  const [buscaHistoricoContatos, setBuscaHistoricoContatos] = useState('')
   const [editingGarantiaId, setEditingGarantiaId] = useState(null)
   const [cardsDataInicio, setCardsDataInicio] = useState(() => filtrosIniciais.cardsDataInicio || '')
   const [cardsDataFim, setCardsDataFim] = useState(() => filtrosIniciais.cardsDataFim || '')
@@ -733,6 +735,25 @@ export default function Inadimplentes() {
     return sortDir === 'asc' ? comparison : -comparison
   })
 
+  const historicoContatos = useMemo(() => {
+    const termo = normalizeText(buscaHistoricoContatos)
+    return debitos
+      .flatMap(d => Object.entries(d.timeline || {})
+        .filter(([, evento]) => evento.tipo === 'Contato realizado')
+        .map(([eventoId, evento]) => ({
+          id: `${d.id}_${eventoId}`,
+          inquilinoNome: getInquilinoNome(d),
+          codigoImovel: getCodigoImovel(d),
+          tipoDebito: d.tipoDebito || '—',
+          mesReferencia: d.mesReferencia || '—',
+          descricao: evento.descricao || '',
+          criadoEm: evento.criadoEm || '',
+        }))
+      )
+      .filter(item => !termo || normalizeText(item.inquilinoNome).includes(termo))
+      .sort((a, b) => new Date(b.criadoEm || 0) - new Date(a.criadoEm || 0))
+  }, [debitos, inquilinos, imoveis, buscaHistoricoContatos])
+
   // Opções únicas para os selects de filtro (calculadas a partir da lista atual)
   const mesRefOptions = [...new Set(baseSemStatus.map(d => d.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a))
   const garantiaOptions = [...new Set(baseSemStatus.map(d => getGarantia(d).key))]
@@ -781,6 +802,9 @@ export default function Inadimplentes() {
         <Button variant="outline" onClick={handleExport} disabled={sortedFiltered.length === 0}>
           <FileSpreadsheet /> Exportar planilha
         </Button>
+        <Button variant="outline" onClick={() => setShowHistoricoContatos(true)}>
+          <MessageCircle /> Histórico de contatos
+        </Button>
         <div className="relative ml-auto w-full max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -792,6 +816,66 @@ export default function Inadimplentes() {
           />
         </div>
       </div>
+
+      {showHistoricoContatos && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(15, 23, 42, 0.45)' }}
+          onClick={() => setShowHistoricoContatos(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="historico-contatos-titulo"
+            style={{ width: '100%', maxWidth: 760, maxHeight: '85vh', overflow: 'hidden', borderRadius: 12, background: '#fff', boxShadow: '0 24px 64px rgba(15, 23, 42, 0.28)' }}
+            onClick={event => event.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '16px 20px', borderBottom: '1px solid #e2e8f0' }}>
+              <div>
+                <h2 id="historico-contatos-titulo" style={{ margin: 0, fontSize: 18, color: '#0f172a' }}>Histórico de contatos</h2>
+                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>Eventos “Contato realizado” registrados nas timelines.</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowHistoricoContatos(false)} aria-label="Fechar histórico de contatos" title="Fechar">
+                <X />
+              </Button>
+            </div>
+            <div style={{ padding: '12px 20px', borderBottom: '1px solid #e2e8f0' }}>
+              <Input
+                type="search"
+                placeholder="Buscar pelo nome do inquilino..."
+                value={buscaHistoricoContatos}
+                onChange={event => setBuscaHistoricoContatos(event.target.value)}
+                aria-label="Buscar histórico pelo nome do inquilino"
+              />
+            </div>
+            <div style={{ maxHeight: 'calc(85vh - 145px)', overflowY: 'auto', padding: 20 }}>
+              {historicoContatos.length === 0 ? (
+                <div className="empty-state">
+                  <div className="es-icon">📞</div>
+                  <h3>{buscaHistoricoContatos ? 'Nenhum contato encontrado' : 'Nenhum contato registrado'}</h3>
+                  <p>{buscaHistoricoContatos ? 'Tente buscar por outro inquilino.' : 'Registre eventos “Contato realizado” na timeline de um débito.'}</p>
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {historicoContatos.map(item => (
+                    <div key={item.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 12, background: '#f8fafc' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                        <strong style={{ color: '#0f172a' }}>{item.inquilinoNome}</strong>
+                        <span style={{ flexShrink: 0, fontSize: 11, color: '#64748b' }}>
+                          {item.criadoEm ? new Date(item.criadoEm).toLocaleString('pt-BR') : 'Data não informada'}
+                        </span>
+                      </div>
+                      <div style={{ marginTop: 4, fontSize: 11, color: '#64748b' }}>
+                        Imóvel: {item.codigoImovel || '—'} · {item.tipoDebito} · Referência: {item.mesReferencia}
+                      </div>
+                      {item.descricao && <p style={{ margin: '8px 0 0', whiteSpace: 'pre-wrap', color: '#334155' }}>{item.descricao}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Resumo Geral ── */}
       <div className="mb-6 flex flex-wrap items-stretch gap-2">
