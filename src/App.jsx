@@ -17,6 +17,7 @@ const Inquilinos              = lazy(() => import('./pages/Inquilinos'))
 const CadastrarInquilino      = lazy(() => import('./pages/CadastrarInquilino'))
 const ImportarPlanilha        = lazy(() => import('./pages/ImportarPlanilha'))
 const Inadimplentes           = lazy(() => import('./pages/Inadimplentes'))
+const RelatorioInadimplencia  = lazy(() => import('./pages/RelatorioInadimplencia'))
 const CadastrarInadimplencia  = lazy(() => import('./pages/CadastrarInadimplencia'))
 const CadastrarConta          = lazy(() => import('./pages/CadastrarConta'))
 const CadastrarSeguro         = lazy(() => import('./pages/CadastrarSeguro'))
@@ -90,6 +91,7 @@ export default function App() {
         <Route path="/inquilinos/editar/:id"      element={<PrivateRoute><CadastrarInquilino /></PrivateRoute>} />
         <Route path="/inquilinos/importar"        element={<PrivateRoute><ImportarPlanilha /></PrivateRoute>} />
         <Route path="/inadimplentes"              element={<PrivateRoute><Inadimplentes /></PrivateRoute>} />
+        <Route path="/inadimplentes/relatorio"   element={<PrivateRoute><RelatorioInadimplencia /></PrivateRoute>} />
         <Route path="/inadimplentes/importar"     element={<PrivateRoute><ImportarInadimplencia /></PrivateRoute>} />
         <Route path="/inadimplentes/cadastrar"    element={<PrivateRoute><CadastrarInadimplencia /></PrivateRoute>} />
         <Route path="/inadimplentes/editar/:id"   element={<PrivateRoute><CadastrarInadimplencia /></PrivateRoute>} />
