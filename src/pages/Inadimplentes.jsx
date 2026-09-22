@@ -754,9 +754,22 @@ export default function Inadimplentes() {
       .sort((a, b) => new Date(b.criadoEm || 0) - new Date(a.criadoEm || 0))
   }, [debitos, inquilinos, imoveis, buscaHistoricoContatos])
 
-  // Opções únicas para os selects de filtro (calculadas a partir da lista atual)
-  const mesRefOptions = [...new Set(baseSemStatus.map(d => d.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a))
-  const garantiaOptions = [...new Set(baseSemStatus.map(d => getGarantia(d).key))]
+  // As opções dos filtros vêm da base completa. A seleção continua sendo combinada
+  // na tabela, mas um filtro ativo não remove opções dos demais filtros.
+  const mesRefOptions = useMemo(
+    () => [...new Set(debitos.map(d => d.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
+    [debitos]
+  )
+  const garantiaOptions = useMemo(
+    () => [...new Set(debitos.map(d => getGarantia(d).key).filter(Boolean))].sort((a, b) =>
+      (GARANTIA_LABELS[a] || a).localeCompare(GARANTIA_LABELS[b] || b, 'pt-BR')
+    ),
+    [debitos, inquilinos]
+  )
+  const modeloOptions = useMemo(
+    () => [...new Set(debitos.map(d => getModeloImovel(d)).filter(Boolean))].sort(),
+    [debitos, inquilinos, imoveis]
+  )
 
   const handleExport = () => {
     const dados = sortedFiltered.map(d => ({
@@ -1047,7 +1060,7 @@ export default function Inadimplentes() {
                       style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
                     >
                       <option value="">Todos</option>
-                      {['MA', 'ME', 'ML'].map(modelo => (
+                      {modeloOptions.map(modelo => (
                         <option key={modelo} value={modelo}>{modelo}</option>
                       ))}
                     </select>
