@@ -2421,19 +2421,24 @@ export default function Dashboard() {
     return lista.sort((a, b) => new Date(b.criadoEm || 0) - new Date(a.criadoEm || 0))
   }, [inadimplencias])
 
+  const eventosDocumentosSolicitados = useMemo(
+    () => eventosTimelineOrdenados.filter(item => item.tipo === 'Documentação solicitada'),
+    [eventosTimelineOrdenados]
+  )
+
   const [eventosMesFiltro, setEventosMesFiltro] = useState(currentMonth)
 
   // Meses com pelo menos um evento, do mais recente para o mais antigo, para popular o filtro
   const eventosMesesDisponiveis = useMemo(
-    () => [...new Set(eventosTimelineOrdenados.map(item => item.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
-    [eventosTimelineOrdenados]
+    () => [...new Set(eventosDocumentosSolicitados.map(item => item.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a)),
+    [eventosDocumentosSolicitados]
   )
 
   const eventosFiltrados = useMemo(
     () => eventosMesFiltro === 'todos'
-      ? eventosTimelineOrdenados
-      : eventosTimelineOrdenados.filter(item => item.mesReferencia === eventosMesFiltro),
-    [eventosTimelineOrdenados, eventosMesFiltro]
+      ? eventosDocumentosSolicitados
+      : eventosDocumentosSolicitados.filter(item => item.mesReferencia === eventosMesFiltro),
+    [eventosDocumentosSolicitados, eventosMesFiltro]
   )
 
   const handleExcluirEventoTimeline = async (debitoId, eventoKey) => {
@@ -2562,7 +2567,7 @@ export default function Dashboard() {
       }, resumoStatus, { posicao: 'inicio', getItemStatus: getAlteracaoStatusInfo, agruparPorStatus: true })
       doc.save(`historico-alteracoes_${relatorioInicio || 'inicio'}_${relatorioFim || 'fim'}.pdf`)
     } else if (relatorioTipo === 'seguradoras') {
-      const itens = eventosTimelineOrdenados.filter(item => dentroDoPeriodo(item.criadoEm))
+      const itens = eventosDocumentosSolicitados.filter(item => dentroDoPeriodo(item.criadoEm))
       const doc = await gerarRelatorioHistoricoPDF('Histórico Seguradoras', periodoLabel, itens, item => [
         `${item.inquilinoNome}${item.nomeImovel ? ` (${item.nomeImovel})` : ''} — ${fmtDataHora(item.criadoEm)}`,
         `Tipo: ${item.tipo}${(EVENTO_STATUS_OPCOES.find(o => o.value === item.statusEvento)?.label) ? ` · Status: ${EVENTO_STATUS_OPCOES.find(o => o.value === item.statusEvento).label}` : ''}`,

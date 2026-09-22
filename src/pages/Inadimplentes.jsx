@@ -778,6 +778,9 @@ export default function Inadimplentes() {
         <Button variant="outline" onClick={() => navigate('/inadimplentes/importar')}>
           <FileSpreadsheet /> Importar Planilha
         </Button>
+        <Button variant="outline" onClick={handleExport} disabled={sortedFiltered.length === 0}>
+          <FileSpreadsheet /> Exportar planilha
+        </Button>
         <div className="relative ml-auto w-full max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -867,9 +870,6 @@ export default function Inadimplentes() {
               : `Todos os Débitos (${filtered.length})`}
           </CardTitle>
           <div className="flex w-full flex-wrap items-end justify-end gap-2 md:ml-auto md:w-auto">
-            <Button variant="outline" size="sm" onClick={handleExport} disabled={sortedFiltered.length === 0}>
-              <FileSpreadsheet /> Exportar planilha
-            </Button>
             <div>
               <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Data inicial (cards)</label>
               <input
