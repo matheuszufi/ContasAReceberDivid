@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { ref, onValue, remove, update, push } from 'firebase/database'
 import { db } from '../firebase'
+import * as XLSX from 'xlsx'
 import Layout from '../components/Layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -736,6 +737,37 @@ export default function Inadimplentes() {
   const mesRefOptions = [...new Set(baseSemStatus.map(d => d.mesReferencia).filter(Boolean))].sort((a, b) => b.localeCompare(a))
   const garantiaOptions = [...new Set(baseSemStatus.map(d => getGarantia(d).key))]
 
+  const handleExport = () => {
+    const dados = sortedFiltered.map(d => ({
+      'Inquilino': getInquilinoNome(d),
+      'Imóvel': getCodigoImovel(d),
+      'Modelo': getModeloImovel(d),
+      'Total c/ Encargos': Number(d.valorTotal || d.valorOriginal || 0),
+      'Valor Recebido': Number(d.valorRecebido || 0),
+      'Mês Ref.': d.mesReferencia || '',
+      'Vencimento Boleto': d.dataVencimento || '',
+      'Data Pagamento': d.dataPagamento || '',
+      'Garantia': getGarantia(d).label,
+      'Garantida': GARANTIDA_OPCOES.find(o => o.value === getGarantida(d))?.label || 'Garantida',
+      'Seguro Acionado': SEGURO_ACIONADO_OPCOES.find(o => o.value === (d.seguroAcionado || 'nao_acionado'))?.label || 'Não Acionado',
+      'Data Seguro': d.dataSeguro || '',
+      'Status': STATUS_OPCOES.find(o => o.value === d.status)?.label || 'Selecione',
+      'Última Cobrança': d.ultimaCobranca || '',
+    }))
+
+    const worksheet = XLSX.utils.json_to_sheet(dados)
+    worksheet['!cols'] = [
+      { wch: 28 }, { wch: 14 }, { wch: 10 }, { wch: 18 }, { wch: 16 },
+      { wch: 12 }, { wch: 18 }, { wch: 16 }, { wch: 24 }, { wch: 16 },
+      { wch: 24 }, { wch: 14 }, { wch: 20 }, { wch: 18 },
+    ]
+
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Inadimplentes')
+    const dataAtual = new Date().toISOString().split('T')[0]
+    XLSX.writeFile(workbook, `inadimplentes_${dataAtual}.xlsx`)
+  }
+
   return (
     <Layout title="Inadimplentes" subtitle="Controle de clientes com débitos pendentes">
       <div className="inadimplentes-page">
@@ -835,6 +867,9 @@ export default function Inadimplentes() {
               : `Todos os Débitos (${filtered.length})`}
           </CardTitle>
           <div className="flex w-full flex-wrap items-end justify-end gap-2 md:ml-auto md:w-auto">
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={sortedFiltered.length === 0}>
+              <FileSpreadsheet /> Exportar planilha
+            </Button>
             <div>
               <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Data inicial (cards)</label>
               <input
