@@ -181,12 +181,13 @@ const DEFAULT_COL_FILTERS = {
   valorRecebidoMax: '',
   mesReferencia: '',
   vencimento: '',
-  pagamento: '',
+  pagamentoInicio: '',
+  pagamentoFim: '',
   dataSeguro: '',
   ultimaCobranca: '',
   garantia: '',
   garantida: '',
-  seguroAcionado: '',
+  seguroAcionado: [],
   status: DEFAULT_STATUS_FILTRO,
 }
 
@@ -221,12 +222,24 @@ export default function Inadimplentes() {
   const statusFilterRef = useRef(null)
   const statusFilterPanelRef = useRef(null)
   const [statusFilterRect, setStatusFilterRect] = useState(null)
+  const [seguroAcionadoFilterOpen, setSeguroAcionadoFilterOpen] = useState(false)
+  const seguroAcionadoFilterRef = useRef(null)
+  const seguroAcionadoFilterPanelRef = useRef(null)
+  const [seguroAcionadoFilterRect, setSeguroAcionadoFilterRect] = useState(null)
   const [sortBy, setSortBy] = useState(() => filtrosIniciais.sortBy ?? null)
   const [sortDir, setSortDir] = useState(() => filtrosIniciais.sortDir || 'asc')
-  const [colFilters, setColFilters] = useState(() => ({
-    ...DEFAULT_COL_FILTERS,
-    ...(filtrosIniciais.colFilters || {}),
-  }))
+  const [colFilters, setColFilters] = useState(() => {
+    const saved = filtrosIniciais.colFilters || {}
+    return {
+      ...DEFAULT_COL_FILTERS,
+      ...saved,
+      seguroAcionado: Array.isArray(saved.seguroAcionado)
+        ? saved.seguroAcionado
+        : saved.seguroAcionado ? [saved.seguroAcionado] : [],
+      pagamentoInicio: saved.pagamentoInicio ?? saved.pagamento ?? '',
+      pagamentoFim: saved.pagamentoFim ?? saved.pagamento ?? '',
+    }
+  })
 
   // Persiste os filtros/ordenação assim que o usuário os altera, para restaurar na próxima visita
   useEffect(() => {
@@ -244,6 +257,14 @@ export default function Inadimplentes() {
     setColFilters(prev => ({
       ...prev,
       status: prev.status.includes(value) ? prev.status.filter(v => v !== value) : [...prev.status, value],
+    }))
+
+  const toggleSeguroAcionadoFiltro = (value) =>
+    setColFilters(prev => ({
+      ...prev,
+      seguroAcionado: prev.seguroAcionado.includes(value)
+        ? prev.seguroAcionado.filter(v => v !== value)
+        : [...prev.seguroAcionado, value],
     }))
 
   const limparColFilters = () =>
@@ -271,6 +292,17 @@ export default function Inadimplentes() {
     return () => document.removeEventListener('mousedown', handler)
   }, [statusFilterOpen])
 
+  useEffect(() => {
+    if (!seguroAcionadoFilterOpen) return
+    const handler = (e) => {
+      if (seguroAcionadoFilterRef.current?.contains(e.target)) return
+      if (seguroAcionadoFilterPanelRef.current?.contains(e.target)) return
+      setSeguroAcionadoFilterOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [seguroAcionadoFilterOpen])
+
   // Dropdown é renderizado via portal (fora do .table-container, que tem overflow) para não ser cortado
   useEffect(() => {
     if (!statusFilterOpen) return
@@ -287,6 +319,22 @@ export default function Inadimplentes() {
       window.removeEventListener('resize', updateRect)
     }
   }, [statusFilterOpen])
+
+  useEffect(() => {
+    if (!seguroAcionadoFilterOpen) return
+    const updateRect = () => {
+      if (!seguroAcionadoFilterRef.current) return
+      const r = seguroAcionadoFilterRef.current.getBoundingClientRect()
+      setSeguroAcionadoFilterRect({ top: r.bottom + 4, left: r.left })
+    }
+    updateRect()
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+    return () => {
+      window.removeEventListener('scroll', updateRect, true)
+      window.removeEventListener('resize', updateRect)
+    }
+  }, [seguroAcionadoFilterOpen])
 
   useEffect(() => {
     const r1 = ref(db, 'inadimplencias')
@@ -539,10 +587,15 @@ export default function Inadimplentes() {
     .filter(d => !colFilters.modelo || getModeloImovel(d) === colFilters.modelo)
     .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
     .filter(d => !colFilters.garantida || getGarantida(d) === colFilters.garantida)
-    .filter(d => !colFilters.seguroAcionado || (d.seguroAcionado || 'nao_acionado') === colFilters.seguroAcionado)
+    .filter(d => colFilters.seguroAcionado.length === 0 || colFilters.seguroAcionado.includes(d.seguroAcionado || 'nao_acionado'))
     .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
     .filter(d => !colFilters.vencimento || (d.dataVencimento || '') === colFilters.vencimento)
-    .filter(d => !colFilters.pagamento || (d.dataPagamento || '') === colFilters.pagamento)
+    .filter(d => {
+      const pagamento = d.dataPagamento || ''
+      if (colFilters.pagamentoInicio && (!pagamento || pagamento < colFilters.pagamentoInicio)) return false
+      if (colFilters.pagamentoFim && (!pagamento || pagamento > colFilters.pagamentoFim)) return false
+      return true
+    })
     .filter(d => !colFilters.dataSeguro || (d.dataSeguro || '') === colFilters.dataSeguro)
     .filter(d => !colFilters.ultimaCobranca || (d.ultimaCobranca || '') === colFilters.ultimaCobranca)
     .filter(d => {
@@ -565,7 +618,7 @@ export default function Inadimplentes() {
       if (cardsDataFim && dataRef > cardsDataFim) return false
       return true
     }),
-  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.modelo, colFilters.garantia, colFilters.garantida, colFilters.seguroAcionado, colFilters.mesReferencia, colFilters.vencimento, colFilters.pagamento, colFilters.dataSeguro, colFilters.ultimaCobranca, colFilters.totalMin, colFilters.totalMax, colFilters.valorRecebidoMin, colFilters.valorRecebidoMax, cardsDataInicio, cardsDataFim])
+  [debitos, inquilinos, imoveis, search, colFilters.inquilino, colFilters.imovel, colFilters.modelo, colFilters.garantia, colFilters.garantida, colFilters.seguroAcionado, colFilters.mesReferencia, colFilters.vencimento, colFilters.pagamentoInicio, colFilters.pagamentoFim, colFilters.dataSeguro, colFilters.ultimaCobranca, colFilters.totalMin, colFilters.totalMax, colFilters.valorRecebidoMin, colFilters.valorRecebidoMax, cardsDataInicio, cardsDataFim])
 
   // Filtro de status continua sendo aplicado na tabela.
   const filteredBase = useMemo(() => baseSemStatus
@@ -783,7 +836,7 @@ export default function Inadimplentes() {
                 Limpar período dos cards
               </Button>
             )}
-            {(colFilters.inquilino || colFilters.imovel || colFilters.modelo || colFilters.garantia || colFilters.garantida || colFilters.seguroAcionado || colFilters.mesReferencia || colFilters.vencimento || colFilters.pagamento || colFilters.dataSeguro || colFilters.ultimaCobranca || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || !isDefaultStatusFiltro(colFilters.status)) && (
+            {(colFilters.inquilino || colFilters.imovel || colFilters.modelo || colFilters.garantia || colFilters.garantida || colFilters.seguroAcionado.length > 0 || colFilters.mesReferencia || colFilters.vencimento || colFilters.pagamentoInicio || colFilters.pagamentoFim || colFilters.dataSeguro || colFilters.ultimaCobranca || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || !isDefaultStatusFiltro(colFilters.status)) && (
               <Button variant="outline" size="sm" onClick={limparColFilters}>
                 Limpar filtros
               </Button>
@@ -919,12 +972,22 @@ export default function Inadimplentes() {
                     />
                   </th>
                   <th>
-                    <input
-                      type="date"
-                      value={colFilters.pagamento}
-                      onChange={e => setColFilter('pagamento', e.target.value)}
-                      style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
-                    />
+                    <div style={{ display: 'grid', gap: 4 }}>
+                      <input
+                        type="date"
+                        value={colFilters.pagamentoInicio}
+                        onChange={e => setColFilter('pagamentoInicio', e.target.value)}
+                        aria-label="Data inicial do pagamento"
+                        style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                      />
+                      <input
+                        type="date"
+                        value={colFilters.pagamentoFim}
+                        onChange={e => setColFilter('pagamentoFim', e.target.value)}
+                        aria-label="Data final do pagamento"
+                        style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                      />
+                    </div>
                   </th>
                   <th>
                     <select
@@ -950,17 +1013,37 @@ export default function Inadimplentes() {
                       ))}
                     </select>
                   </th>
-                  <th>
-                    <select
-                      value={colFilters.seguroAcionado}
-                      onChange={e => setColFilter('seguroAcionado', e.target.value)}
-                      style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                  <th ref={seguroAcionadoFilterRef}>
+                    <button
+                      type="button"
+                      onClick={() => setSeguroAcionadoFilterOpen(o => !o)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', textAlign: 'left', cursor: 'pointer' }}
                     >
-                      <option value="">Todos</option>
-                      {SEGURO_ACIONADO_OPCOES.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
+                      {colFilters.seguroAcionado.length === 0
+                        ? 'Todos'
+                        : colFilters.seguroAcionado.length === SEGURO_ACIONADO_OPCOES.length
+                        ? 'Todos'
+                        : `${colFilters.seguroAcionado.length} selecionado(s)`} ▾
+                    </button>
+                    {seguroAcionadoFilterOpen && seguroAcionadoFilterRect && createPortal(
+                      <div ref={seguroAcionadoFilterPanelRef} style={{ position: 'fixed', top: seguroAcionadoFilterRect.top, left: seguroAcionadoFilterRect.left, zIndex: 9999, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', padding: 8, minWidth: 210 }}>
+                        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                          <button type="button" className="btn btn-sm" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColFilter('seguroAcionado', SEGURO_ACIONADO_OPCOES.map(o => o.value))}>Todos</button>
+                          <button type="button" className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColFilter('seguroAcionado', [])}>Nenhum</button>
+                        </div>
+                        {SEGURO_ACIONADO_OPCOES.map(o => (
+                          <label key={o.value} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '3px 2px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            <input
+                              type="checkbox"
+                              checked={colFilters.seguroAcionado.includes(o.value)}
+                              onChange={() => toggleSeguroAcionadoFiltro(o.value)}
+                            />
+                            {o.label}
+                          </label>
+                        ))}
+                      </div>,
+                      document.body
+                    )}
                   </th>
                   <th>
                     <input
