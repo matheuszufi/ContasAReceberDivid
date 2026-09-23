@@ -53,6 +53,11 @@ const statusLabels = {
   pagamento_reprovado: 'Pagamento reprovado',
   pago_pela_seguradora: 'Pago pela seguradora',
 }
+const seguroAcionadoLabels = {
+  acionado: 'Seguro acionado',
+  pagamento_aprovado: 'Pagamento aprovado pela seguradora',
+  pago_pela_seguradora: 'Pago pela seguradora',
+}
 const isExposurePaid = debit => normalizedValue(debit.status) === 'pago'
 const getGuaranteeKey = (debit, tenantMap) => tenantMap[debit.inquilinoId]?.garantia || debit.garantia || 'sem_garantia'
 const recoveredOf = debit => {
@@ -63,6 +68,11 @@ const recoveredOf = debit => {
 }
 const openValueOf = debit => Math.max(0, totalOf(debit) - recoveredOf(debit))
 const isOpen = debit => openValueOf(debit) > 0
+const isUnpaid = debit => (
+  !RECUPERADO.has(normalizedValue(debit?.status)) &&
+  debit?.seguroAcionado !== 'pago_pela_seguradora' &&
+  openValueOf(debit) > 0
+)
 const daysBetween = (start, end) => {
   if (!start || !end) return null
   const startDate = new Date(`${start}T00:00:00`)
@@ -373,7 +383,7 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const guaranteeScenario = scenarioGroups(monthDebits, debit => normalizedValue(getGuaranteeKey(debit, tenantMap)), {
     ...guaranteeLabels,
   })
-  const openMonthDebits = monthDebits.filter(debit => openValueOf(debit) > 0)
+  const openMonthDebits = monthDebits.filter(isUnpaid)
   const tenantCaseItems = Object.values(openMonthDebits.reduce((groups, debit) => {
     const tenantKey = debit.inquilinoId || debit.inquilinoNome || 'sem_inquilino'
     if (!groups[tenantKey]) {
@@ -399,7 +409,9 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   }, {})).map(item => {
     const tenantDebits = openMonthDebits.filter(debit => (debit.inquilinoId || debit.inquilinoNome || 'sem_inquilino') === item.key)
     const agreements = agreementDetails.filter(agreement => agreement.tenantKey === item.key && openValueOf(agreement.debit) > 0)
-    const openStatuses = [...new Set(tenantDebits.filter(debit => openValueOf(debit) > 0).map(debit => statusLabels[normalizedValue(debit.status)] || debit.status || 'Em aberto'))]
+    const openStatuses = [...new Set(tenantDebits
+      .filter(debit => openValueOf(debit) > 0)
+      .map(debit => seguroAcionadoLabels[normalizedValue(debit.seguroAcionado)] || statusLabels[normalizedValue(debit.status)] || debit.status || 'Em aberto'))]
     return {
       ...item,
       agreementCount: agreements.length,
