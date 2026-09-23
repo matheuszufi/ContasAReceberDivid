@@ -76,6 +76,10 @@ const buildBalance = (debits, months) => {
   return { total, recovered, open: Math.max(0, total - recovered) }
 }
 
+const monthlyRevenue = tenants => tenants
+  .filter(tenant => tenant.status === 'Ativo')
+  .reduce((sum, tenant) => sum + toNumber(tenant.valorAluguel) + toNumber(tenant.valorVaga), 0)
+
 const buildForecast = (debits, months, limit) => {
   const periodDebits = debits.filter(debit => months.includes(debit.mesReferencia))
   const paymentApproved = periodDebits
@@ -106,7 +110,16 @@ const calculateMetrics = (debits, tenants, month, percentage) => {
   const forecast = buildForecast(debits, [month], nextMonthFirst)
   const forecastWithPreviousMonth = buildForecast(debits, [month, previousMonthKey(month)], nextMonthFirst)
   const balanceWithPreviousMonth = buildBalance(debits, [month, previousMonthKey(month)])
+  const revenue = monthlyRevenue(tenants)
   const unguaranteedDebits = monthDebits.filter(debit => normalizedValue(getGuaranteeKey(debit, tenantMap)) === 'sem_garantia')
+  const activeTenants = tenants.filter(tenant => tenant.status === 'Ativo')
+  const unguaranteedTenants = activeTenants.filter(tenant => normalizedValue(tenant.garantia || 'sem_garantia') === 'sem_garantia')
+  const currentRate = revenue > 0 ? (balance.open / revenue) * 100 : 0
+  const projectedRate = Number(percentage || 0)
+  const projectedValue = revenue * (projectedRate / 100)
+  const recoveryToProjected = Math.max(0, balance.open - projectedValue)
+  const unguaranteedOpen = unguaranteedDebits.reduce((sum, debit) => sum + openValueOf(debit), 0)
+  const unguaranteedTotal = unguaranteedDebits.reduce((sum, debit) => sum + dashboardDebtValue(debit), 0)
 
   return {
     openBalance,
@@ -114,14 +127,17 @@ const calculateMetrics = (debits, tenants, month, percentage) => {
     forecastWithPreviousMonth,
     balance,
     balanceWithPreviousMonth,
-    unguaranteedTotal: unguaranteedDebits.reduce((sum, debit) => sum + dashboardDebtValue(debit), 0),
-    unguaranteedOpen: unguaranteedDebits
-      .filter(debit => !isExposurePaid(debit))
-      .reduce((sum, debit) => sum + dashboardDebtValue(debit), 0),
-    unguaranteedRecovered: unguaranteedDebits
-      .filter(isExposurePaid)
-      .reduce((sum, debit) => sum + dashboardDebtValue(debit), 0),
-    projected: openBalance * (Number(percentage || 0) / 100),
+    unguaranteedTotal,
+    unguaranteedOpen,
+    unguaranteedRecovered: Math.max(0, unguaranteedDebits.reduce((sum, debit) => sum + dashboardDebtValue(debit), 0) - unguaranteedOpen),
+    unguaranteedExposureRate: revenue > 0 ? (unguaranteedOpen / revenue) * 100 : 0,
+    unguaranteedTotalRate: revenue > 0 ? (unguaranteedTotal / revenue) * 100 : 0,
+    unguaranteedTenantRate: activeTenants.length > 0 ? (unguaranteedTenants.length / activeTenants.length) * 100 : 0,
+    currentRate,
+    projectedRate,
+    projectedValue,
+    recoveryToProjected,
+    revenue,
     count: monthDebits.length,
   }
 }
@@ -134,6 +150,7 @@ export default function RelatorioInadimplencia() {
   const [showCreate, setShowCreate] = useState(false)
   const [newMonth, setNewMonth] = useState(getCurrentMonth)
   const [percentageDraft, setPercentageDraft] = useState('0')
+  const [editingPercentage, setEditingPercentage] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savingPercentage, setSavingPercentage] = useState(false)
@@ -219,6 +236,7 @@ export default function RelatorioInadimplencia() {
     setError('')
     try {
       await update(ref(db, `relatoriosInadimplencia/${selectedMonth}`), { projectedPercentage: value })
+      setEditingPercentage(false)
     } catch (saveError) {
       console.error('Erro ao atualizar percentual do relatório:', saveError)
       setError('Não foi possível atualizar o percentual.')
@@ -288,16 +306,29 @@ export default function RelatorioInadimplencia() {
                 <span className="debit-count">{metrics.count} {metrics.count === 1 ? 'inadimplência' : 'inadimplências'}</span>
               </div>
               <div className="summary-grid">
-                <div className="summary-row summary-row-single">
-                  <article className="summary-card accent-blue">
+                <div className="summary-row summary-row-featured">
+                  <article className="summary-card summary-card-featured accent-blue">
                     <span>Inadimplência projetada para o fechamento</span>
-                    <strong>{percentage}%</strong>
-                    <div className="percentage-editor">
-                      <Input type="number" min="0" max="100" step="0.01" value={percentageDraft} onChange={event => setPercentageDraft(event.target.value)} aria-label="Percentual projetado" />
-                      <span>%</span>
-                      <Button type="button" size="sm" onClick={savePercentage} disabled={savingPercentage}>{savingPercentage ? 'Salvando' : 'Salvar'}</Button>
+                    <div className="rate-summary">
+                      <div className="rate-pair">
+                        <span className="rate-item">Taxa atual <b>{metrics.currentRate.toFixed(2)}%</b></span>
+                        {editingPercentage ? (
+                          <div className="percentage-editor">
+                            <Input autoFocus type="number" min="0" max="100" step="0.01" value={percentageDraft} onChange={event => setPercentageDraft(event.target.value)} aria-label="Taxa projetada" />
+                            <span>%</span>
+                            <Button type="button" size="sm" onClick={savePercentage} disabled={savingPercentage}>{savingPercentage ? 'Salvando' : 'Salvar'}</Button>
+                          </div>
+                        ) : (
+                          <button type="button" className="rate-edit-button rate-item" onClick={() => setEditingPercentage(true)}>
+                            Taxa projetada <b>{metrics.projectedRate.toFixed(2)}%</b>
+                          </button>
+                        )}
+                      </div>
+                      <div className="rate-breakdown">
+                        <small>Valor da taxa projetada: <b>{formatMoney(metrics.projectedValue)}</b></small>
+                        <small>Valor a recuperar para chegar na taxa: <b>{formatMoney(metrics.recoveryToProjected)}</b></small>
+                      </div>
                     </div>
-                    <small>Projeção de {formatMoney(metrics.projected)} sobre o saldo aberto</small>
                   </article>
                 </div>
                 <div className="summary-row">
@@ -338,11 +369,16 @@ export default function RelatorioInadimplencia() {
                     <small className="forecast-source">Inadimplências de {formatMonth(selectedMonth)} + {formatMonth(previousMonthKey(selectedMonth))}</small>
                   </article>
                 </div>
-                <div className="summary-row summary-row-single">
+                <div className="summary-row">
                   <article className="summary-card accent-red">
-                    <span>Exposição líquida</span>
-                    <strong>{formatMoney(metrics.unguaranteedOpen)}</strong>
-                    <small>Total: {formatMoney(metrics.unguaranteedTotal)} <br /> Recuperado: {formatMoney(metrics.unguaranteedRecovered)}</small>
+                    <span>Carteira sem garantia</span>
+                    <strong>{metrics.unguaranteedTenantRate.toFixed(2)}%</strong>
+                    <small>Percentual de inquilinos ativos sem garantia</small>
+                  </article>
+                  <article className="summary-card accent-red">
+                    <span>Exposição sem garantia</span>
+                    <strong>{metrics.unguaranteedExposureRate.toFixed(2)}% da carteira <small>({formatMoney(metrics.revenue)})</small></strong>
+                    <small>Valor em aberto: {formatMoney(metrics.unguaranteedOpen)}<br />Total: {formatMoney(metrics.unguaranteedTotal)} ({metrics.unguaranteedTotalRate.toFixed(2)}% da carteira)<br /> Recuperado: {formatMoney(metrics.unguaranteedRecovered)}</small>
                   </article>
                 </div>
               </div>
