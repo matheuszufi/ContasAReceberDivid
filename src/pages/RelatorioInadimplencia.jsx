@@ -51,6 +51,33 @@ const monthEndDate = month => {
 }
 
 const monthKeyFromDate = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+const todayKey = () => {
+  const today = new Date()
+  return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+}
+const previousMonthKey = month => {
+  const [year, value] = month.split('-').map(Number)
+  return monthKeyFromDate(new Date(year, value - 2, 1))
+}
+
+const buildForecast = (debits, months, limit) => {
+  const periodDebits = debits.filter(debit => months.includes(debit.mesReferencia))
+  const paymentApproved = periodDebits
+    .filter(debit => debit.seguroAcionado === 'pagamento_aprovado' || debit.seguroAcionado === 'pago_pela_seguradora')
+    .filter(debit => normalizedValue(debit.status) !== 'pago')
+    .filter(debit => debit.dataPagamento && debit.dataPagamento >= todayKey() && debit.dataPagamento <= limit)
+  const agreements = periodDebits
+    .filter(debit => normalizedValue(debit.status) === 'acordo')
+    .filter(debit => debit.seguroAcionado !== 'pagamento_aprovado' && debit.seguroAcionado !== 'pago_pela_seguradora')
+    .filter(debit => debit.ultimaCobranca && debit.ultimaCobranca <= limit)
+  const sumValues = list => list.reduce((sum, debit) => sum + dashboardDebtValue(debit), 0)
+
+  return {
+    paymentApproved: sumValues(paymentApproved),
+    agreements: sumValues(agreements),
+    total: sumValues(paymentApproved) + sumValues(agreements),
+  }
+}
 
 const calculateMetrics = (debits, tenants, month, percentage) => {
   const tenantMap = Object.fromEntries(tenants.map(tenant => [tenant.id, tenant]))
@@ -60,14 +87,14 @@ const calculateMetrics = (debits, tenants, month, percentage) => {
   const nextMonthStart = monthEndDate(month)
   const nextMonth = monthKeyFromDate(nextMonthStart)
   const nextMonthFirst = `${nextMonth}-01`
-  const forecast = openDebits
-    .filter(debit => debit.dataVencimento && debit.dataVencimento <= nextMonthFirst)
-    .reduce((sum, debit) => sum + openValueOf(debit), 0)
+  const forecast = buildForecast(debits, [month], nextMonthFirst)
+  const forecastWithPreviousMonth = buildForecast(debits, [month, previousMonthKey(month)], nextMonthFirst)
   const unguaranteedDebits = monthDebits.filter(debit => normalizedValue(getGuaranteeKey(debit, tenantMap)) === 'sem_garantia')
 
   return {
     openBalance,
     forecast,
+    forecastWithPreviousMonth,
     unguaranteedTotal: unguaranteedDebits.reduce((sum, debit) => sum + dashboardDebtValue(debit), 0),
     unguaranteedOpen: unguaranteedDebits
       .filter(debit => !isExposurePaid(debit))
@@ -182,6 +209,7 @@ export default function RelatorioInadimplencia() {
   }
 
   const reportLabel = selectedReport ? formatMonth(selectedMonth) : 'Nenhum relatório criado'
+  const nextMonth = monthKeyFromDate(monthEndDate(selectedMonth))
 
   return (
     <Layout title="Relatório de inadimplência" subtitle="Acompanhe os indicadores consolidados por mês">
@@ -257,9 +285,22 @@ export default function RelatorioInadimplencia() {
                   <small>Débitos não recuperados do mês</small>
                 </article>
                 <article className="summary-card accent-green">
-                  <span>Previsto para receber até dia 01/{String(Number(selectedMonth.slice(5)) % 12 + 1).padStart(2, '0')}</span>
-                  <strong>{formatMoney(metrics.forecast)}</strong>
-                  <small>Com vencimento até o início do próximo mês</small>
+                  <span>Previsto para receber até 01/{nextMonth.slice(5)}/{nextMonth.slice(0, 4)}</span>
+                  <strong>{formatMoney(metrics.forecast.total)}</strong>
+                  <div className="forecast-breakdown">
+                    <small>Pagamento aprovado: <b>{formatMoney(metrics.forecast.paymentApproved)}</b></small>
+                    <small>Acordos: <b>{formatMoney(metrics.forecast.agreements)}</b></small>
+                  </div>
+                  <small className="forecast-source">Somente inadimplências de {formatMonth(selectedMonth)}</small>
+                </article>
+                <article className="summary-card accent-green forecast-previous-card">
+                  <span>Previsto até 01/{nextMonth.slice(5)}/{nextMonth.slice(0, 4)} com mês anterior</span>
+                  <strong>{formatMoney(metrics.forecastWithPreviousMonth.total)}</strong>
+                  <div className="forecast-breakdown">
+                    <small>Pagamento aprovado: <b>{formatMoney(metrics.forecastWithPreviousMonth.paymentApproved)}</b></small>
+                    <small>Acordos: <b>{formatMoney(metrics.forecastWithPreviousMonth.agreements)}</b></small>
+                  </div>
+                  <small className="forecast-source">Inadimplências de {formatMonth(selectedMonth)} + {formatMonth(previousMonthKey(selectedMonth))}</small>
                 </article>
                 <article className="summary-card accent-red">
                   <span>Exposição líquida</span>

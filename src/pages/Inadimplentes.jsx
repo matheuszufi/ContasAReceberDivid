@@ -185,7 +185,7 @@ const DEFAULT_COL_FILTERS = {
   totalMax: '',
   valorRecebidoMin: '',
   valorRecebidoMax: '',
-  mesReferencia: '',
+  mesReferencia: [],
   vencimento: '',
   pagamentoInicio: '',
   pagamentoFim: '',
@@ -234,6 +234,10 @@ export default function Inadimplentes() {
   const seguroAcionadoFilterRef = useRef(null)
   const seguroAcionadoFilterPanelRef = useRef(null)
   const [seguroAcionadoFilterRect, setSeguroAcionadoFilterRect] = useState(null)
+  const [mesReferenciaFilterOpen, setMesReferenciaFilterOpen] = useState(false)
+  const mesReferenciaFilterRef = useRef(null)
+  const mesReferenciaFilterPanelRef = useRef(null)
+  const [mesReferenciaFilterRect, setMesReferenciaFilterRect] = useState(null)
   const [sortBy, setSortBy] = useState(() => filtrosIniciais.sortBy ?? null)
   const [sortDir, setSortDir] = useState(() => filtrosIniciais.sortDir || 'asc')
   const [colFilters, setColFilters] = useState(() => {
@@ -245,6 +249,9 @@ export default function Inadimplentes() {
       seguroAcionado: Array.isArray(saved.seguroAcionado)
         ? saved.seguroAcionado
         : saved.seguroAcionado ? [saved.seguroAcionado] : [],
+      mesReferencia: Array.isArray(saved.mesReferencia)
+        ? saved.mesReferencia
+        : saved.mesReferencia ? [saved.mesReferencia] : [],
       pagamentoInicio: saved.pagamentoInicio ?? saved.pagamento ?? '',
       pagamentoFim: saved.pagamentoFim ?? saved.pagamento ?? '',
     }
@@ -276,6 +283,14 @@ export default function Inadimplentes() {
         : [...prev.seguroAcionado, value],
     }))
 
+  const toggleMesReferenciaFiltro = (value) =>
+    setColFilters(prev => ({
+      ...prev,
+      mesReferencia: prev.mesReferencia.includes(value)
+        ? prev.mesReferencia.filter(v => v !== value)
+        : [...prev.mesReferencia, value],
+    }))
+
   const limparColFilters = () => {
     setSearch('')
     setMesSelecionado(null)
@@ -290,6 +305,7 @@ export default function Inadimplentes() {
     })
     setStatusFilterOpen(false)
     setSeguroAcionadoFilterOpen(false)
+    setMesReferenciaFilterOpen(false)
     try {
       localStorage.removeItem(FILTROS_STORAGE_KEY)
       localStorage.removeItem('inadimplentes_filtros_v1')
@@ -329,6 +345,17 @@ export default function Inadimplentes() {
     return () => document.removeEventListener('mousedown', handler)
   }, [seguroAcionadoFilterOpen])
 
+  useEffect(() => {
+    if (!mesReferenciaFilterOpen) return
+    const handler = (e) => {
+      if (mesReferenciaFilterRef.current?.contains(e.target)) return
+      if (mesReferenciaFilterPanelRef.current?.contains(e.target)) return
+      setMesReferenciaFilterOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [mesReferenciaFilterOpen])
+
   // Dropdown é renderizado via portal (fora do .table-container, que tem overflow) para não ser cortado
   useEffect(() => {
     if (!statusFilterOpen) return
@@ -361,6 +388,22 @@ export default function Inadimplentes() {
       window.removeEventListener('resize', updateRect)
     }
   }, [seguroAcionadoFilterOpen])
+
+  useEffect(() => {
+    if (!mesReferenciaFilterOpen) return
+    const updateRect = () => {
+      if (!mesReferenciaFilterRef.current) return
+      const r = mesReferenciaFilterRef.current.getBoundingClientRect()
+      setMesReferenciaFilterRect({ top: r.bottom + 4, left: r.left })
+    }
+    updateRect()
+    window.addEventListener('scroll', updateRect, true)
+    window.addEventListener('resize', updateRect)
+    return () => {
+      window.removeEventListener('scroll', updateRect, true)
+      window.removeEventListener('resize', updateRect)
+    }
+  }, [mesReferenciaFilterOpen])
 
   useEffect(() => {
     const r1 = ref(db, 'inadimplencias')
@@ -614,7 +657,7 @@ export default function Inadimplentes() {
     .filter(d => !colFilters.garantia || getGarantia(d).key === colFilters.garantia)
     .filter(d => !colFilters.garantida || getGarantida(d) === colFilters.garantida)
     .filter(d => colFilters.seguroAcionado.length === 0 || colFilters.seguroAcionado.includes(d.seguroAcionado || 'nao_acionado'))
-    .filter(d => !colFilters.mesReferencia || d.mesReferencia === colFilters.mesReferencia)
+    .filter(d => colFilters.mesReferencia.length === 0 || colFilters.mesReferencia.includes(d.mesReferencia))
     .filter(d => !colFilters.vencimento || (d.dataVencimento || '') === colFilters.vencimento)
     .filter(d => {
       const pagamento = d.dataPagamento || ''
@@ -994,7 +1037,7 @@ export default function Inadimplentes() {
                 Limpar período dos cards
               </Button>
             )}
-            {(colFilters.inquilino || colFilters.imovel || colFilters.modelo || colFilters.garantia || colFilters.garantida || colFilters.seguroAcionado.length > 0 || colFilters.mesReferencia || colFilters.vencimento || colFilters.pagamentoInicio || colFilters.pagamentoFim || colFilters.dataSeguro || colFilters.ultimaCobranca || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || (!isDefaultStatusFiltro(colFilters.status) && !isTodosStatusFiltro(colFilters.status))) && (
+            {(colFilters.inquilino || colFilters.imovel || colFilters.modelo || colFilters.garantia || colFilters.garantida || colFilters.seguroAcionado.length > 0 || colFilters.mesReferencia.length > 0 || colFilters.vencimento || colFilters.pagamentoInicio || colFilters.pagamentoFim || colFilters.dataSeguro || colFilters.ultimaCobranca || colFilters.totalMin || colFilters.totalMax || colFilters.valorRecebidoMin || colFilters.valorRecebidoMax || (!isDefaultStatusFiltro(colFilters.status) && !isTodosStatusFiltro(colFilters.status))) && (
               <Button variant="outline" size="sm" onClick={limparColFilters}>
                 Limpar filtros
               </Button>
@@ -1109,17 +1152,37 @@ export default function Inadimplentes() {
                       />
                     </div>
                   </th>
-                  <th>
-                    <select
-                      value={colFilters.mesReferencia}
-                      onChange={e => setColFilter('mesReferencia', e.target.value)}
-                      style={{ width: '100%', fontSize: 11, padding: '3px 4px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                  <th ref={mesReferenciaFilterRef}>
+                    <button
+                      type="button"
+                      onClick={() => setMesReferenciaFilterOpen(o => !o)}
+                      style={{ width: '100%', fontSize: 11, padding: '3px 6px', borderRadius: 6, border: '1px solid #e2e8f0', background: '#fff', textAlign: 'left', cursor: 'pointer' }}
                     >
-                      <option value="">Todos</option>
-                      {mesRefOptions.map(m => (
-                        <option key={m} value={m}>{formatMonthShort(m)}</option>
-                      ))}
-                    </select>
+                      {colFilters.mesReferencia.length === 0
+                        ? 'Todos'
+                        : colFilters.mesReferencia.length === mesRefOptions.length
+                        ? 'Todos'
+                        : `${colFilters.mesReferencia.length} selecionado(s)`} ▾
+                    </button>
+                    {mesReferenciaFilterOpen && mesReferenciaFilterRect && createPortal(
+                      <div ref={mesReferenciaFilterPanelRef} style={{ position: 'fixed', top: mesReferenciaFilterRect.top, left: mesReferenciaFilterRect.left, zIndex: 9999, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', padding: 8, minWidth: 150 }}>
+                        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                          <button type="button" className="btn btn-sm" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColFilter('mesReferencia', mesRefOptions)}>Todos</button>
+                          <button type="button" className="btn btn-sm btn-secondary" style={{ fontSize: 10, padding: '2px 6px' }} onClick={() => setColFilter('mesReferencia', [])}>Nenhum</button>
+                        </div>
+                        {mesRefOptions.map(m => (
+                          <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, padding: '3px 2px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            <input
+                              type="checkbox"
+                              checked={colFilters.mesReferencia.includes(m)}
+                              onChange={() => toggleMesReferenciaFiltro(m)}
+                            />
+                            {formatMonthShort(m)}
+                          </label>
+                        ))}
+                      </div>,
+                      document.body
+                    )}
                   </th>
                   <th>
                     <input
