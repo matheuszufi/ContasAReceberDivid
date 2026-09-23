@@ -158,6 +158,85 @@ function ListTooltip({ children, title, items, emptyLabel }) {
   )
 }
 
+const normalizeHistoryValue = value => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^a-zA-Z0-9]/g, '')
+  .toLowerCase()
+
+const historyValue = item => {
+  const received = Number(item.valorRecebido || 0)
+  return received > 0 ? received : Number(item.valorTotal || 0)
+}
+
+const historyCategory = item => {
+  const next = normalizeHistoryValue(item.valorNovoKey || item.valorNovoLabel)
+  if (item.campo === 'seguroAcionado') {
+    if (next === 'acionado') return 'activated'
+    if (next === 'pagamentoaprovado') return 'approved'
+    if (next === 'pagopelaseguradora') return 'insurerPaid'
+  }
+  if (item.campo === 'status' && (next === 'pago' || next === 'pagocaucao')) return 'recovered'
+  return null
+}
+
+const historyItem = item => ({
+  name: item.inquilinoNome || 'Inquilino não informado',
+  type: item.campoLabel || (item.campo === 'seguroAcionado' ? 'Seguro acionado' : 'Status'),
+  value: historyValue(item),
+  referenceMonth: item.mesReferencia || 'Sem mês',
+})
+
+const getHistoryDate = item => new Date(Number(item.data))
+
+const getWeekLabel = (start, end) => {
+  const formatDay = date => String(date.getDate()).padStart(2, '0')
+  const month = String(end.getMonth() + 1).padStart(2, '0')
+  return `${formatDay(start)} a ${formatDay(end)}/${month}`
+}
+
+const buildRecoveryMetrics = (history, month) => {
+  const [year, monthNumber] = month.split('-').map(Number)
+  const monthStart = new Date(year, monthNumber - 1, 1)
+  const monthEnd = new Date(year, monthNumber, 0)
+  const monthHistory = history.filter(item => {
+    const date = getHistoryDate(item)
+    return !Number.isNaN(date.getTime()) && date >= monthStart && date <= new Date(year, monthNumber - 1, monthEnd.getDate(), 23, 59, 59, 999) && historyCategory(item)
+  })
+  const weeks = []
+  let startDay = 1
+  const firstDayOfWeek = monthStart.getDay()
+  let endDay = Math.min(monthEnd.getDate(), 1 + (6 - firstDayOfWeek))
+  while (startDay <= monthEnd.getDate()) {
+    const start = new Date(year, monthNumber - 1, startDay)
+    const end = new Date(year, monthNumber - 1, endDay)
+    const weekHistory = monthHistory.filter(item => {
+      const date = getHistoryDate(item)
+      return date >= start && date <= new Date(year, monthNumber - 1, endDay, 23, 59, 59, 999)
+    })
+    const totals = { recovered: 0, activated: 0, approved: 0, insurerPaid: 0 }
+    const items = { recovered: [], activated: [], approved: [], insurerPaid: [] }
+    weekHistory.forEach(item => {
+      const category = historyCategory(item)
+      const value = historyValue(item)
+      totals[category] += value
+      items[category].push(historyItem(item))
+    })
+    weeks.push({ label: getWeekLabel(start, end), totals, items })
+    startDay = endDay + 1
+    endDay = Math.min(monthEnd.getDate(), startDay + 6)
+  }
+
+  const byReference = Object.values(monthHistory.reduce((groups, item) => {
+    const referenceMonth = item.mesReferencia || 'sem_mes'
+    if (!groups[referenceMonth]) groups[referenceMonth] = { referenceMonth, recovered: 0, activated: 0, approved: 0, insurerPaid: 0 }
+    groups[referenceMonth][historyCategory(item)] += historyValue(item)
+    return groups
+  }, {})).sort((a, b) => b.referenceMonth.localeCompare(a.referenceMonth))
+
+  return { weeks, byReference }
+}
+
 const calculateMetrics = (debits, tenants, month, percentage) => {
   const tenantMap = Object.fromEntries(tenants.map(tenant => [tenant.id, tenant]))
   const monthDebits = debits.filter(debit => debit.mesReferencia === month)
@@ -251,6 +330,7 @@ export default function RelatorioInadimplencia() {
   const [reports, setReports] = useState([])
   const [debits, setDebits] = useState([])
   const [tenants, setTenants] = useState([])
+  const [historicoAlteracoes, setHistoricoAlteracoes] = useState([])
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth)
   const [showCreate, setShowCreate] = useState(false)
   const [newMonth, setNewMonth] = useState(getCurrentMonth)
@@ -280,11 +360,20 @@ export default function RelatorioInadimplencia() {
     setTenants(Object.entries(value).map(([id, tenant]) => ({ id, ...tenant })))
   }), [])
 
+  useEffect(() => onValue(ref(db, 'historicoAlteracoes'), snapshot => {
+    const value = snapshot.val() || {}
+    setHistoricoAlteracoes(Object.entries(value).map(([id, item]) => ({ id, ...item })))
+  }), [])
+
   const selectedReport = reports.find(report => report.month === selectedMonth)
   const percentage = selectedReport?.projectedPercentage ?? 0
   const metrics = useMemo(
     () => calculateMetrics(debits, tenants, selectedMonth, percentage),
     [debits, tenants, selectedMonth, percentage]
+  )
+  const recoveryMetrics = useMemo(
+    () => buildRecoveryMetrics(historicoAlteracoes, selectedMonth),
+    [historicoAlteracoes, selectedMonth]
   )
   const reportMonths = reports.map(report => report.month)
   const selectedIndex = reportMonths.indexOf(selectedMonth)
@@ -508,6 +597,65 @@ export default function RelatorioInadimplencia() {
                     </ListTooltip>
                   </div>
                 </div>
+              </div>
+            </section>
+            <section className="recovery-section">
+              <div className="section-heading">
+                <div><span className="section-kicker recovery-kicker">02</span><div><h3>Recuperação por semana</h3><p>Atualizações registradas no Histórico de Alterações durante {formatMonth(selectedMonth)}.</p></div></div>
+              </div>
+              <div className="recovery-table-wrap">
+                <table className="recovery-table">
+                  <thead>
+                    <tr>
+                      <th>Semana</th>
+                      <th>Recuperado</th>
+                      <th>Seguros acionados</th>
+                      <th>Seguros aprovados</th>
+                      <th>Pago pela seguradora</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recoveryMetrics.weeks.map(week => (
+                      <tr key={week.label}>
+                        <td className="recovery-week-label">{week.label}</td>
+                        <td><ListTooltip title={`Recuperado · ${week.label}`} items={week.items.recovered} emptyLabel="Nenhuma recuperação"><span className="recovery-value recovery-value-green">{formatMoney(week.totals.recovered)}</span></ListTooltip></td>
+                        <td><ListTooltip title={`Seguros acionados · ${week.label}`} items={week.items.activated} emptyLabel="Nenhum seguro acionado"><span className="recovery-value">{formatMoney(week.totals.activated)}</span></ListTooltip></td>
+                        <td><ListTooltip title={`Seguros aprovados · ${week.label}`} items={week.items.approved} emptyLabel="Nenhum seguro aprovado"><span className="recovery-value">{formatMoney(week.totals.approved)}</span></ListTooltip></td>
+                        <td><ListTooltip title={`Pago pela seguradora · ${week.label}`} items={week.items.insurerPaid} emptyLabel="Nenhum pagamento pela seguradora"><span className="recovery-value recovery-value-blue">{formatMoney(week.totals.insurerPaid)}</span></ListTooltip></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="reference-heading">
+                <h4>Recuperado por mês de referência</h4>
+                <span>Identifica a que mês pertence cada alteração.</span>
+              </div>
+              <div className="recovery-table-wrap">
+                <table className="recovery-table reference-table">
+                  <thead>
+                    <tr>
+                      <th>Mês de referência</th>
+                      <th>Recuperado</th>
+                      <th>Seguros acionados</th>
+                      <th>Seguros aprovados</th>
+                      <th>Pago pela seguradora</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recoveryMetrics.byReference.length === 0 ? (
+                      <tr><td colSpan="5" className="recovery-empty-cell">Nenhuma alteração de recuperação registrada neste mês.</td></tr>
+                    ) : recoveryMetrics.byReference.map(reference => (
+                      <tr key={reference.referenceMonth}>
+                        <td className="recovery-week-label">{reference.referenceMonth === 'sem_mes' ? 'Sem mês informado' : formatMonth(reference.referenceMonth)}</td>
+                        <td>{formatMoney(reference.recovered)}</td>
+                        <td>{formatMoney(reference.activated)}</td>
+                        <td>{formatMoney(reference.approved)}</td>
+                        <td>{formatMoney(reference.insurerPaid)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
           </>
