@@ -417,19 +417,21 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
         key: tenantKey,
         name: debit.inquilinoNome || tenant?.nome || 'Inquilino não informado',
         value: 0,
+        recordCount: 0,
         referenceMonthValue: 0,
       }
     }
     groups[tenantKey].value += openValueOf(debit)
-    if (debit.mesReferencia === month) groups[tenantKey].referenceMonthValue += openValueOf(debit)
+    groups[tenantKey].recordCount += 1
+    if (debit.mesReferencia === month) groups[tenantKey].referenceMonthValue += 1
     return groups
-  }, {})).sort((a, b) => b.value - a.value).slice(0, 10)
+  }, {})).filter(item => item.referenceMonthValue > 0).sort((a, b) => b.recordCount - a.recordCount || b.value - a.value).slice(0, 10)
   const [reportYear, reportMonth] = month.split('-').map(Number)
   const anniversaryMonths = [0, 1, 2].map(offset => {
     const date = new Date(reportYear, reportMonth - 1 + offset, 1)
     return { key: monthKeyFromDate(date), year: date.getFullYear(), month: date.getMonth() }
   })
-  const contractAnniversaryItems = tenants.map(tenant => {
+  const contractAnniversaryItems = tenants.filter(tenant => tenant.status === 'Ativo').map(tenant => {
     const entryDate = tenant.dataEntrada
     const parsedEntryDate = entryDate ? new Date(`${entryDate}T00:00:00`) : null
     const tenantDebits = debits.filter(debit => debit.inquilinoId === tenant.id)
@@ -875,19 +877,19 @@ export default function RelatorioInadimplencia() {
             </section>
             <section className="blacklist-section">
               <div className="section-heading">
-                <div><span className="section-kicker blacklist-kicker">04</span><div><h3>BlackList</h3><p>Reanálise de crédito e concentração da inadimplência aberta em {formatMonth(selectedMonth)}.</p></div></div>
+                <div><span className="section-kicker blacklist-kicker">04</span><div><h3>BlackList</h3><p>10 inquilinos ativos com mais registros de inadimplência e ocorrência em {formatMonth(selectedMonth)}.</p></div></div>
               </div>
               <div className="blacklist-list">
-                {metrics.blacklistItems.length === 0 ? <div className="recovery-empty-cell">Nenhum inadimplente ativo em aberto.</div> : metrics.blacklistItems.map(item => (
+                {metrics.blacklistItems.length === 0 ? <div className="recovery-empty-cell">Nenhum inquilino ativo possui registro de inadimplência neste mês.</div> : metrics.blacklistItems.map(item => (
                   <div className="blacklist-item" key={item.key}>
                     <strong>{item.name}</strong>
-                    <span>{formatMoney(item.value)} em aberto</span>
-                    <small className={item.referenceMonthValue > 0 ? 'blacklist-reference-yes' : 'blacklist-reference-no'}>Mês referente: {item.referenceMonthValue > 0 ? 'Sim' : 'Não'}</small>
+                    <span>{item.recordCount} inadimplência{item.recordCount === 1 ? '' : 's'} registrada{item.recordCount === 1 ? '' : 's'}</span>
+                    <small className={item.referenceMonthValue > 0 ? 'blacklist-reference-yes' : 'blacklist-reference-no'}>Mês referente: {item.referenceMonthValue > 0 ? `${item.referenceMonthValue} registro${item.referenceMonthValue === 1 ? '' : 's'}` : 'Não'}</small>
                   </div>
                 ))}
               </div>
               <div className="contract-anniversary-block">
-                <div className="blacklist-subheading"><strong>Contratos completando 1 ou mais anos</strong><span>Inquilinos com inadimplências registradas e aniversário contratual entre {formatMonth(selectedMonth)} e os próximos 2 meses</span></div>
+                <div className="blacklist-subheading"><strong>Contratos completando 1 ou mais anos</strong><span>Inquilinos ativos com inadimplências registradas e aniversário contratual entre {formatMonth(selectedMonth)} e os próximos 2 meses</span></div>
                 <div className="contract-anniversary-list">
                   {metrics.contractAnniversaryItems.length === 0 ? <div className="recovery-empty-cell">Nenhum contrato com inadimplência completa aniversário neste mês.</div> : metrics.contractAnniversaryItems.map(item => (
                     <div className="contract-anniversary-item" key={item.key}>
