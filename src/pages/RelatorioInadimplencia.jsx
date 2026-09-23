@@ -60,6 +60,22 @@ const previousMonthKey = month => {
   return monthKeyFromDate(new Date(year, value - 2, 1))
 }
 
+const isDashboardRecovered = debit => (
+  debit.status === 'pago' ||
+  debit.status === 'pago_caucao' ||
+  debit.seguroAcionado === 'pago_pela_seguradora'
+)
+
+const buildBalance = (debits, months) => {
+  const periodDebits = debits.filter(debit => months.includes(debit.mesReferencia))
+  const total = periodDebits.reduce((sum, debit) => sum + dashboardDebtValue(debit), 0)
+  const recovered = periodDebits
+    .filter(isDashboardRecovered)
+    .reduce((sum, debit) => sum + dashboardDebtValue(debit), 0)
+
+  return { total, recovered, open: Math.max(0, total - recovered) }
+}
+
 const buildForecast = (debits, months, limit) => {
   const periodDebits = debits.filter(debit => months.includes(debit.mesReferencia))
   const paymentApproved = periodDebits
@@ -82,19 +98,22 @@ const buildForecast = (debits, months, limit) => {
 const calculateMetrics = (debits, tenants, month, percentage) => {
   const tenantMap = Object.fromEntries(tenants.map(tenant => [tenant.id, tenant]))
   const monthDebits = debits.filter(debit => debit.mesReferencia === month)
-  const openDebits = monthDebits.filter(isOpen)
-  const openBalance = openDebits.reduce((sum, debit) => sum + openValueOf(debit), 0)
+  const balance = buildBalance(debits, [month])
+  const openBalance = balance.open
   const nextMonthStart = monthEndDate(month)
   const nextMonth = monthKeyFromDate(nextMonthStart)
   const nextMonthFirst = `${nextMonth}-01`
   const forecast = buildForecast(debits, [month], nextMonthFirst)
   const forecastWithPreviousMonth = buildForecast(debits, [month, previousMonthKey(month)], nextMonthFirst)
+  const balanceWithPreviousMonth = buildBalance(debits, [month, previousMonthKey(month)])
   const unguaranteedDebits = monthDebits.filter(debit => normalizedValue(getGuaranteeKey(debit, tenantMap)) === 'sem_garantia')
 
   return {
     openBalance,
     forecast,
     forecastWithPreviousMonth,
+    balance,
+    balanceWithPreviousMonth,
     unguaranteedTotal: unguaranteedDebits.reduce((sum, debit) => sum + dashboardDebtValue(debit), 0),
     unguaranteedOpen: unguaranteedDebits
       .filter(debit => !isExposurePaid(debit))
@@ -269,44 +288,63 @@ export default function RelatorioInadimplencia() {
                 <span className="debit-count">{metrics.count} {metrics.count === 1 ? 'inadimplência' : 'inadimplências'}</span>
               </div>
               <div className="summary-grid">
-                <article className="summary-card accent-blue">
-                  <span>Inadimplência projetada para o fechamento</span>
-                  <strong>{percentage}%</strong>
-                  <div className="percentage-editor">
-                    <Input type="number" min="0" max="100" step="0.01" value={percentageDraft} onChange={event => setPercentageDraft(event.target.value)} aria-label="Percentual projetado" />
-                    <span>%</span>
-                    <Button type="button" size="sm" onClick={savePercentage} disabled={savingPercentage}>{savingPercentage ? 'Salvando' : 'Salvar'}</Button>
-                  </div>
-                  <small>Projeção de {formatMoney(metrics.projected)} sobre o saldo aberto</small>
-                </article>
-                <article className="summary-card accent-amber">
-                  <span>Saldo em aberto hoje</span>
-                  <strong>{formatMoney(metrics.openBalance)}</strong>
-                  <small>Débitos não recuperados do mês</small>
-                </article>
-                <article className="summary-card accent-green">
-                  <span>Previsto para receber até 01/{nextMonth.slice(5)}/{nextMonth.slice(0, 4)}</span>
-                  <strong>{formatMoney(metrics.forecast.total)}</strong>
-                  <div className="forecast-breakdown">
-                    <small>Pagamento aprovado: <b>{formatMoney(metrics.forecast.paymentApproved)}</b></small>
-                    <small>Acordos: <b>{formatMoney(metrics.forecast.agreements)}</b></small>
-                  </div>
-                  <small className="forecast-source">Somente inadimplências de {formatMonth(selectedMonth)}</small>
-                </article>
-                <article className="summary-card accent-green forecast-previous-card">
-                  <span>Previsto até 01/{nextMonth.slice(5)}/{nextMonth.slice(0, 4)} com mês anterior</span>
-                  <strong>{formatMoney(metrics.forecastWithPreviousMonth.total)}</strong>
-                  <div className="forecast-breakdown">
-                    <small>Pagamento aprovado: <b>{formatMoney(metrics.forecastWithPreviousMonth.paymentApproved)}</b></small>
-                    <small>Acordos: <b>{formatMoney(metrics.forecastWithPreviousMonth.agreements)}</b></small>
-                  </div>
-                  <small className="forecast-source">Inadimplências de {formatMonth(selectedMonth)} + {formatMonth(previousMonthKey(selectedMonth))}</small>
-                </article>
-                <article className="summary-card accent-red">
-                  <span>Exposição líquida</span>
-                  <strong>{formatMoney(metrics.unguaranteedOpen)}</strong>
-                  <small>Total: {formatMoney(metrics.unguaranteedTotal)} <br/> Recuperado: {formatMoney(metrics.unguaranteedRecovered)}</small>
-                </article>
+                <div className="summary-row summary-row-single">
+                  <article className="summary-card accent-blue">
+                    <span>Inadimplência projetada para o fechamento</span>
+                    <strong>{percentage}%</strong>
+                    <div className="percentage-editor">
+                      <Input type="number" min="0" max="100" step="0.01" value={percentageDraft} onChange={event => setPercentageDraft(event.target.value)} aria-label="Percentual projetado" />
+                      <span>%</span>
+                      <Button type="button" size="sm" onClick={savePercentage} disabled={savingPercentage}>{savingPercentage ? 'Salvando' : 'Salvar'}</Button>
+                    </div>
+                    <small>Projeção de {formatMoney(metrics.projected)} sobre o saldo aberto</small>
+                  </article>
+                </div>
+                <div className="summary-row">
+                  <article className="summary-card accent-amber">
+                    <span>Saldo ({formatMonth(selectedMonth)})</span>
+                    <div className="balance-breakdown">
+                      <small>Total: <b>{formatMoney(metrics.balance.total)}</b></small>
+                      <small>Recuperado: <b>{formatMoney(metrics.balance.recovered)}</b></small>
+                      <small>Em aberto: <b>{formatMoney(metrics.balance.open)}</b></small>
+                    </div>
+                  </article>
+                  <article className="summary-card accent-amber">
+                    <span>Saldo ({formatMonth(selectedMonth)} + mês anterior)</span>
+                    <div className="balance-breakdown">
+                      <small>Total: <b>{formatMoney(metrics.balanceWithPreviousMonth.total)}</b></small>
+                      <small>Recuperado: <b>{formatMoney(metrics.balanceWithPreviousMonth.recovered)}</b></small>
+                      <small>Em aberto: <b>{formatMoney(metrics.balanceWithPreviousMonth.open)}</b></small>
+                    </div>
+                  </article>
+                </div>
+                <div className="summary-row">
+                  <article className="summary-card accent-green">
+                    <span>Previsto para receber até 01/{nextMonth.slice(5)}/{nextMonth.slice(0, 4)}</span>
+                    <strong>{formatMoney(metrics.forecast.total)}</strong>
+                    <div className="forecast-breakdown">
+                      <small>Pagamento aprovado: <b>{formatMoney(metrics.forecast.paymentApproved)}</b></small>
+                      <small>Acordos: <b>{formatMoney(metrics.forecast.agreements)}</b></small>
+                    </div>
+                    <small className="forecast-source">Somente inadimplências de {formatMonth(selectedMonth)}</small>
+                  </article>
+                  <article className="summary-card accent-green">
+                    <span>Previsto até 01/{nextMonth.slice(5)}/{nextMonth.slice(0, 4)} com mês anterior</span>
+                    <strong>{formatMoney(metrics.forecastWithPreviousMonth.total)}</strong>
+                    <div className="forecast-breakdown">
+                      <small>Pagamento aprovado: <b>{formatMoney(metrics.forecastWithPreviousMonth.paymentApproved)}</b></small>
+                      <small>Acordos: <b>{formatMoney(metrics.forecastWithPreviousMonth.agreements)}</b></small>
+                    </div>
+                    <small className="forecast-source">Inadimplências de {formatMonth(selectedMonth)} + {formatMonth(previousMonthKey(selectedMonth))}</small>
+                  </article>
+                </div>
+                <div className="summary-row summary-row-single">
+                  <article className="summary-card accent-red">
+                    <span>Exposição líquida</span>
+                    <strong>{formatMoney(metrics.unguaranteedOpen)}</strong>
+                    <small>Total: {formatMoney(metrics.unguaranteedTotal)} <br /> Recuperado: {formatMoney(metrics.unguaranteedRecovered)}</small>
+                  </article>
+                </div>
               </div>
             </section>
           </>
