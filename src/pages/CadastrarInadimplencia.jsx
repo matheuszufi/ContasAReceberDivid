@@ -49,13 +49,6 @@ const TIPOS_EVENTO = [
   { value: 'Acordo realizado',        icon: '🤝', color: '#b191fd' },
 ]
 
-const EVENTO_STATUS_MAP = {
-  'Quitado':              'Pago',
-  'Acordo realizado':     'Acordo',
-  'Encaminhado jurídico': 'Protestado',
-  'Pagamento parcial':    'Em Negociação',
-}
-
 function fmtDate(iso) {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -171,11 +164,6 @@ export default function CadastrarInadimplencia() {
         ...(documentos.length ? { documentos } : {}),
         criadoEm:   new Date().toISOString(),
       })
-      const newStatus = EVENTO_STATUS_MAP[tipoEvento]
-      if (newStatus) {
-        await update(ref(db, `inadimplencias/${id}`), { status: newStatus, atualizadoEm: new Date().toISOString() })
-        setForm(prev => ({ ...prev, status: newStatus }))
-      }
       setDescricaoEvento('')
       setDataAcordada('')
       setDocumentosSolicitados([])
@@ -457,11 +445,6 @@ export default function CadastrarInadimplencia() {
                         ))}
                       </div>
                     )}
-                  </div>
-                )}
-                {EVENTO_STATUS_MAP[tipoEvento] && (
-                  <div className="info-banner" style={{ marginBottom: 12 }}>
-                    <p style={{ margin: 0 }}>Este evento atualizará o status para <strong>{EVENTO_STATUS_MAP[tipoEvento]}</strong>.</p>
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

@@ -43,6 +43,7 @@ const SEGURO_ACIONADO_OPCOES = [
   { value: 'aguardar_para_acionar', label: 'Aguardar para Acionar', bg: '#adadad8a', color: '#555555', border: '#585858' },
   { value: 'necessita_documentos',  label: 'Necessita Documentos',  bg: '#fffbeb', color: '#b45309', border: '#fde68a' },
   { value: 'pagamento_aprovado',    label: 'Pagamento Aprovado',    bg: '#f0fdf4', color: '#166534', border: '#86efac' },
+  { value: 'pago',                  label: 'Pago',                  bg: '#dcfce7', color: '#166534', border: '#4ade80' },
   { value: 'pago_pela_seguradora',  label: 'Pago pela seguradora',  bg: '#ecfeff', color: '#0e7490', border: '#67e8f9' },
   { value: 'pagamento_reprovado',   label: 'Pagamento Reprovado',   bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
   { value: 'juridico',   label: 'Jurídico',   bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
