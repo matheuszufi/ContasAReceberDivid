@@ -47,13 +47,6 @@ const TIPOS_EVENTO = [
   { value: 'Documentação solicitada', icon: '📄', color: '#eab308' },
   { value: 'Notificação enviada',     icon: '📨', color: '#f59e0b' },
   { value: 'Acordo realizado',        icon: '🤝', color: '#b191fd' },
-  { value: 'Pagamento parcial',       icon: '💰', color: '#8fdcab' },
-  { value: 'Encaminhado jurídico',    icon: '⚖️', color: '#ef4444' },
-  { value: 'Seguro acionado',         icon: '🛡️', color: '#0ea5e9' },
-  { value: 'Seguro aprovado',         icon: '✅', color: '#16a34a' },
-  { value: 'Seguro reprovado',        icon: '❌', color: '#dc2626' },
-  { value: 'Quitado',                 icon: '✅', color: '#22c55e' },
-  { value: 'Outros',                  icon: '📌', color: '#94a3b8' },
 ]
 
 const EVENTO_STATUS_MAP = {
@@ -84,6 +77,7 @@ export default function CadastrarInadimplencia() {
   const [timeline, setTimeline] = useState([])
   const [tipoEvento, setTipoEvento] = useState('Observação')
   const [descricaoEvento, setDescricaoEvento] = useState('')
+  const [dataAcordada, setDataAcordada] = useState('')
   const [documentosSolicitados, setDocumentosSolicitados] = useState([])
   const [documentoInput, setDocumentoInput] = useState('')
   const [savingEvento, setSavingEvento] = useState(false)
@@ -138,7 +132,11 @@ export default function CadastrarInadimplencia() {
     }))
   }
 
-  const tipoMeta = (t) => TIPOS_EVENTO.find(e => e.value === t) || TIPOS_EVENTO[TIPOS_EVENTO.length - 1]
+  const tipoMeta = (t) => {
+    if (t === 'Acordo cumprido') return { icon: '✅', color: '#16a34a' }
+    if (t === 'Acordo não cumprido') return { icon: '⚠️', color: '#dc2626' }
+    return TIPOS_EVENTO.find(e => e.value === t) || TIPOS_EVENTO[0]
+  }
 
   const handleAddDocumento = () => {
     const nome = documentoInput.trim()
@@ -160,6 +158,7 @@ export default function CadastrarInadimplencia() {
   const handleAddEvento = async (e) => {
     e.preventDefault()
     if (!descricaoEvento.trim() || savingEvento) return
+    if (tipoEvento === 'Acordo realizado' && !dataAcordada) return
     setSavingEvento(true)
     try {
       const documentos = tipoEvento === 'Documentação solicitada'
@@ -168,6 +167,7 @@ export default function CadastrarInadimplencia() {
       await push(ref(db, `inadimplencias/${id}/timeline`), {
         tipo:       tipoEvento,
         descricao:  descricaoEvento.trim(),
+        ...(tipoEvento === 'Acordo realizado' ? { dataAcordada } : {}),
         ...(documentos.length ? { documentos } : {}),
         criadoEm:   new Date().toISOString(),
       })
@@ -177,8 +177,27 @@ export default function CadastrarInadimplencia() {
         setForm(prev => ({ ...prev, status: newStatus }))
       }
       setDescricaoEvento('')
+      setDataAcordada('')
       setDocumentosSolicitados([])
       setDocumentoInput('')
+    } finally {
+      setSavingEvento(false)
+    }
+  }
+
+  const handleAgreementStatus = async (evento, status) => {
+    const statusLabel = status === 'pago' ? 'cumprido' : 'não cumprido'
+    if (savingEvento || !window.confirm(`Informar que este acordo foi ${statusLabel}?`)) return
+    setSavingEvento(true)
+    try {
+      await push(ref(db, `inadimplencias/${id}/timeline`), {
+        tipo: status === 'pago' ? 'Acordo cumprido' : 'Acordo não cumprido',
+        descricao: status === 'pago' ? 'Acordo realizado foi cumprido.' : 'Acordo realizado não foi cumprido.',
+        acordoEventoId: evento.key,
+        statusAcordo: status,
+        ...(evento.dataAcordada ? { dataAcordada: evento.dataAcordada } : {}),
+        criadoEm: new Date().toISOString(),
+      })
     } finally {
       setSavingEvento(false)
     }
@@ -392,6 +411,17 @@ export default function CadastrarInadimplencia() {
                       required
                     />
                   </div>
+                  {tipoEvento === 'Acordo realizado' && (
+                    <div className="form-group">
+                      <label>Data acordada *</label>
+                      <input
+                        type="date"
+                        value={dataAcordada}
+                        onChange={e => setDataAcordada(e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
                 </div>
                 {tipoEvento === 'Documentação solicitada' && (
                   <div className="form-group" style={{ marginBottom: 12 }}>
@@ -459,6 +489,9 @@ export default function CadastrarInadimplencia() {
                 <ul className="timeline">
                   {timeline.map((evento, idx) => {
                     const meta = tipoMeta(evento.tipo)
+                    const acordoResolucao = evento.tipo === 'Acordo realizado'
+                      ? timeline.find(item => item.acordoEventoId === evento.key)
+                      : null
                     return (
                       <li key={evento.key || idx} className="timeline-item">
                         <div className="timeline-icon" style={{ background: meta.color }}>
@@ -472,9 +505,25 @@ export default function CadastrarInadimplencia() {
                           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12}}>
                             <p className="timeline-text" style={{ margin: 0 }}>
                               {evento.descricao}
+                              {evento.dataAcordada && <><br /><strong>Data acordada:</strong> {new Date(`${evento.dataAcordada}T00:00:00`).toLocaleDateString('pt-BR')}</>}
                               {evento.documentos?.length > 0 && <><br /><strong>Documentos:</strong> {evento.documentos.join(', ')}</>}
                             </p>
-                            <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDeleteEvento(evento.key)} style={{whiteSpace: 'nowrap'}}>Excluir</button>
+                            <div className="timeline-actions">
+                              {evento.tipo === 'Acordo realizado' && !acordoResolucao && (
+                                <>
+                                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleAgreementStatus(evento, 'pago')} disabled={savingEvento} style={{whiteSpace: 'nowrap'}}>
+                                    Informar cumprimento
+                                  </button>
+                                  <button type="button" className="btn btn-sm btn-danger" onClick={() => handleAgreementStatus(evento, 'nao_cumprido')} disabled={savingEvento} style={{whiteSpace: 'nowrap'}}>
+                                    Informar não cumprimento
+                                  </button>
+                                </>
+                              )}
+                              {evento.tipo === 'Acordo realizado' && acordoResolucao && (
+                                <span className="timeline-status">{acordoResolucao.statusAcordo === 'pago' ? 'Acordo cumprido' : 'Acordo não cumprido'}</span>
+                              )}
+                              <button type="button" className="btn btn-sm btn-danger" onClick={() => handleDeleteEvento(evento.key)} style={{whiteSpace: 'nowrap'}}>Excluir</button>
+                            </div>
                           </div>
                         </div>
                       </li>

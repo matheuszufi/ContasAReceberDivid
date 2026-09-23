@@ -116,6 +116,12 @@
 .forecast-breakdown { display: grid; gap: 3px; margin: 7px 0 5px; }
 .forecast-breakdown small { display: block; }
 .forecast-breakdown b { color: #334155; font-weight: 750; }
+.forecast-tooltip-trigger { width: fit-content; border: 0; padding: 0; background: transparent; color: #64748b; cursor: help; font: inherit; font-size: 11px; text-align: left; }
+.forecast-tooltip-trigger:hover { color: #166534; text-decoration: underline; }
+.forecast-tooltip-content { max-width: min(360px, calc(100vw - 32px)); background: #14532d !important; color: #f0fdf4 !important; }
+.forecast-tooltip-list { display: grid; gap: 4px; max-height: 220px; overflow-y: auto; }
+.forecast-tooltip-list strong { color: #bbf7d0; font-size: 12px; }
+.forecast-tooltip-list span { color: #f0fdf4; font-size: 11px; line-height: 1.35; }
 .forecast-source { display: block; }
 .balance-breakdown { display: grid; gap: 5px; margin-top: 12px; }
 .balance-breakdown small { display: flex; justify-content: space-between; gap: 10px; }
@@ -124,6 +130,17 @@
 .summary-card.accent-amber::before { background: #d97706; }
 .summary-card.accent-green::before { background: #16a34a; }
 .summary-card.accent-red::before { background: #dc2626; }
+.agreement-breakdown { display: grid; gap: 9px; border: 1px solid #dbe3ef; border-left: 4px solid #64748b; border-radius: 8px; padding: 10px 14px; background: #f8fafc; }
+.agreement-heading { display: flex; align-items: baseline; gap: 9px; }
+.agreement-heading span { color: #334155; font-size: 12px; font-weight: 750; }
+.agreement-heading small { color: #64748b; font-size: 11px; }
+.agreement-heading strong { margin-left: auto; color: #b91c1c; font-size: 12px; }
+.agreement-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.agreement-stat { border-radius: 6px; padding: 7px 9px; font-size: 11px; font-weight: 650; }
+.agreement-stat b { margin-right: 4px; font-size: 16px; }
+.agreement-stat-danger { background: #fef2f2; color: #b91c1c; }
+.agreement-stat-warning { background: #fffbeb; color: #a16207; }
+.agreement-stat-success { background: #f0fdf4; color: #15803d; }
 
 .report-empty {
   display: flex;
@@ -169,4 +186,5 @@
   .summary-grid { grid-template-columns: 1fr; }
   .summary-card { min-height: 142px; }
   .report-navigation { gap: 7px; padding: 7px; }
+  .agreement-stats { grid-template-columns: 1fr; }
 }

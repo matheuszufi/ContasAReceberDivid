@@ -5,6 +5,7 @@ import { db, auth } from '../firebase'
 import Layout from '../components/Layout'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../components/ui/tooltip'
 import './RelatorioInadimplencia.css'
 
 const RECUPERADO = new Set(['pago', 'pago_caucao'])
@@ -91,12 +92,46 @@ const buildForecast = (debits, months, limit) => {
     .filter(debit => debit.seguroAcionado !== 'pagamento_aprovado' && debit.seguroAcionado !== 'pago_pela_seguradora')
     .filter(debit => debit.ultimaCobranca && debit.ultimaCobranca <= limit)
   const sumValues = list => list.reduce((sum, debit) => sum + dashboardDebtValue(debit), 0)
+  const items = list => list.map(debit => ({
+    name: debit.inquilinoNome || debit.inquilinoId || 'Inquilino não informado',
+    type: debit.tipoDebito || 'Débito',
+    month: debit.mesReferencia,
+    value: dashboardDebtValue(debit),
+  }))
 
   return {
     paymentApproved: sumValues(paymentApproved),
     agreements: sumValues(agreements),
     total: sumValues(paymentApproved) + sumValues(agreements),
+    paymentApprovedItems: items(paymentApproved),
+    agreementItems: items(agreements),
   }
+}
+
+function ForecastTooltip({ label, value, items }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" className="forecast-tooltip-trigger">
+            {label}: <b>{formatMoney(value)}</b>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="start" className="forecast-tooltip-content">
+          <div className="forecast-tooltip-list">
+            <strong>{label}</strong>
+            {items.length === 0 ? (
+              <span>Nenhuma inadimplência</span>
+            ) : items.map((item, index) => (
+              <span key={`${item.name}-${item.type}-${index}`}>
+                {item.name} · {item.type} · {formatMoney(item.value)}
+              </span>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
 }
 
 const calculateMetrics = (debits, tenants, month, percentage) => {
@@ -120,6 +155,24 @@ const calculateMetrics = (debits, tenants, month, percentage) => {
   const recoveryToProjected = Math.max(0, balance.open - projectedValue)
   const unguaranteedOpen = unguaranteedDebits.reduce((sum, debit) => sum + openValueOf(debit), 0)
   const unguaranteedTotal = unguaranteedDebits.reduce((sum, debit) => sum + dashboardDebtValue(debit), 0)
+  const agreementEvents = monthDebits.flatMap(debit => Object.entries(debit.timeline || {}).map(([key, event]) => ({ key, ...event })))
+  const agreementMadeEvents = agreementEvents.filter(event => event.tipo === 'Acordo realizado')
+  const agreementStatuses = agreementMadeEvents.map(agreement => {
+    const resolution = agreementEvents
+      .filter(event => (
+        event.acordoEventoId === agreement.key ||
+        (!event.acordoEventoId && ['Acordo cumprido', 'Acordo não cumprido'].includes(event.tipo) && event.dataAcordada === agreement.dataAcordada && new Date(event.criadoEm) >= new Date(agreement.criadoEm))
+      ))
+      .sort((a, b) => new Date(a.criadoEm) - new Date(b.criadoEm))
+      .at(-1)
+    if (resolution?.statusAcordo === 'pago' || resolution?.tipo === 'Acordo cumprido') return 'pago'
+    if (resolution?.statusAcordo === 'nao_cumprido' || resolution?.tipo === 'Acordo não cumprido') return 'nao_cumprido'
+    return 'aberto'
+  })
+  const agreementMadeCount = agreementStatuses.length
+  const agreementPaidCount = agreementStatuses.filter(status => status === 'pago').length
+  const agreementBrokenCount = agreementStatuses.filter(status => status === 'nao_cumprido').length
+  const agreementOpenCount = agreementStatuses.filter(status => status === 'aberto').length
 
   return {
     openBalance,
@@ -138,6 +191,11 @@ const calculateMetrics = (debits, tenants, month, percentage) => {
     projectedValue,
     recoveryToProjected,
     revenue,
+    agreementMadeCount,
+    agreementPaidCount,
+    agreementOpenCount,
+    agreementBrokenCount,
+    agreementBreakRate: agreementMadeCount > 0 ? (agreementBrokenCount / agreementMadeCount) * 100 : 0,
     count: monthDebits.length,
   }
 }
@@ -354,8 +412,8 @@ export default function RelatorioInadimplencia() {
                     <span>Previsto para receber até 01/{nextMonth.slice(5)}/{nextMonth.slice(0, 4)}</span>
                     <strong>{formatMoney(metrics.forecast.total)}</strong>
                     <div className="forecast-breakdown">
-                      <small>Pagamento aprovado: <b>{formatMoney(metrics.forecast.paymentApproved)}</b></small>
-                      <small>Acordos: <b>{formatMoney(metrics.forecast.agreements)}</b></small>
+                      <ForecastTooltip label="Pagamento aprovado" value={metrics.forecast.paymentApproved} items={metrics.forecast.paymentApprovedItems} />
+                      <ForecastTooltip label="Acordos" value={metrics.forecast.agreements} items={metrics.forecast.agreementItems} />
                     </div>
                     <small className="forecast-source">Somente inadimplências de {formatMonth(selectedMonth)}</small>
                   </article>
@@ -363,8 +421,8 @@ export default function RelatorioInadimplencia() {
                     <span>Previsto até 01/{nextMonth.slice(5)}/{nextMonth.slice(0, 4)} com mês anterior</span>
                     <strong>{formatMoney(metrics.forecastWithPreviousMonth.total)}</strong>
                     <div className="forecast-breakdown">
-                      <small>Pagamento aprovado: <b>{formatMoney(metrics.forecastWithPreviousMonth.paymentApproved)}</b></small>
-                      <small>Acordos: <b>{formatMoney(metrics.forecastWithPreviousMonth.agreements)}</b></small>
+                      <ForecastTooltip label="Pagamento aprovado" value={metrics.forecastWithPreviousMonth.paymentApproved} items={metrics.forecastWithPreviousMonth.paymentApprovedItems} />
+                      <ForecastTooltip label="Acordos" value={metrics.forecastWithPreviousMonth.agreements} items={metrics.forecastWithPreviousMonth.agreementItems} />
                     </div>
                     <small className="forecast-source">Inadimplências de {formatMonth(selectedMonth)} + {formatMonth(previousMonthKey(selectedMonth))}</small>
                   </article>
@@ -380,6 +438,18 @@ export default function RelatorioInadimplencia() {
                     <strong>{metrics.unguaranteedExposureRate.toFixed(2)}% da carteira <small>({formatMoney(metrics.revenue)})</small></strong>
                     <small>Valor em aberto: {formatMoney(metrics.unguaranteedOpen)}<br />Total: {formatMoney(metrics.unguaranteedTotal)} ({metrics.unguaranteedTotalRate.toFixed(2)}% da carteira)<br /> Recuperado: {formatMoney(metrics.unguaranteedRecovered)}</small>
                   </article>
+                </div>
+                <div className="agreement-breakdown">
+                  <div className="agreement-heading">
+                    <span>Acordos</span>
+                    <small>{metrics.agreementMadeCount} registrado{metrics.agreementMadeCount === 1 ? '' : 's'}</small>
+                    <strong>{metrics.agreementBreakRate.toFixed(2)}% de quebra</strong>
+                  </div>
+                  <div className="agreement-stats">
+                    <span className="agreement-stat agreement-stat-danger"><b>{metrics.agreementBrokenCount}</b> não cumprido{metrics.agreementBrokenCount === 1 ? '' : 's'}</span>
+                    <span className="agreement-stat agreement-stat-warning"><b>{metrics.agreementOpenCount}</b> em aberto</span>
+                    <span className="agreement-stat agreement-stat-success"><b>{metrics.agreementPaidCount}</b> pago{metrics.agreementPaidCount === 1 ? '' : 's'}</span>
+                  </div>
                 </div>
               </div>
             </section>
