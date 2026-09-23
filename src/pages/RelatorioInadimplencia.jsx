@@ -35,6 +35,24 @@ const dashboardDebtValue = debit => {
   return received > 0 ? received : totalOf(debit)
 }
 const normalizedValue = value => String(value || '').trim().toLowerCase().replace(/\s+/g, '_')
+const guaranteeLabels = {
+  sem_garantia: 'Sem garantia',
+  caucao: 'Caução',
+  adiantamento: 'Adiantamento',
+  seguro: 'Seguro fiança',
+  carta_fianca: 'Carta fiança',
+}
+const statusLabels = {
+  pendente: 'Pendente',
+  acordo: 'Acordo',
+  pago: 'Pago',
+  pago_caucao: 'Pago com caução',
+  juridico: 'Jurídico',
+  seguro_aprovado: 'Seguro aprovado',
+  pagamento_aprovado: 'Pagamento aprovado',
+  pagamento_reprovado: 'Pagamento reprovado',
+  pago_pela_seguradora: 'Pago pela seguradora',
+}
 const isExposurePaid = debit => normalizedValue(debit.status) === 'pago'
 const getGuaranteeKey = (debit, tenantMap) => tenantMap[debit.inquilinoId]?.garantia || debit.garantia || 'sem_garantia'
 const recoveredOf = debit => {
@@ -45,6 +63,13 @@ const recoveredOf = debit => {
 }
 const openValueOf = debit => Math.max(0, totalOf(debit) - recoveredOf(debit))
 const isOpen = debit => openValueOf(debit) > 0
+const daysBetween = (start, end) => {
+  if (!start || !end) return null
+  const startDate = new Date(`${start}T00:00:00`)
+  const endDate = new Date(`${end}T00:00:00`)
+  const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24))
+  return Number.isFinite(days) && days >= 0 ? days : null
+}
 
 const monthEndDate = month => {
   const [year, value] = month.split('-').map(Number)
@@ -158,6 +183,26 @@ function ListTooltip({ children, title, items, emptyLabel }) {
   )
 }
 
+function ReceivingTimeTooltip({ items }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" className="recovery-value recovery-value-green">{items.length} recebido{items.length === 1 ? '' : 's'}</button>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="start" className="forecast-tooltip-content">
+          <div className="forecast-tooltip-list">
+            <strong>Tempo por inadimplência</strong>
+            {items.length === 0 ? <span>Nenhuma inadimplência paga no mês</span> : items.map((item, index) => (
+              <span key={`${item.name}-${index}`}>{item.name} · {item.days} dia{item.days === 1 ? '' : 's'} para pagar</span>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
 const normalizeHistoryValue = value => String(value || '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
@@ -237,8 +282,9 @@ const buildRecoveryMetrics = (history, month) => {
   return { weeks, byReference }
 }
 
-const calculateMetrics = (debits, tenants, month, percentage) => {
+const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const tenantMap = Object.fromEntries(tenants.map(tenant => [tenant.id, tenant]))
+  const propertyMap = Object.fromEntries(properties.map(property => [property.id, property]))
   const monthDebits = debits.filter(debit => debit.mesReferencia === month)
   const balance = buildBalance(debits, [month])
   const openBalance = balance.open
@@ -284,7 +330,12 @@ const calculateMetrics = (debits, tenants, month, percentage) => {
     let status = 'aberto'
     if (resolution?.statusAcordo === 'pago' || resolution?.tipo === 'Acordo cumprido') status = 'pago'
     else if (resolution?.statusAcordo === 'nao_cumprido' || resolution?.tipo === 'Acordo não cumprido') status = 'nao_cumprido'
-    return { status, ...debitItem(agreement.debit) }
+    return {
+      status,
+      debit: agreement.debit,
+      tenantKey: agreement.debit.inquilinoId || agreement.debit.inquilinoNome || 'sem_inquilino',
+      ...debitItem(agreement.debit),
+    }
   })
   const agreementMadeCount = agreementDetails.length
   const agreementPaidItems = agreementDetails.filter(item => item.status === 'pago')
@@ -293,6 +344,110 @@ const calculateMetrics = (debits, tenants, month, percentage) => {
   const agreementPaidCount = agreementPaidItems.length
   const agreementBrokenCount = agreementBrokenItems.length
   const agreementOpenCount = agreementOpenItems.length
+  const receivingTimeItems = monthDebits
+    .filter(debit => isDashboardRecovered(debit) && debit.dataVencimento && debit.dataPagamento)
+    .map(debit => ({
+      name: debit.inquilinoNome || tenantMap[debit.inquilinoId]?.nome || 'Inquilino não informado',
+      days: daysBetween(debit.dataVencimento, debit.dataPagamento),
+    }))
+    .filter(item => item.days !== null)
+  const getModel = debit => {
+    const tenant = tenantMap[debit.inquilinoId]
+    const property = propertyMap[tenant?.imovelId || debit.imovelId]
+    return property?.modelo || 'Sem modelo'
+  }
+  const scenarioGroups = (items, getKey, labels) => Object.entries(items.reduce((groups, debit) => {
+    const key = getKey(debit)
+    if (!groups[key]) groups[key] = { total: 0, open: 0 }
+    groups[key].total += dashboardDebtValue(debit)
+    groups[key].open += openValueOf(debit)
+    return groups
+  }, {})).map(([key, values]) => ({
+    key,
+    label: labels[key] || key,
+    total: values.total,
+    open: values.open,
+    percentage: balance.open > 0 ? (values.open / balance.open) * 100 : 0,
+  }))
+  const modelScenario = scenarioGroups(monthDebits, getModel, { MA: 'MA', ML: 'ML', ME: 'ME' })
+  const guaranteeScenario = scenarioGroups(monthDebits, debit => normalizedValue(getGuaranteeKey(debit, tenantMap)), {
+    ...guaranteeLabels,
+  })
+  const openMonthDebits = monthDebits.filter(debit => openValueOf(debit) > 0)
+  const tenantCaseItems = Object.values(openMonthDebits.reduce((groups, debit) => {
+    const tenantKey = debit.inquilinoId || debit.inquilinoNome || 'sem_inquilino'
+    if (!groups[tenantKey]) {
+      const guaranteeKey = normalizedValue(getGuaranteeKey(debit, tenantMap))
+      const insuranceName = tenantMap[debit.inquilinoId]?.seguro || debit.seguro
+      groups[tenantKey] = {
+        key: tenantKey,
+        name: debit.inquilinoNome || tenantMap[debit.inquilinoId]?.nome || 'Inquilino não informado',
+        guarantee: guaranteeKey === 'seguro'
+          ? `Seguro fiança${insuranceName ? `: ${insuranceName}` : ''}`
+          : guaranteeLabels[guaranteeKey] || getGuaranteeKey(debit, tenantMap),
+        recordCount: 0,
+        totalValue: 0,
+        agreementCount: 0,
+        agreementPaidCount: 0,
+        agreementBrokenCount: 0,
+        paymentStatus: '',
+      }
+    }
+    groups[tenantKey].recordCount += 1
+    groups[tenantKey].totalValue += dashboardDebtValue(debit)
+    return groups
+  }, {})).map(item => {
+    const tenantDebits = openMonthDebits.filter(debit => (debit.inquilinoId || debit.inquilinoNome || 'sem_inquilino') === item.key)
+    const agreements = agreementDetails.filter(agreement => agreement.tenantKey === item.key && openValueOf(agreement.debit) > 0)
+    const openStatuses = [...new Set(tenantDebits.filter(debit => openValueOf(debit) > 0).map(debit => statusLabels[normalizedValue(debit.status)] || debit.status || 'Em aberto'))]
+    return {
+      ...item,
+      agreementCount: agreements.length,
+      agreementPaidCount: agreements.filter(agreement => agreement.status === 'pago').length,
+      agreementBrokenCount: agreements.filter(agreement => agreement.status === 'nao_cumprido').length,
+      paymentStatus: openStatuses.length > 0 ? openStatuses.join(', ') : 'Pago',
+    }
+  })
+  const activeTenantIds = new Set(tenants.filter(tenant => tenant.status === 'Ativo').map(tenant => tenant.id))
+  const blacklistItems = Object.values(debits.filter(debit => debit.inquilinoId && activeTenantIds.has(debit.inquilinoId) && openValueOf(debit) > 0).reduce((groups, debit) => {
+    const tenant = tenantMap[debit.inquilinoId]
+    const tenantKey = debit.inquilinoId
+    if (!groups[tenantKey]) {
+      groups[tenantKey] = {
+        key: tenantKey,
+        name: debit.inquilinoNome || tenant?.nome || 'Inquilino não informado',
+        value: 0,
+        referenceMonthValue: 0,
+      }
+    }
+    groups[tenantKey].value += openValueOf(debit)
+    if (debit.mesReferencia === month) groups[tenantKey].referenceMonthValue += openValueOf(debit)
+    return groups
+  }, {})).sort((a, b) => b.value - a.value).slice(0, 10)
+  const [reportYear, reportMonth] = month.split('-').map(Number)
+  const anniversaryMonths = [0, 1, 2].map(offset => {
+    const date = new Date(reportYear, reportMonth - 1 + offset, 1)
+    return { key: monthKeyFromDate(date), year: date.getFullYear(), month: date.getMonth() }
+  })
+  const contractAnniversaryItems = tenants.map(tenant => {
+    const entryDate = tenant.dataEntrada
+    const parsedEntryDate = entryDate ? new Date(`${entryDate}T00:00:00`) : null
+    const tenantDebits = debits.filter(debit => debit.inquilinoId === tenant.id)
+    if (!parsedEntryDate || Number.isNaN(parsedEntryDate.getTime()) || tenantDebits.length === 0) return null
+    const anniversaryMonth = anniversaryMonths.find(item => item.month === parsedEntryDate.getMonth())
+    if (!anniversaryMonth) return null
+    const anniversary = new Date(anniversaryMonth.year, anniversaryMonth.month, parsedEntryDate.getDate())
+    const years = anniversary.getFullYear() - parsedEntryDate.getFullYear()
+    if (years < 1) return null
+    return {
+      key: tenant.id,
+      name: tenant.nome || 'Inquilino não informado',
+      entryDate,
+      anniversaryMonth: anniversaryMonth.key,
+      years,
+      debtCount: tenantDebits.length,
+    }
+  }).filter(Boolean).sort((a, b) => b.years - a.years || b.debtCount - a.debtCount)
 
   return {
     openBalance,
@@ -322,6 +477,14 @@ const calculateMetrics = (debits, tenants, month, percentage) => {
     agreementOpenItems,
     agreementBrokenItems,
     agreementBreakRate: agreementMadeCount > 0 ? (agreementBrokenCount / agreementMadeCount) * 100 : 0,
+    receivingTimeItems,
+    averageReceivingDays: receivingTimeItems.length > 0 ? receivingTimeItems.reduce((sum, item) => sum + item.days, 0) / receivingTimeItems.length : 0,
+    modelScenario,
+    guaranteeScenario,
+    monthDebits,
+    tenantCaseItems,
+    blacklistItems,
+    contractAnniversaryItems,
     count: monthDebits.length,
   }
 }
@@ -330,6 +493,7 @@ export default function RelatorioInadimplencia() {
   const [reports, setReports] = useState([])
   const [debits, setDebits] = useState([])
   const [tenants, setTenants] = useState([])
+  const [properties, setProperties] = useState([])
   const [historicoAlteracoes, setHistoricoAlteracoes] = useState([])
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth)
   const [showCreate, setShowCreate] = useState(false)
@@ -339,6 +503,8 @@ export default function RelatorioInadimplencia() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savingPercentage, setSavingPercentage] = useState(false)
+  const [commentDrafts, setCommentDrafts] = useState({})
+  const [savingComment, setSavingComment] = useState('')
   const [error, setError] = useState('')
 
   useEffect(() => onValue(ref(db, 'relatoriosInadimplencia'), snapshot => {
@@ -360,6 +526,11 @@ export default function RelatorioInadimplencia() {
     setTenants(Object.entries(value).map(([id, tenant]) => ({ id, ...tenant })))
   }), [])
 
+  useEffect(() => onValue(ref(db, 'imoveis'), snapshot => {
+    const value = snapshot.val() || {}
+    setProperties(Object.entries(value).map(([id, property]) => ({ id, ...property })))
+  }), [])
+
   useEffect(() => onValue(ref(db, 'historicoAlteracoes'), snapshot => {
     const value = snapshot.val() || {}
     setHistoricoAlteracoes(Object.entries(value).map(([id, item]) => ({ id, ...item })))
@@ -368,8 +539,8 @@ export default function RelatorioInadimplencia() {
   const selectedReport = reports.find(report => report.month === selectedMonth)
   const percentage = selectedReport?.projectedPercentage ?? 0
   const metrics = useMemo(
-    () => calculateMetrics(debits, tenants, selectedMonth, percentage),
-    [debits, tenants, selectedMonth, percentage]
+    () => calculateMetrics(debits, tenants, properties, selectedMonth, percentage),
+    [debits, tenants, properties, selectedMonth, percentage]
   )
   const recoveryMetrics = useMemo(
     () => buildRecoveryMetrics(historicoAlteracoes, selectedMonth),
@@ -380,7 +551,8 @@ export default function RelatorioInadimplencia() {
 
   useEffect(() => {
     setPercentageDraft(String(selectedReport?.projectedPercentage ?? 0))
-  }, [selectedReport?.month, selectedReport?.projectedPercentage])
+    setCommentDrafts(selectedReport?.comments || {})
+  }, [selectedReport?.month, selectedReport?.projectedPercentage, selectedReport?.comments])
 
   const navigateReport = direction => {
     if (selectedIndex < 0) return
@@ -436,6 +608,18 @@ export default function RelatorioInadimplencia() {
       setError('Não foi possível atualizar o percentual.')
     } finally {
       setSavingPercentage(false)
+    }
+  }
+
+  const saveComment = async debitId => {
+    if (!selectedReport) return
+    setSavingComment(debitId)
+    try {
+      await update(ref(db, `relatoriosInadimplencia/${selectedMonth}/comments`), {
+        [debitId]: commentDrafts[debitId] || '',
+      })
+    } finally {
+      setSavingComment('')
     }
   }
 
@@ -597,6 +781,14 @@ export default function RelatorioInadimplencia() {
                     </ListTooltip>
                   </div>
                 </div>
+                <div className="receiving-time-card">
+                  <div>
+                    <span>Tempo para Receber Inadimplências</span>
+                    <small>Média entre vencimento e pagamento no mês de {formatMonth(selectedMonth)}</small>
+                  </div>
+                  <strong>{metrics.averageReceivingDays.toFixed(1).replace('.', ',')} dias</strong>
+                  <ReceivingTimeTooltip items={metrics.receivingTimeItems} />
+                </div>
               </div>
             </section>
             <section className="recovery-section">
@@ -656,6 +848,72 @@ export default function RelatorioInadimplencia() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </section>
+            <section className="scenario-section">
+              <div className="section-heading">
+                <div><span className="section-kicker scenario-kicker">03</span><div><h3>Cenário do mês vigente</h3><p>Inadimplência aberta de {formatMonth(selectedMonth)} por modelo e garantia.</p></div></div>
+              </div>
+              <div className="scenario-grid">
+                <div className="scenario-group">
+                  <h4>Por modelo</h4>
+                  <div className="scenario-items">
+                    {metrics.modelScenario.length === 0 ? <small>Nenhuma inadimplência aberta.</small> : metrics.modelScenario.map(item => (
+                      <div className="scenario-item" key={item.key}><span>{item.label}</span><b>Total: {formatMoney(item.total)} · Aberto: {formatMoney(item.open)} · {item.percentage.toFixed(2)}%</b></div>
+                    ))}
+                  </div>
+                </div>
+                <div className="scenario-group">
+                  <h4>Por garantia</h4>
+                  <div className="scenario-items">
+                    {metrics.guaranteeScenario.length === 0 ? <small>Nenhuma inadimplência aberta.</small> : metrics.guaranteeScenario.map(item => (
+                      <div className="scenario-item" key={item.key}><span>{item.label}</span><b>Total: {formatMoney(item.total)} · Aberto: {formatMoney(item.open)} · {item.percentage.toFixed(2)}%</b></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+            <section className="blacklist-section">
+              <div className="section-heading">
+                <div><span className="section-kicker blacklist-kicker">04</span><div><h3>BlackList</h3><p>Reanálise de crédito e concentração da inadimplência aberta em {formatMonth(selectedMonth)}.</p></div></div>
+              </div>
+              <div className="blacklist-list">
+                {metrics.blacklistItems.length === 0 ? <div className="recovery-empty-cell">Nenhum inadimplente ativo em aberto.</div> : metrics.blacklistItems.map(item => (
+                  <div className="blacklist-item" key={item.key}>
+                    <strong>{item.name}</strong>
+                    <span>{formatMoney(item.value)} em aberto</span>
+                    <small className={item.referenceMonthValue > 0 ? 'blacklist-reference-yes' : 'blacklist-reference-no'}>Mês referente: {item.referenceMonthValue > 0 ? 'Sim' : 'Não'}</small>
+                  </div>
+                ))}
+              </div>
+              <div className="contract-anniversary-block">
+                <div className="blacklist-subheading"><strong>Contratos completando 1 ou mais anos</strong><span>Inquilinos com inadimplências registradas e aniversário contratual entre {formatMonth(selectedMonth)} e os próximos 2 meses</span></div>
+                <div className="contract-anniversary-list">
+                  {metrics.contractAnniversaryItems.length === 0 ? <div className="recovery-empty-cell">Nenhum contrato com inadimplência completa aniversário neste mês.</div> : metrics.contractAnniversaryItems.map(item => (
+                    <div className="contract-anniversary-item" key={item.key}>
+                      <strong>{item.name}</strong>
+                      <span>{item.years} ano{item.years === 1 ? '' : 's'} em {formatMonth(item.anniversaryMonth)}</span>
+                      <b>{item.debtCount} inadimplência{item.debtCount === 1 ? '' : 's'} registrada{item.debtCount === 1 ? '' : 's'}</b>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </section>
+            <section className="case-section">
+              <div className="section-heading">
+                <div><span className="section-kicker case-kicker">05</span><div><h3>Caso a caso</h3><p>Comentários individuais das inadimplências de {formatMonth(selectedMonth)}.</p></div></div>
+              </div>
+                <div className="case-list">
+                {metrics.tenantCaseItems?.length === 0 ? <div className="recovery-empty-cell">Nenhuma inadimplência neste mês.</div> : metrics.tenantCaseItems?.map(item => (
+                  <div className="case-item" key={item.key}>
+                    <div className="case-info"><strong>{item.name}</strong><span>Garantia: {item.guarantee} · {formatMoney(item.totalValue)}</span><small className={item.paymentStatus === 'Pago' ? 'case-paid' : 'case-open'}>{item.paymentStatus === 'Pago' ? 'Inadimplência paga' : `Status: ${item.paymentStatus}`}</small></div>
+                    <div className="case-stats">
+                      <div className="case-stat-row"><span><b>{item.recordCount}</b> inadimplência{item.recordCount === 1 ? '' : 's'}</span><span><b>{item.agreementCount}</b> acordo{item.agreementCount === 1 ? '' : 's'}</span></div>
+                      <div className="case-stat-row"><span><b>{item.agreementPaidCount}</b> cumprido{item.agreementPaidCount === 1 ? '' : 's'}</span><span><b>{item.agreementBrokenCount}</b> não cumprido{item.agreementBrokenCount === 1 ? '' : 's'}</span></div>
+                    </div>
+                    <div className="case-comment"><Input value={commentDrafts[item.key] || ''} onChange={event => setCommentDrafts(prev => ({ ...prev, [item.key]: event.target.value }))} placeholder="Adicionar comentário..." /><Button type="button" size="sm" onClick={() => saveComment(item.key)} disabled={savingComment === item.key}>{savingComment === item.key ? 'Salvando' : 'Salvar'}</Button></div>
+                  </div>
+                ))}
               </div>
             </section>
           </>

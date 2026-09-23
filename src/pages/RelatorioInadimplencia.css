@@ -141,6 +141,61 @@
 .agreement-stat-danger { background: #fef2f2; color: #b91c1c; }
 .agreement-stat-warning { background: #fffbeb; color: #a16207; }
 .agreement-stat-success { background: #f0fdf4; color: #15803d; }
+.receiving-time-card { display: flex; align-items: center; gap: 16px; border: 1px solid #bbf7d0; border-left: 4px solid #16a34a; border-radius: 8px; padding: 10px 14px; background: #f0fdf4; }
+.receiving-time-card > div { display: grid; gap: 3px; flex: 1; }
+.receiving-time-card span { color: #166534; font-size: 12px; font-weight: 750; }
+.receiving-time-card small { color: #4d7c5b; font-size: 11px; }
+.receiving-time-card strong { color: #15803d; font-size: 20px; white-space: nowrap; }
+.scenario-section, .case-section { margin-top: 14px; border-top: 3px solid #7c3aed; border-radius: 12px; padding: 16px; background: #fff; box-shadow: 0 8px 26px rgba(15, 23, 42, 0.06); }
+.scenario-kicker { color: #7c3aed; }
+.scenario-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.scenario-group { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #fafafa; }
+.scenario-group h4 { margin: 0 0 8px; color: #334155; font-size: 12px; }
+.scenario-items { display: grid; gap: 5px; }
+.scenario-items > small { color: #64748b; font-size: 11px; }
+.scenario-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #e2e8f0; padding: 5px 0; color: #475569; font-size: 12px; }
+.scenario-item:last-child { border-bottom: 0; }
+.scenario-item b { color: #334155; font-size: 11px; white-space: nowrap; }
+.blacklist-section { margin-top: 14px; border-top: 3px solid #be123c; border-radius: 12px; padding: 16px; background: #fff; box-shadow: 0 8px 26px rgba(15, 23, 42, 0.06); }
+.blacklist-kicker { color: #be123c; }
+.blacklist-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.blacklist-summary > div { display: grid; gap: 2px; border: 1px solid #fecdd3; border-radius: 7px; padding: 8px 10px; background: #fff1f2; }
+.blacklist-summary span { color: #9f1239; font-size: 10px; font-weight: 750; text-transform: uppercase; }
+.blacklist-summary strong { color: #be123c; font-size: 17px; }
+.blacklist-summary small { color: #881337; font-size: 10px; }
+.blacklist-list { display: grid; gap: 4px; }
+.blacklist-item { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(120px, 0.7fr) minmax(190px, 1fr); align-items: center; gap: 8px; border-bottom: 1px solid #f1f5f9; padding: 6px 4px; }
+.blacklist-item strong { overflow: hidden; color: #334155; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.blacklist-item span { color: #9f1239; font-size: 11px; font-weight: 700; }
+.blacklist-item small { color: #64748b; font-size: 10px; }
+.blacklist-reference-yes { color: #be123c !important; font-weight: 750; }
+.blacklist-reference-no { color: #64748b !important; }
+.contract-anniversary-block { margin-top: 14px; border-top: 1px solid #fecdd3; padding-top: 10px; }
+.blacklist-subheading { display: grid; gap: 2px; margin-bottom: 6px; }
+.blacklist-subheading strong { color: #9f1239; font-size: 12px; }
+.blacklist-subheading span { color: #64748b; font-size: 10px; }
+.contract-anniversary-list { display: grid; gap: 3px; }
+.contract-anniversary-item { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(125px, 0.7fr) minmax(190px, 1fr); align-items: center; gap: 8px; border-bottom: 1px solid #f1f5f9; padding: 5px 4px; }
+.contract-anniversary-item strong { overflow: hidden; color: #334155; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.contract-anniversary-item span { color: #64748b; font-size: 10px; }
+.contract-anniversary-item b { color: #9f1239; font-size: 10px; }
+.case-section { border-top-color: #2563eb; }
+.case-kicker { color: #2563eb; }
+.case-list { display: grid; gap: 4px; }
+.case-item { display: grid; grid-template-columns: minmax(175px, 0.8fr) minmax(310px, 1.35fr) minmax(230px, 1fr); align-items: center; gap: 8px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px; background: #fbfdff; }
+.case-info { display: grid; gap: 1px; min-width: 0; }
+.case-info strong { overflow: hidden; color: #334155; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.case-info span { overflow: hidden; color: #64748b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.case-info small { font-size: 10px; font-weight: 700; }
+.case-paid { color: #15803d; }
+.case-open { color: #b45309; }
+.case-stats { display: grid; gap: 2px; min-width: 0; }
+.case-stat-row { display: flex; align-items: center; gap: 10px; }
+.case-stats span { color: #64748b; font-size: 10px; white-space: nowrap; }
+.case-stats b { color: #1e40af; font-size: 12px; }
+.case-comment { display: flex; gap: 5px; }
+.case-comment input { min-width: 0; min-height: 34px; margin: 0; flex: 1; }
+.case-comment button { flex: 0 0 auto; }
 .recovery-section { margin-top: 14px; border-top: 3px solid #0f766e; border-radius: 12px; padding: 16px; background: #fff; box-shadow: 0 8px 26px rgba(15, 23, 42, 0.06); }
 .recovery-kicker { color: #0f766e; }
 .recovery-table-wrap { overflow-x: auto; border: 1px solid #dbe3ef; border-radius: 8px; }
@@ -207,4 +262,9 @@
   .agreement-stats { grid-template-columns: 1fr; }
   .recovery-section { padding: 12px; }
   .reference-heading { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .receiving-time-card { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .scenario-section, .blacklist-section, .case-section { padding: 12px; }
+  .scenario-grid, .blacklist-item, .contract-anniversary-item, .case-item { grid-template-columns: 1fr; }
+  .case-stat-row { gap: 8px; }
+  .case-comment { width: 100%; }
 }
