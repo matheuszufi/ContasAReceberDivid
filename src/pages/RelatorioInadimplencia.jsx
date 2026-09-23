@@ -482,7 +482,7 @@ export default function RelatorioInadimplencia() {
                   </article>
                   <article className="summary-card accent-red">
                     <span>Exposição sem garantia</span>
-                    <strong>{metrics.unguaranteedExposureRate.toFixed(2)}% da carteira <small>({formatMoney(metrics.revenue)})</small></strong>
+                    <strong>{metrics.unguaranteedExposureRate.toFixed(2)}% do valor da carteira <small>({formatMoney(metrics.revenue)})</small></strong>
                     <div className="forecast-breakdown">
                       <ForecastTooltip label="Valor em aberto" value={metrics.unguaranteedOpen} items={metrics.unguaranteedOpenItems} />
                       <ForecastTooltip label={`Total (${metrics.unguaranteedTotalRate.toFixed(2)}% da carteira)`} value={metrics.unguaranteedTotal} items={metrics.unguaranteedTotalItems} />
