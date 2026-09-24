@@ -956,25 +956,29 @@ export default function RelatorioInadimplencia() {
               <div className="summary-grid">
                 <div className="summary-row summary-row-featured">
                   <article className="summary-card summary-card-featured accent-blue">
-                    <span>Inadimplência projetada para o fechamento</span>
+                    <div className="projected-card-heading">
+                      <span>Meta de inadimplencia</span>
+                      {editingPercentage ? (
+                        <div className="percentage-editor">
+                          <Input autoFocus type="number" min="0" max="100" step="0.01" value={percentageDraft} onChange={event => setPercentageDraft(event.target.value)} aria-label="Taxa projetada" />
+                          <span>%</span>
+                          <Button type="button" size="sm" onClick={savePercentage} disabled={savingPercentage}>{savingPercentage ? 'Salvando' : 'Salvar'}</Button>
+                        </div>
+                      ) : (
+                        <button type="button" className="rate-edit-button projected-rate-control" onClick={() => setEditingPercentage(true)}>
+                          <span>Taxa projetada</span> <b>{metrics.projectedRate.toFixed(2)}%</b>
+                        </button>
+                      )}
+                    </div>
+                    <div className="projected-revenue">
+                      <span>Faturamento do mês</span>
+                      <strong>{formatMoney(metrics.revenue)}</strong>
+                    </div>
                     <div className="rate-summary">
-                      <div className="rate-pair">
-                        <span className="rate-item">Taxa atual de inadimplência <b>{metrics.currentRate.toFixed(2)}%</b></span>
-                        {editingPercentage ? (
-                          <div className="percentage-editor">
-                            <Input autoFocus type="number" min="0" max="100" step="0.01" value={percentageDraft} onChange={event => setPercentageDraft(event.target.value)} aria-label="Taxa projetada" />
-                            <span>%</span>
-                            <Button type="button" size="sm" onClick={savePercentage} disabled={savingPercentage}>{savingPercentage ? 'Salvando' : 'Salvar'}</Button>
-                          </div>
-                        ) : (
-                          <button type="button" className="rate-edit-button rate-item" onClick={() => setEditingPercentage(true)}>
-                            Taxa projetada <b>{metrics.projectedRate.toFixed(2)}%</b>
-                          </button>
-                        )}
-                      </div>
+                      <span className="rate-item">Taxa atual de inadimplência <b>{metrics.currentRate.toFixed(2)}%</b></span>
                       <div className="rate-breakdown">
-                        <small>Valor da taxa projetada: <b>{formatMoney(metrics.projectedValue)}</b></small>
-                        <small>Valor a recuperar para chegar na taxa: <b>{formatMoney(metrics.recoveryToProjected)}</b></small>
+                        <small>Valor da taxa meta: <b>{formatMoney(metrics.projectedValue)}</b></small>
+                        <small>Valor a recuperar para chegar na meta: <b>{formatMoney(metrics.recoveryToProjected)}</b></small>
                       </div>
                     </div>
                   </article>
@@ -1047,24 +1051,6 @@ export default function RelatorioInadimplencia() {
                     </div>
                   </article>
                 </div>
-                <div className="agreement-breakdown">
-                  <div className="agreement-heading">
-                    <span>Acordos</span>
-                    <small>{metrics.agreementMadeCount} registrado{metrics.agreementMadeCount === 1 ? '' : 's'}</small>
-                    <strong>{metrics.agreementBreakRate.toFixed(2)}% de quebra</strong>
-                  </div>
-                  <div className="agreement-stats">
-                    <ListTooltip title="Não cumpridos" items={metrics.agreementBrokenItems} emptyLabel="Nenhum acordo não cumprido">
-                      <span className="agreement-stat agreement-stat-danger"><b>{metrics.agreementBrokenCount}</b> não cumprido{metrics.agreementBrokenCount === 1 ? '' : 's'}</span>
-                    </ListTooltip>
-                    <ListTooltip title="Em aberto" items={metrics.agreementOpenItems} emptyLabel="Nenhum acordo em aberto">
-                      <span className="agreement-stat agreement-stat-warning"><b>{metrics.agreementOpenCount}</b> em aberto</span>
-                    </ListTooltip>
-                    <ListTooltip title="Pagos" items={metrics.agreementPaidItems} emptyLabel="Nenhum acordo pago">
-                      <span className="agreement-stat agreement-stat-success"><b>{metrics.agreementPaidCount}</b> pago{metrics.agreementPaidCount === 1 ? '' : 's'}</span>
-                    </ListTooltip>
-                  </div>
-                </div>
                 <div className="receiving-time-card">
                   <div>
                     <span>Tempo para Receber Inadimplências</span>
@@ -1086,6 +1072,24 @@ export default function RelatorioInadimplencia() {
             <section className="receivables-forecast-section">
               <div className="section-heading">
                 <div><span className="section-kicker receivables-forecast-kicker">02</span><div><h3>Previsão de recebimentos</h3><p>Valores previstos para inadimplências de {formatMonth(selectedMonth)} e {formatMonth(previousMonthKey(selectedMonth))}.</p></div></div>
+              </div>
+              <div className="agreement-breakdown">
+                <div className="agreement-heading">
+                  <span>Acordos</span>
+                  <small>{metrics.agreementMadeCount} registrado{metrics.agreementMadeCount === 1 ? '' : 's'}</small>
+                  <strong>{metrics.agreementBreakRate.toFixed(2)}% de quebra</strong>
+                </div>
+                <div className="agreement-stats">
+                  <ListTooltip title="Não cumpridos" items={metrics.agreementBrokenItems} emptyLabel="Nenhum acordo não cumprido">
+                    <span className="agreement-stat agreement-stat-danger"><b>{metrics.agreementBrokenCount}</b> não cumprido{metrics.agreementBrokenCount === 1 ? '' : 's'}</span>
+                  </ListTooltip>
+                  <ListTooltip title="Em aberto" items={metrics.agreementOpenItems} emptyLabel="Nenhum acordo em aberto">
+                    <span className="agreement-stat agreement-stat-warning"><b>{metrics.agreementOpenCount}</b> em aberto</span>
+                  </ListTooltip>
+                  <ListTooltip title="Pagos" items={metrics.agreementPaidItems} emptyLabel="Nenhum acordo pago">
+                    <span className="agreement-stat agreement-stat-success"><b>{metrics.agreementPaidCount}</b> pago{metrics.agreementPaidCount === 1 ? '' : 's'}</span>
+                  </ListTooltip>
+                </div>
               </div>
               <div className="receivables-horizon-grid">
                 {metrics.receivablesForecast.horizons.map(horizon => (

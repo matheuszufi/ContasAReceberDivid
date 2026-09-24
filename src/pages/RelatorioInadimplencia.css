@@ -136,10 +136,23 @@
 .summary-card span { display: block; color: #64748b; font-size: 11.5px; font-weight: 650; line-height: 1.3; }
 .summary-card strong { display: block; margin: 8px 0 4px; color: #0f172a; font-size: clamp(17px, 1.8vw, 21px); font-weight: 700; letter-spacing: -0.2px; white-space: nowrap; }
 .summary-card small { color: #94a3b8; font-size: 10.5px; line-height: 1.35; }
+.projected-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.projected-card-heading > span { max-width: 58%; }
+.projected-rate-control { display: inline-flex; align-items: baseline; justify-content: flex-end; gap: 5px; flex: 0 0 auto; margin-top: -2px; text-align: right; }
+.projected-rate-control span { display: inline; color: #64748b; font-size: 10px; font-weight: 650; }
+.projected-rate-control b { color: #2563eb; font-size: 15px; }
+.projected-card-heading .percentage-editor { flex: 0 0 auto; margin: -4px 0 0; }
+.projected-card-heading .percentage-editor input { width: 68px; }
+.projected-revenue { display: grid; gap: 3px; margin-top: 15px; padding-bottom: 9px; border-bottom: 1px solid #eef1f6; }
+.projected-revenue span { color: #64748b; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; }
+.summary-card .projected-revenue strong { margin: 0; color: #1e3a5f; font-size: clamp(22px, 2.6vw, 30px); letter-spacing: -0.4px; }
 .summary-variation-panel { display: grid; align-content: center; gap: 9px; }
 .summary-variation-panel::before { background: #94a3b8; }
 .summary-variation-panel .summary-variation span { display: block; color: #64748b; font-size: 10px; font-weight: 650; line-height: 1.3; white-space: normal; }
 .summary-variation-panel .summary-variation strong { display: block; margin: 0; font-size: 13px; font-weight: 700; letter-spacing: 0; }
+.summary-variation-panel .summary-variation strong.variation-up { color: #b91c1c; }
+.summary-variation-panel .summary-variation strong.variation-down { color: #15803d; }
+.summary-variation-panel .summary-variation strong.variation-neutral { color: #64748b; }
 .percentage-editor { display: flex; align-items: center; gap: 5px; margin-top: 9px; }
 .percentage-editor input { width: 82px; margin: 0; }
 .percentage-editor > span { color: #64748b; font-size: 13px; font-weight: 600; }
