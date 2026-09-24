@@ -149,6 +149,9 @@
 .scenario-section, .case-section { margin-top: 14px; border-top: 3px solid #7c3aed; border-radius: 12px; padding: 16px; background: #fff; box-shadow: 0 8px 26px rgba(15, 23, 42, 0.06); }
 .scenario-kicker { color: #7c3aed; }
 .scenario-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.scenario-chart { min-width: 0; border: 1px solid #dbe3ef; border-radius: 8px; padding: 12px 10px 8px; background: #fff; }
+.scenario-chart h4 { margin: 0 0 4px; color: #334155; font-size: 12px; }
+.scenario-chart-empty { display: grid; min-height: 150px; place-items: center; color: #64748b; font-size: 11px; }
 .scenario-group { border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; background: #fafafa; }
 .scenario-group h4 { margin: 0 0 8px; color: #334155; font-size: 12px; }
 .scenario-items { display: grid; gap: 5px; }
