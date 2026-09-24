@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ref, onValue, push, get } from 'firebase/database'
+import { ref, onValue, push, get, update } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import './TimelineInadimplencia.css'
@@ -82,6 +82,17 @@ export default function TimelineInadimplencia() {
         criadoEm: new Date().toISOString(),
       })
       setDescricao('')
+    } finally { setSaving(false) }
+  }
+
+  const handleContactResponse = async (evento, resposta) => {
+    if (saving) return
+    setSaving(true)
+    try {
+      await update(ref(db, `inadimplencias/${id}/timeline/${evento.key}`), {
+        respostaContato: resposta,
+        respostaContatoEm: new Date().toISOString(),
+      })
     } finally { setSaving(false) }
   }
 
@@ -237,6 +248,24 @@ export default function TimelineInadimplencia() {
                         <span className="timeline-date">{fmtDate(evento.criadoEm)}</span>
                       </div>
                       <p className="timeline-text">{evento.descricao}</p>
+                      {evento.tipo === 'Contato realizado' && (
+                        <div className="timeline-actions">
+                          {evento.respostaContato ? (
+                            <span className="timeline-status">
+                              {evento.respostaContato === 'sim' ? 'Obteve resposta' : 'Não obteve resposta'}
+                            </span>
+                          ) : (
+                            <>
+                              <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleContactResponse(evento, 'sim')} disabled={saving}>
+                                Obteve resposta
+                              </button>
+                              <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleContactResponse(evento, 'nao')} disabled={saving}>
+                                Não obteve resposta
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </li>
                 )

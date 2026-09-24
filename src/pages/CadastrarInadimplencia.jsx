@@ -191,6 +191,19 @@ export default function CadastrarInadimplencia() {
     }
   }
 
+  const handleContactResponse = async (evento, resposta) => {
+    if (savingEvento) return
+    setSavingEvento(true)
+    try {
+      await update(ref(db, `inadimplencias/${id}/timeline/${evento.key}`), {
+        respostaContato: resposta,
+        respostaContatoEm: new Date().toISOString(),
+      })
+    } finally {
+      setSavingEvento(false)
+    }
+  }
+
   const total = calcTotal(form.valorOriginal, form.multa, form.juros)
 
   const handleSubmit = async (e) => {
@@ -492,6 +505,21 @@ export default function CadastrarInadimplencia() {
                               {evento.documentos?.length > 0 && <><br /><strong>Documentos:</strong> {evento.documentos.join(', ')}</>}
                             </p>
                             <div className="timeline-actions">
+                              {evento.tipo === 'Contato realizado' && !evento.respostaContato && (
+                                <>
+                                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleContactResponse(evento, 'sim')} disabled={savingEvento} style={{whiteSpace: 'nowrap'}}>
+                                    Obteve resposta
+                                  </button>
+                                  <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleContactResponse(evento, 'nao')} disabled={savingEvento} style={{whiteSpace: 'nowrap'}}>
+                                    Não obteve resposta
+                                  </button>
+                                </>
+                              )}
+                              {evento.tipo === 'Contato realizado' && evento.respostaContato && (
+                                <span className="timeline-status">
+                                  {evento.respostaContato === 'sim' ? 'Obteve resposta' : 'Não obteve resposta'}
+                                </span>
+                              )}
                               {evento.tipo === 'Acordo realizado' && !acordoResolucao && (
                                 <>
                                   <button type="button" className="btn btn-sm btn-secondary" onClick={() => handleAgreementStatus(evento, 'pago')} disabled={savingEvento} style={{whiteSpace: 'nowrap'}}>
