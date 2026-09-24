@@ -358,6 +358,11 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const projectedRate = Number(percentage || 0)
   const projectedValue = revenue * (projectedRate / 100)
   const recoveryToProjected = Math.max(0, balance.open - projectedValue)
+  const getPropertyLabel = debit => {
+    const tenant = tenantMap[debit.inquilinoId]
+    const property = propertyMap[tenant?.imovelId || debit.imovelId]
+    return property?.codigo || debit.codigoImovel || 'Imóvel não informado'
+  }
   const debitItem = debit => ({
     name: debit.inquilinoNome || debit.inquilinoId || 'Inquilino não informado',
     type: debit.tipoDebito || 'Débito',
@@ -443,6 +448,7 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
       groups[tenantKey] = {
         key: tenantKey,
         name: debit.inquilinoNome || tenantMap[debit.inquilinoId]?.nome || 'Inquilino não informado',
+        property: getPropertyLabel(debit),
         guarantee: guaranteeKey === 'seguro'
           ? `Seguro fiança${insuranceName ? `: ${insuranceName}` : ''}`
           : guaranteeLabels[guaranteeKey] || getGuaranteeKey(debit, tenantMap),
@@ -977,7 +983,7 @@ export default function RelatorioInadimplencia() {
                 <div className="case-list">
                 {metrics.tenantCaseItems?.length === 0 ? <div className="recovery-empty-cell">Nenhuma inadimplência neste mês.</div> : metrics.tenantCaseItems?.map(item => (
                   <div className="case-item" key={item.key}>
-                    <div className="case-info"><strong>{item.name}</strong><span>Garantia: {item.guarantee} · {formatMoney(item.totalValue)}</span><small className={item.paymentStatus === 'Pago' ? 'case-paid' : 'case-open'}>{item.paymentStatus === 'Pago' ? 'Inadimplência paga' : `Status: ${item.paymentStatus}`}</small></div>
+                    <div className="case-info"><strong>{item.name}</strong><span className="case-property">Imóvel: {item.property}</span><div className="case-meta"><span className="case-guarantee">Garantia: {item.guarantee}</span><span className="case-total">{formatMoney(item.totalValue)}</span></div><small className={['Pago', 'Seguro acionado', 'Pagamento aprovado pela seguradora'].includes(item.paymentStatus) ? 'case-paid' : 'case-open'}>{item.paymentStatus === 'Pago' ? 'Inadimplência paga' : `Status: ${item.paymentStatus}`}</small></div>
                     <div className="case-stats">
                       <div className="case-stat-row"><span><b>{item.recordCount}</b> inadimplência{item.recordCount === 1 ? '' : 's'}</span><span><b>{item.agreementCount}</b> acordo{item.agreementCount === 1 ? '' : 's'}</span></div>
                       <div className="case-stat-row"><span><b>{item.agreementPaidCount}</b> cumprido{item.agreementPaidCount === 1 ? '' : 's'}</span><span><b>{item.agreementBrokenCount}</b> não cumprido{item.agreementBrokenCount === 1 ? '' : 's'}</span></div>
