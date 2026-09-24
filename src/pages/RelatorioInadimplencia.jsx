@@ -28,6 +28,8 @@ const formatMoney = value => Number(value || 0).toLocaleString('pt-BR', {
   style: 'currency',
   currency: 'BRL',
 })
+const formatSignedMoney = value => `${value >= 0 ? '+' : ''}${formatMoney(value)}`
+const variationPercentage = (current, reference) => reference > 0 ? ((current - reference) / reference) * 100 : null
 
 const toNumber = value => Number(value || 0)
 const totalOf = debit => toNumber(debit.valorTotal || debit.valorOriginal)
@@ -413,6 +415,12 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const propertyMap = Object.fromEntries(properties.map(property => [property.id, property]))
   const monthDebits = debits.filter(debit => debit.mesReferencia === month)
   const balance = buildBalance(debits, [month])
+  const previousMonth = previousMonthKey(month)
+  const previousBalance = buildBalance(debits, [previousMonth])
+  const [selectedYear, selectedMonthNumber] = month.split('-').map(Number)
+  const pastYearMonths = Array.from({ length: Math.max(0, selectedMonthNumber - 1) }, (_, index) => `${selectedYear}-${String(index + 1).padStart(2, '0')}`)
+  const pastYearTotals = pastYearMonths.map(pastMonth => buildBalance(debits, [pastMonth]).total)
+  const pastYearAverage = pastYearTotals.length > 0 ? pastYearTotals.reduce((sum, total) => sum + total, 0) / pastYearTotals.length : 0
   const openBalance = balance.open
   const nextMonthStart = monthEndDate(month)
   const nextMonth = monthKeyFromDate(nextMonthStart)
@@ -476,13 +484,15 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const agreementPaidCount = agreementPaidItems.length
   const agreementBrokenCount = agreementBrokenItems.length
   const agreementOpenCount = agreementOpenItems.length
-  const receivingTimeItems = monthDebits
+  const buildReceivingTimeItems = items => items
     .filter(debit => isDashboardRecovered(debit) && debit.dataVencimento && debit.dataPagamento)
     .map(debit => ({
       name: debit.inquilinoNome || tenantMap[debit.inquilinoId]?.nome || 'Inquilino não informado',
       days: daysBetween(debit.dataVencimento, debit.dataPagamento),
     }))
     .filter(item => item.days !== null)
+  const receivingTimeItems = buildReceivingTimeItems(monthDebits)
+  const receivingTimeItemsWithPreviousMonth = buildReceivingTimeItems(debits.filter(debit => [month, previousMonth].includes(debit.mesReferencia)))
   const getModel = debit => {
     if (debit.modelo) return debit.modelo
     const tenant = tenantMap[debit.inquilinoId]
@@ -603,6 +613,18 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
     forecastWithPreviousMonth,
     receivablesForecast,
     balance,
+    totalVariation: {
+      previousMonth: {
+        total: previousBalance.total,
+        delta: balance.total - previousBalance.total,
+        percentage: variationPercentage(balance.total, previousBalance.total),
+      },
+      pastYearAverage: {
+        total: pastYearAverage,
+        delta: balance.total - pastYearAverage,
+        percentage: variationPercentage(balance.total, pastYearAverage),
+      },
+    },
     balanceWithPreviousMonth,
     unguaranteedTotal,
     unguaranteedOpen,
@@ -628,6 +650,10 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
     agreementBreakRate: agreementMadeCount > 0 ? (agreementBrokenCount / agreementMadeCount) * 100 : 0,
     receivingTimeItems,
     averageReceivingDays: receivingTimeItems.length > 0 ? receivingTimeItems.reduce((sum, item) => sum + item.days, 0) / receivingTimeItems.length : 0,
+    receivingTimeItemsWithPreviousMonth,
+    averageReceivingDaysWithPreviousMonth: receivingTimeItemsWithPreviousMonth.length > 0
+      ? receivingTimeItemsWithPreviousMonth.reduce((sum, item) => sum + item.days, 0) / receivingTimeItemsWithPreviousMonth.length
+      : 0,
     modelScenario,
     guaranteeScenario,
     monthDebits,
@@ -830,7 +856,23 @@ export default function RelatorioInadimplencia() {
             <section className="summary-section">
               <div className="section-heading">
                 <div><span className="section-kicker">01</span><div><h3>Painel resumo</h3><p>Visão consolidada das inadimplências de {formatMonth(selectedMonth)}.</p></div></div>
-                <span className="debit-count">{metrics.count} {metrics.count === 1 ? 'inadimplência' : 'inadimplências'}</span>
+                <div className="summary-heading-metrics">
+                  <span className="debit-count">{metrics.count} {metrics.count === 1 ? 'inadimplência' : 'inadimplências'}</span>
+                  <div className="summary-variations">
+                    <div className="summary-variation">
+                      <span>Variação vs mês anterior</span>
+                      <strong className={metrics.totalVariation.previousMonth.delta > 0 ? 'variation-up' : metrics.totalVariation.previousMonth.delta < 0 ? 'variation-down' : 'variation-neutral'}>
+                        {formatSignedMoney(metrics.totalVariation.previousMonth.delta)}{metrics.totalVariation.previousMonth.percentage === null ? '' : ` (${metrics.totalVariation.previousMonth.percentage >= 0 ? '+' : ''}${metrics.totalVariation.previousMonth.percentage.toFixed(2)}%)`}
+                      </strong>
+                    </div>
+                    <div className="summary-variation">
+                      <span>Variação vs média dos meses anteriores</span>
+                      <strong className={metrics.totalVariation.pastYearAverage.delta > 0 ? 'variation-up' : metrics.totalVariation.pastYearAverage.delta < 0 ? 'variation-down' : 'variation-neutral'}>
+                        {formatSignedMoney(metrics.totalVariation.pastYearAverage.delta)}{metrics.totalVariation.pastYearAverage.percentage === null ? '' : ` (${metrics.totalVariation.pastYearAverage.percentage >= 0 ? '+' : ''}${metrics.totalVariation.pastYearAverage.percentage.toFixed(2)}%)`}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div className="summary-grid">
                 <div className="summary-row summary-row-featured">
@@ -937,6 +979,14 @@ export default function RelatorioInadimplencia() {
                   </div>
                   <strong>{metrics.averageReceivingDays.toFixed(1).replace('.', ',')} dias</strong>
                   <ReceivingTimeTooltip items={metrics.receivingTimeItems} />
+                </div>
+                <div className="receiving-time-card receiving-time-card-previous">
+                  <div>
+                    <span>Tempo para Receber Inadimplências com mês anterior</span>
+                    <small>Média entre vencimento e pagamento de {formatMonth(selectedMonth)} e {formatMonth(previousMonthKey(selectedMonth))}</small>
+                  </div>
+                  <strong>{metrics.averageReceivingDaysWithPreviousMonth.toFixed(1).replace('.', ',')} dias</strong>
+                  <ReceivingTimeTooltip items={metrics.receivingTimeItemsWithPreviousMonth} />
                 </div>
               </div>
             </section>

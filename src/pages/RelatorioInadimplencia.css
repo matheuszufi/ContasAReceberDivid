@@ -81,6 +81,14 @@
 .section-heading h3 { font-size: 18px; }
 .section-heading p { margin: 5px 0 0; color: #64748b; font-size: 13px; }
 .debit-count { color: #64748b; font-size: 12px; font-weight: 650; white-space: nowrap; }
+.summary-heading-metrics { display: grid; justify-items: end; gap: 7px; }
+.summary-variations { display: flex; justify-content: flex-end; gap: 14px; }
+.summary-variation { display: grid; gap: 2px; text-align: right; }
+.summary-variation span { color: #64748b; font-size: 10px; white-space: nowrap; }
+.summary-variation strong { font-size: 12px; white-space: nowrap; }
+.variation-up { color: #b91c1c; }
+.variation-down { color: #15803d; }
+.variation-neutral { color: #64748b; }
 
 .summary-grid { display: grid; gap: 10px; }
 .summary-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
@@ -282,6 +290,9 @@
 @media (max-width: 520px) {
   .summary-section { padding: 16px; }
   .section-heading { align-items: flex-start; flex-direction: column; }
+  .summary-heading-metrics { width: 100%; justify-items: start; }
+  .summary-variations { justify-content: flex-start; flex-wrap: wrap; gap: 8px 14px; }
+  .summary-variation { text-align: left; }
   .summary-grid { grid-template-columns: 1fr; }
   .summary-card { min-height: 142px; }
   .report-navigation { gap: 7px; padding: 7px; }
