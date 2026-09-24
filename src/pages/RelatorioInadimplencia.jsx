@@ -24,6 +24,13 @@ const formatMonth = (month) => {
     .replace(/^./, letter => letter.toUpperCase())
 }
 
+const formatYearPeriod = month => {
+  if (!month) return '—'
+  const [year, value] = month.split('-').map(Number)
+  const monthLabel = new Date(year, value - 1, 1).toLocaleDateString('pt-BR', { month: 'long' })
+  return `Janeiro a ${monthLabel} de ${year}`
+}
+
 const formatMoney = value => Number(value || 0).toLocaleString('pt-BR', {
   style: 'currency',
   currency: 'BRL',
@@ -418,6 +425,8 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const previousMonth = previousMonthKey(month)
   const previousBalance = buildBalance(debits, [previousMonth])
   const [selectedYear, selectedMonthNumber] = month.split('-').map(Number)
+  const yearMonths = Array.from({ length: selectedMonthNumber }, (_, index) => `${selectedYear}-${String(index + 1).padStart(2, '0')}`)
+  const yearBalance = buildBalance(debits, yearMonths)
   const pastYearMonths = Array.from({ length: Math.max(0, selectedMonthNumber - 1) }, (_, index) => `${selectedYear}-${String(index + 1).padStart(2, '0')}`)
   const pastYearTotals = pastYearMonths.map(pastMonth => buildBalance(debits, [pastMonth]).total)
   const pastYearAverage = pastYearTotals.length > 0 ? pastYearTotals.reduce((sum, total) => sum + total, 0) / pastYearTotals.length : 0
@@ -613,6 +622,7 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
     forecastWithPreviousMonth,
     receivablesForecast,
     balance,
+    yearBalance,
     totalVariation: {
       previousMonth: {
         total: previousBalance.total,
@@ -855,23 +865,18 @@ export default function RelatorioInadimplencia() {
 
             <section className="summary-section">
               <div className="section-heading">
-                <div><span className="section-kicker">01</span><div><h3>Painel resumo</h3><p>Visão consolidada das inadimplências de {formatMonth(selectedMonth)}.</p></div></div>
-                <div className="summary-heading-metrics">
-                  <span className="debit-count">{metrics.count} {metrics.count === 1 ? 'inadimplência' : 'inadimplências'}</span>
-                  <div className="summary-variations">
-                    <div className="summary-variation">
-                      <span>Variação vs mês anterior</span>
-                      <strong className={metrics.totalVariation.previousMonth.delta > 0 ? 'variation-up' : metrics.totalVariation.previousMonth.delta < 0 ? 'variation-down' : 'variation-neutral'}>
-                        {formatSignedMoney(metrics.totalVariation.previousMonth.delta)}{metrics.totalVariation.previousMonth.percentage === null ? '' : ` (${metrics.totalVariation.previousMonth.percentage >= 0 ? '+' : ''}${metrics.totalVariation.previousMonth.percentage.toFixed(2)}%)`}
-                      </strong>
-                    </div>
-                    <div className="summary-variation">
-                      <span>Variação vs média dos meses anteriores</span>
-                      <strong className={metrics.totalVariation.pastYearAverage.delta > 0 ? 'variation-up' : metrics.totalVariation.pastYearAverage.delta < 0 ? 'variation-down' : 'variation-neutral'}>
-                        {formatSignedMoney(metrics.totalVariation.pastYearAverage.delta)}{metrics.totalVariation.pastYearAverage.percentage === null ? '' : ` (${metrics.totalVariation.pastYearAverage.percentage >= 0 ? '+' : ''}${metrics.totalVariation.pastYearAverage.percentage.toFixed(2)}%)`}
-                      </strong>
-                    </div>
-                  </div>
+                <div><span className="section-kicker">01</span><div><h3>Painel resumo</h3><p>Visão consolidada do mês e do acumulado de {selectedMonth.slice(0, 4)}.</p></div></div>
+                <span className="debit-count">{metrics.count} {metrics.count === 1 ? 'inadimplência' : 'inadimplências'}</span>
+              </div>
+              <div className="annual-summary" aria-label={`Acumulado anual de ${selectedMonth.slice(0, 4)}`}>
+                <div className="annual-summary-heading">
+                  <div><span className="annual-summary-kicker">Acumulado do ano</span><strong>{selectedMonth.slice(0, 4)}</strong></div>
+                  <span>{formatYearPeriod(selectedMonth)}</span>
+                </div>
+                <div className="annual-summary-grid">
+                  <div className="annual-metric annual-metric-total"><span>Total de inadimplência</span><strong>{formatMoney(metrics.yearBalance.total)}</strong><small>Valor registrado no período</small></div>
+                  <div className="annual-metric annual-metric-recovered"><span>Recuperado no ano</span><strong>{formatMoney(metrics.yearBalance.recovered)}</strong><small>Valores já recuperados</small></div>
+                  <div className="annual-metric annual-metric-open"><span>Em aberto no ano</span><strong>{formatMoney(metrics.yearBalance.open)}</strong><small>Saldo ainda pendente</small></div>
                 </div>
               </div>
               <div className="summary-grid">
@@ -899,6 +904,20 @@ export default function RelatorioInadimplencia() {
                       </div>
                     </div>
                   </article>
+                  <div className="summary-card summary-variation-panel accent-blue">
+                    <div className="summary-variation">
+                      <span>Variação vs mês anterior</span>
+                      <strong className={metrics.totalVariation.previousMonth.delta > 0 ? 'variation-up' : metrics.totalVariation.previousMonth.delta < 0 ? 'variation-down' : 'variation-neutral'}>
+                        {formatSignedMoney(metrics.totalVariation.previousMonth.delta)}{metrics.totalVariation.previousMonth.percentage === null ? '' : ` (${metrics.totalVariation.previousMonth.percentage >= 0 ? '+' : ''}${metrics.totalVariation.previousMonth.percentage.toFixed(2)}%)`}
+                      </strong>
+                    </div>
+                    <div className="summary-variation">
+                      <span>Variação vs média dos meses anteriores</span>
+                      <strong className={metrics.totalVariation.pastYearAverage.delta > 0 ? 'variation-up' : metrics.totalVariation.pastYearAverage.delta < 0 ? 'variation-down' : 'variation-neutral'}>
+                        {formatSignedMoney(metrics.totalVariation.pastYearAverage.delta)}{metrics.totalVariation.pastYearAverage.percentage === null ? '' : ` (${metrics.totalVariation.pastYearAverage.percentage >= 0 ? '+' : ''}${metrics.totalVariation.pastYearAverage.percentage.toFixed(2)}%)`}
+                      </strong>
+                    </div>
+                  </div>
                 </div>
                 <div className="summary-row">
                   <article className="summary-card accent-amber">
