@@ -92,6 +92,23 @@ const todayKey = () => {
   const today = new Date()
   return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 }
+const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+const dateKeyAfterDays = days => {
+  const date = new Date()
+  date.setHours(12, 0, 0, 0)
+  date.setDate(date.getDate() + days)
+  return formatDateKey(date)
+}
+const dateKeyAfterOneMonth = value => {
+  if (!value) return ''
+  const [year, month, day] = value.split('-').map(Number)
+  if (![year, month, day].every(Number.isFinite)) return ''
+  const lastDayOfTargetMonth = new Date(year, month + 1, 0).getDate()
+  return formatDateKey(new Date(year, month - 1 + 1, Math.min(day, lastDayOfTargetMonth)))
+}
+const formatDate = value => value
+  ? new Date(`${value}T00:00:00`).toLocaleDateString('pt-BR')
+  : 'Sem data'
 const previousMonthKey = month => {
   const [year, value] = month.split('-').map(Number)
   return monthKeyFromDate(new Date(year, value - 2, 1))
@@ -142,6 +159,59 @@ const buildForecast = (debits, months, limit) => {
     paymentApprovedItems: items(paymentApproved),
     agreementItems: items(agreements),
   }
+}
+
+const getAgreementDate = debit => Object.values(debit.timeline || {})
+  .filter(event => event.tipo === 'Acordo realizado' && event.dataAcordada)
+  .sort((a, b) => String(a.dataAcordada).localeCompare(String(b.dataAcordada)))
+  .at(-1)?.dataAcordada || ''
+
+const buildReceivablesForecast = (debits, months) => {
+  const today = todayKey()
+  const items = debits
+    .filter(debit => months.includes(debit.mesReferencia))
+    .filter(debit => (
+      normalizedValue(debit.status) !== 'pago' &&
+      (
+        normalizedValue(debit.status) === 'acordo' ||
+        debit.seguroAcionado === 'pagamento_aprovado' ||
+        debit.seguroAcionado === 'acionado'
+      )
+    ))
+    .map(debit => {
+      let expectedDate = ''
+      let source = ''
+      if (debit.seguroAcionado === 'pagamento_aprovado' && debit.dataPagamento) {
+        expectedDate = debit.dataPagamento
+        source = 'Seguro aprovado · data de pagamento'
+      } else if (debit.seguroAcionado === 'acionado' && debit.dataSeguro) {
+        expectedDate = dateKeyAfterOneMonth(debit.dataSeguro)
+        source = 'Seguro acionado · 1 mês após acionamento'
+      } else if (normalizedValue(debit.status) === 'acordo') {
+        expectedDate = getAgreementDate(debit)
+        source = 'Acordo · data acordada'
+      }
+      if (!expectedDate || expectedDate < today) return null
+      return {
+        id: debit.id,
+        name: debit.inquilinoNome || debit.inquilinoId || 'Inquilino não informado',
+        expectedDate,
+        source,
+        receivedValue: totalOf(debit),
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.expectedDate.localeCompare(b.expectedDate))
+
+  const horizons = [10, 20, 30, 60].map(days => ({
+    days,
+    total: items
+      .filter(item => item.expectedDate <= dateKeyAfterDays(days))
+      .reduce((sum, item) => sum + item.receivedValue, 0),
+    items: items.filter(item => item.expectedDate <= dateKeyAfterDays(days)),
+  }))
+
+  return { items, horizons }
 }
 
 function ForecastTooltip({ label, value, items }) {
@@ -349,6 +419,7 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const nextMonthFirst = `${nextMonth}-01`
   const forecast = buildForecast(debits, [month], nextMonthFirst)
   const forecastWithPreviousMonth = buildForecast(debits, [month, previousMonthKey(month)], nextMonthFirst)
+  const receivablesForecast = buildReceivablesForecast(debits, [month, previousMonthKey(month)])
   const balanceWithPreviousMonth = buildBalance(debits, [month, previousMonthKey(month)])
   const revenue = monthlyRevenue(tenants)
   const unguaranteedDebits = monthDebits.filter(debit => normalizedValue(getGuaranteeKey(debit, tenantMap)) === 'sem_garantia')
@@ -524,6 +595,7 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
     openBalance,
     forecast,
     forecastWithPreviousMonth,
+    receivablesForecast,
     balance,
     balanceWithPreviousMonth,
     unguaranteedTotal,
@@ -921,9 +993,33 @@ export default function RelatorioInadimplencia() {
                 </table>
               </div>
             </section>
+            <section className="receivables-forecast-section">
+              <div className="section-heading">
+                <div><span className="section-kicker receivables-forecast-kicker">03</span><div><h3>Previsão de recebimentos</h3><p>Valores previstos para inadimplências de {formatMonth(selectedMonth)} e {formatMonth(previousMonthKey(selectedMonth))}.</p></div></div>
+              </div>
+              <div className="receivables-horizon-grid">
+                {metrics.receivablesForecast.horizons.map(horizon => (
+                  <ForecastTooltip
+                    key={horizon.days}
+                    label={`Até ${horizon.days} dias`}
+                    value={horizon.total}
+                    items={horizon.items.map(item => ({ ...item, type: item.source, value: item.receivedValue }))}
+                  />
+                ))}
+              </div>
+              <div className="receivables-forecast-list">
+                {metrics.receivablesForecast.items.length === 0 ? <div className="recovery-empty-cell">Nenhuma previsão com data válida encontrada.</div> : metrics.receivablesForecast.items.map(item => (
+                  <div className="receivable-forecast-item" key={item.id}>
+                    <div><strong>{item.name}</strong><span>{item.source}</span></div>
+                    <b>{formatDate(item.expectedDate)}</b>
+                    <strong>{formatMoney(item.receivedValue)}</strong>
+                  </div>
+                ))}
+              </div>
+            </section>
             <section className="scenario-section">
               <div className="section-heading">
-                <div><span className="section-kicker scenario-kicker">03</span><div><h3>Cenário do mês vigente</h3><p>Inadimplência aberta de {formatMonth(selectedMonth)} por modelo e garantia.</p></div></div>
+                <div><span className="section-kicker scenario-kicker">04</span><div><h3>Cenário do mês vigente</h3><p>Inadimplência aberta de {formatMonth(selectedMonth)} por modelo e garantia.</p></div></div>
               </div>
               <div className="scenario-grid">
                 <ScenarioChart title="Participação por modelo" data={metrics.modelScenario} />
@@ -952,7 +1048,7 @@ export default function RelatorioInadimplencia() {
             </section>
             <section className="blacklist-section">
               <div className="section-heading">
-                <div><span className="section-kicker blacklist-kicker">04</span><div><h3>BlackList</h3><p>10 inquilinos ativos com mais registros de inadimplência e ocorrência em {formatMonth(selectedMonth)}.</p></div></div>
+                <div><span className="section-kicker blacklist-kicker">05</span><div><h3>BlackList</h3><p>10 inquilinos ativos com mais registros de inadimplência e ocorrência em {formatMonth(selectedMonth)}.</p></div></div>
               </div>
               <div className="blacklist-list">
                 {metrics.blacklistItems.length === 0 ? <div className="recovery-empty-cell">Nenhum inquilino ativo possui registro de inadimplência neste mês.</div> : metrics.blacklistItems.map(item => (
@@ -978,7 +1074,7 @@ export default function RelatorioInadimplencia() {
             </section>
             <section className="case-section">
               <div className="section-heading">
-                <div><span className="section-kicker case-kicker">05</span><div><h3>Caso a caso</h3><p>Comentários individuais das inadimplências de {formatMonth(selectedMonth)}.</p></div></div>
+                <div><span className="section-kicker case-kicker">06</span><div><h3>Caso a caso</h3><p>Comentários individuais das inadimplências de {formatMonth(selectedMonth)}.</p></div></div>
               </div>
                 <div className="case-list">
                 {metrics.tenantCaseItems?.length === 0 ? <div className="recovery-empty-cell">Nenhuma inadimplência neste mês.</div> : metrics.tenantCaseItems?.map(item => (
