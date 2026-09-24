@@ -212,6 +212,8 @@
 .recovery-table th:first-child { text-align: left; }
 .recovery-table td { padding: 9px 11px; border-bottom: 1px solid #eef2f7; color: #475569; font-size: 12px; text-align: right; white-space: nowrap; }
 .recovery-table tbody tr:last-child td { border-bottom: 0; }
+.recovery-table tfoot td { border-top: 1px solid #cbd5e1; border-bottom: 0; background: #f8fafc; font-weight: 800; }
+.recovery-total-cell { color: #15803d !important; }
 .recovery-table tbody tr:hover { background: #f8fafc; }
 .recovery-week-label { color: #1e293b !important; font-weight: 750; text-align: left !important; }
 .recovery-value { border: 0; border-bottom: 1px dashed #94a3b8; padding: 0 0 1px; background: transparent; color: #334155; cursor: help; font: inherit; font-weight: 700; }

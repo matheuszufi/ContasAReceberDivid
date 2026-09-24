@@ -992,6 +992,13 @@ export default function RelatorioInadimplencia() {
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr>
+                      <td className="recovery-week-label">Total geral</td>
+                      <td colSpan="4"></td>
+                      <td className="recovery-total-cell">{formatMoney(recoveryMetrics.weeks.reduce((sum, week) => sum + week.totals.recovered + week.totals.insurerPaid, 0))}</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
               <div className="reference-heading">
@@ -1007,11 +1014,12 @@ export default function RelatorioInadimplencia() {
                       <th>Seguros acionados</th>
                       <th>Seguros aprovados</th>
                       <th>Pago pela seguradora</th>
+                      <th>Total recuperado</th>
                     </tr>
                   </thead>
                   <tbody>
                     {recoveryMetrics.byReference.length === 0 ? (
-                      <tr><td colSpan="5" className="recovery-empty-cell">Nenhuma alteração de recuperação registrada neste mês.</td></tr>
+                      <tr><td colSpan="6" className="recovery-empty-cell">Nenhuma alteração de recuperação registrada neste mês.</td></tr>
                     ) : recoveryMetrics.byReference.map(reference => (
                       <tr key={reference.referenceMonth}>
                         <td className="recovery-week-label">{reference.referenceMonth === 'sem_mes' ? 'Sem mês informado' : formatMonth(reference.referenceMonth)}</td>
@@ -1019,9 +1027,17 @@ export default function RelatorioInadimplencia() {
                         <td><ListTooltip title={`Seguros acionados · ${reference.referenceMonth === 'sem_mes' ? 'Sem mês informado' : formatMonth(reference.referenceMonth)}`} items={reference.items.activated} emptyLabel="Nenhum seguro acionado"><span className="recovery-value">{formatMoney(reference.activated)}</span></ListTooltip></td>
                         <td><ListTooltip title={`Seguros aprovados · ${reference.referenceMonth === 'sem_mes' ? 'Sem mês informado' : formatMonth(reference.referenceMonth)}`} items={reference.items.approved} emptyLabel="Nenhum seguro aprovado"><span className="recovery-value">{formatMoney(reference.approved)}</span></ListTooltip></td>
                         <td><ListTooltip title={`Pago pela seguradora · ${reference.referenceMonth === 'sem_mes' ? 'Sem mês informado' : formatMonth(reference.referenceMonth)}`} items={reference.items.insurerPaid} emptyLabel="Nenhum pagamento pela seguradora"><span className="recovery-value recovery-value-blue">{formatMoney(reference.insurerPaid)}</span></ListTooltip></td>
+                        <td><span className="recovery-value recovery-value-green">{formatMoney(reference.recovered + reference.insurerPaid)}</span></td>
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr>
+                      <td className="recovery-week-label">Total geral</td>
+                      <td colSpan="4"></td>
+                      <td className="recovery-total-cell">{formatMoney(recoveryMetrics.byReference.reduce((sum, reference) => sum + reference.recovered + reference.insurerPaid, 0))}</td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </section>
