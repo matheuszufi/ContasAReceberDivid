@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { onValue, ref, runTransaction, update } from 'firebase/database'
 import { CalendarDays, ChevronLeft, ChevronRight, FilePlus2, Loader2, X } from 'lucide-react'
-import { Bar, BarChart, Cell, LabelList, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { db, auth } from '../firebase'
 import Layout from '../components/Layout'
 import { Button } from '../components/ui/button'
@@ -295,6 +295,31 @@ function ReceivingTimeTooltip({ items }) {
 
 const scenarioColors = ['#2563eb', '#7c3aed', '#0f766e', '#d97706', '#be123c', '#475569']
 
+const guaranteeStatusColors = {
+  inadimplente: '#f97316', juridico: '#ef4444', acionado: '#3b82f6',
+  aguardarAcionar: '#64748b', reprovado: '#dc2626', aprovadoSeguradora: '#54ec26',
+  utilizacaoCaucao: '#0f766e', pagoSeguradora: '#0891b2', recuperado: '#22c55e',
+}
+const guaranteeStatusLabels = {
+  inadimplente: 'Aberto', juridico: 'Jurídico', acionado: 'Acionado',
+  aguardarAcionar: 'Aguardar para acionar', reprovado: 'Pagamento reprovado',
+  aprovadoSeguradora: 'Aprovado pela seguradora', utilizacaoCaucao: 'Utilizado caução',
+  pagoSeguradora: 'Pago pela seguradora', recuperado: 'Recuperado',
+}
+const classifyGuaranteeStatus = debit => {
+  const status = normalizedValue(debit.status)
+  const insuranceStatus = normalizedValue(debit.seguroAcionado)
+  if (insuranceStatus === 'pago_pela_seguradora') return 'pagoSeguradora'
+  if (status === 'pago_caucao') return 'utilizacaoCaucao'
+  if (status === 'pago') return 'recuperado'
+  if (status === 'juridico' || insuranceStatus === 'juridico') return 'juridico'
+  if (insuranceStatus === 'acionado') return 'acionado'
+  if (insuranceStatus === 'pagamento_aprovado') return 'aprovadoSeguradora'
+  if (insuranceStatus === 'pagamento_reprovado') return 'reprovado'
+  if (insuranceStatus === 'aguardar_para_acionar') return 'aguardarAcionar'
+  return 'inadimplente'
+}
+
 function ScenarioChart({ title, data }) {
   const chartData = data.map(item => ({
     ...item,
@@ -322,6 +347,42 @@ function ScenarioChart({ title, data }) {
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+      )}
+    </div>
+  )
+}
+
+function GuaranteeValueChart({ data, total, statusKeys }) {
+  return (
+    <div className="scenario-guarantee-chart">
+      <div className="scenario-guarantee-heading">
+        <div><h4>Valores por tipo de garantia</h4><p>Distribuição dos débitos de todo o mês selecionado.</p></div>
+        <strong>{formatMoney(total)}</strong>
+      </div>
+      {data.length === 0 || total === 0 ? <div className="scenario-chart-empty">Nenhuma inadimplência registrada no mês.</div> : (
+        <>
+          <div className="scenario-guarantee-canvas">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} margin={{ top: 12, right: 8, left: 4, bottom: 8 }}>
+                <CartesianGrid vertical={false} stroke="#dbe5f0" strokeDasharray="4 4" />
+                <XAxis dataKey="garantia" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 600 }} interval={0} />
+                <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#64748b' }} width={58} tickFormatter={formatMoney} />
+                <RechartsTooltip
+                  cursor={{ fill: 'rgba(14, 165, 233, 0.08)' }}
+                  content={({ active, payload, label }) => {
+                    if (!active || !payload?.length) return null
+                    const guaranteeTotal = payload.reduce((sum, item) => sum + Number(item.value || 0), 0)
+                    return <div className="scenario-guarantee-tooltip"><p>Garantia: {label}</p>{payload.map(item => <span key={item.dataKey} style={{ color: item.color }}>{guaranteeStatusLabels[item.dataKey] || item.name}: {formatMoney(item.value)}</span>)}<strong>Total: {formatMoney(guaranteeTotal)}</strong></div>
+                  }}
+                />
+                {statusKeys.map((status, index) => <Bar key={status} dataKey={status} name={guaranteeStatusLabels[status]} stackId="status" fill={guaranteeStatusColors[status]} radius={index === statusKeys.length - 1 ? [4, 4, 0, 0] : undefined} />)}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="scenario-guarantee-legend" aria-label="Legenda dos status">
+            {statusKeys.map(status => <span key={status}><i style={{ background: guaranteeStatusColors[status] }} />{guaranteeStatusLabels[status]}</span>)}
+          </div>
+        </>
       )}
     </div>
   )
@@ -529,6 +590,16 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const guaranteeScenario = scenarioGroups(monthDebits, debit => normalizedValue(getGuaranteeKey(debit, tenantMap)), {
     ...guaranteeLabels,
   })
+  const guaranteeStatusKeys = Object.keys(guaranteeStatusLabels)
+  const guaranteeValueData = Object.entries(monthDebits.reduce((groups, debit) => {
+    const guaranteeKey = normalizedValue(getGuaranteeKey(debit, tenantMap))
+    if (!groups[guaranteeKey]) {
+      groups[guaranteeKey] = { garantia: guaranteeLabels[guaranteeKey] || guaranteeKey, ...Object.fromEntries(guaranteeStatusKeys.map(status => [status, 0])) }
+    }
+    groups[guaranteeKey][classifyGuaranteeStatus(debit)] += dashboardDebtValue(debit)
+    return groups
+  }, {})).map(([, values]) => values)
+  const guaranteeValueTotal = guaranteeValueData.reduce((sum, item) => sum + guaranteeStatusKeys.reduce((itemTotal, status) => itemTotal + item[status], 0), 0)
   const openMonthDebits = monthDebits.filter(isUnpaid)
   const tenantCaseItems = Object.values(openMonthDebits.reduce((groups, debit) => {
     const tenantKey = debit.inquilinoId || debit.inquilinoNome || 'sem_inquilino'
@@ -666,6 +737,9 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
       : 0,
     modelScenario,
     guaranteeScenario,
+    guaranteeStatusKeys,
+    guaranteeValueData,
+    guaranteeValueTotal,
     monthDebits,
     tenantCaseItems,
     blacklistItems,
@@ -1137,6 +1211,7 @@ export default function RelatorioInadimplencia() {
                     ))}
                   </div>
                 </div>
+                <GuaranteeValueChart data={metrics.guaranteeValueData} total={metrics.guaranteeValueTotal} statusKeys={metrics.guaranteeStatusKeys} />
               </div>
             </section>
             <section className="blacklist-section">
