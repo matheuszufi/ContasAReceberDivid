@@ -540,11 +540,17 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
     const openStatuses = [...new Set(tenantDebits
       .filter(debit => openValueOf(debit) > 0)
       .map(debit => seguroAcionadoLabels[normalizedValue(debit.seguroAcionado)] || statusLabels[normalizedValue(debit.status)] || debit.status || 'Em aberto'))]
+    const contactEvents = tenantDebits.flatMap(debit => Object.values(debit.timeline || {}).filter(event => event.tipo === 'Contato realizado'))
+    
+    
     return {
       ...item,
       agreementCount: agreements.length,
       agreementPaidCount: agreements.filter(agreement => agreement.status === 'pago').length,
       agreementBrokenCount: agreements.filter(agreement => agreement.status === 'nao_cumprido').length,
+      contactCount: contactEvents.length,
+      contactResponseCount: contactEvents.filter(event => event.respostaContato === 'sim').length,
+      contactNoResponseCount: contactEvents.filter(event => event.respostaContato === 'nao').length,
       paymentStatus: openStatuses.length > 0 ? openStatuses.join(', ') : 'Pago',
     }
   })
@@ -832,7 +838,7 @@ export default function RelatorioInadimplencia() {
                     <span>Inadimplência projetada para o fechamento</span>
                     <div className="rate-summary">
                       <div className="rate-pair">
-                        <span className="rate-item">Taxa atual <b>{metrics.currentRate.toFixed(2)}%</b></span>
+                        <span className="rate-item">Taxa atual de inadimplência <b>{metrics.currentRate.toFixed(2)}%</b></span>
                         {editingPercentage ? (
                           <div className="percentage-editor">
                             <Input autoFocus type="number" min="0" max="100" step="0.01" value={percentageDraft} onChange={event => setPercentageDraft(event.target.value)} aria-label="Taxa projetada" />
@@ -934,9 +940,33 @@ export default function RelatorioInadimplencia() {
                 </div>
               </div>
             </section>
+            <section className="receivables-forecast-section">
+              <div className="section-heading">
+                <div><span className="section-kicker receivables-forecast-kicker">02</span><div><h3>Previsão de recebimentos</h3><p>Valores previstos para inadimplências de {formatMonth(selectedMonth)} e {formatMonth(previousMonthKey(selectedMonth))}.</p></div></div>
+              </div>
+              <div className="receivables-horizon-grid">
+                {metrics.receivablesForecast.horizons.map(horizon => (
+                  <ForecastTooltip
+                    key={horizon.days}
+                    label={`Até ${horizon.days} dias`}
+                    value={horizon.total}
+                    items={horizon.items.map(item => ({ ...item, type: item.source, value: item.receivedValue }))}
+                  />
+                ))}
+              </div>
+              <div className="receivables-forecast-list">
+                {metrics.receivablesForecast.items.length === 0 ? <div className="recovery-empty-cell">Nenhuma previsão com data válida encontrada.</div> : metrics.receivablesForecast.items.map(item => (
+                  <div className="receivable-forecast-item" key={item.id}>
+                    <div><strong>{item.name}</strong><span>{item.source}</span></div>
+                    <b>{formatDate(item.expectedDate)}</b>
+                    <strong>{formatMoney(item.receivedValue)}</strong>
+                  </div>
+                ))}
+              </div>
+            </section>
             <section className="recovery-section">
               <div className="section-heading">
-                <div><span className="section-kicker recovery-kicker">02</span><div><h3>Recuperação por semana</h3><p>Atualizações registradas no Histórico de Alterações durante {formatMonth(selectedMonth)}.</p></div></div>
+                <div><span className="section-kicker recovery-kicker">03</span><div><h3>Recuperação por semana</h3><p>Atualizações registradas no Histórico de Alterações durante {formatMonth(selectedMonth)}.</p></div></div>
               </div>
               <div className="recovery-table-wrap">
                 <table className="recovery-table">
@@ -947,6 +977,7 @@ export default function RelatorioInadimplencia() {
                       <th>Seguros acionados</th>
                       <th>Seguros aprovados</th>
                       <th>Pago pela seguradora</th>
+                      <th>Total recuperado</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -957,6 +988,7 @@ export default function RelatorioInadimplencia() {
                         <td><ListTooltip title={`Seguros acionados · ${week.label}`} items={week.items.activated} emptyLabel="Nenhum seguro acionado"><span className="recovery-value">{formatMoney(week.totals.activated)}</span></ListTooltip></td>
                         <td><ListTooltip title={`Seguros aprovados · ${week.label}`} items={week.items.approved} emptyLabel="Nenhum seguro aprovado"><span className="recovery-value">{formatMoney(week.totals.approved)}</span></ListTooltip></td>
                         <td><ListTooltip title={`Pago pela seguradora · ${week.label}`} items={week.items.insurerPaid} emptyLabel="Nenhum pagamento pela seguradora"><span className="recovery-value recovery-value-blue">{formatMoney(week.totals.insurerPaid)}</span></ListTooltip></td>
+                        <td><span className="recovery-value recovery-value-green">{formatMoney(week.totals.recovered + week.totals.insurerPaid)}</span></td>
                       </tr>
                     ))}
                   </tbody>
@@ -991,30 +1023,6 @@ export default function RelatorioInadimplencia() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-            </section>
-            <section className="receivables-forecast-section">
-              <div className="section-heading">
-                <div><span className="section-kicker receivables-forecast-kicker">03</span><div><h3>Previsão de recebimentos</h3><p>Valores previstos para inadimplências de {formatMonth(selectedMonth)} e {formatMonth(previousMonthKey(selectedMonth))}.</p></div></div>
-              </div>
-              <div className="receivables-horizon-grid">
-                {metrics.receivablesForecast.horizons.map(horizon => (
-                  <ForecastTooltip
-                    key={horizon.days}
-                    label={`Até ${horizon.days} dias`}
-                    value={horizon.total}
-                    items={horizon.items.map(item => ({ ...item, type: item.source, value: item.receivedValue }))}
-                  />
-                ))}
-              </div>
-              <div className="receivables-forecast-list">
-                {metrics.receivablesForecast.items.length === 0 ? <div className="recovery-empty-cell">Nenhuma previsão com data válida encontrada.</div> : metrics.receivablesForecast.items.map(item => (
-                  <div className="receivable-forecast-item" key={item.id}>
-                    <div><strong>{item.name}</strong><span>{item.source}</span></div>
-                    <b>{formatDate(item.expectedDate)}</b>
-                    <strong>{formatMoney(item.receivedValue)}</strong>
-                  </div>
-                ))}
               </div>
             </section>
             <section className="scenario-section">
@@ -1083,6 +1091,7 @@ export default function RelatorioInadimplencia() {
                     <div className="case-stats">
                       <div className="case-stat-row"><span><b>{item.recordCount}</b> inadimplência{item.recordCount === 1 ? '' : 's'}</span><span><b>{item.agreementCount}</b> acordo{item.agreementCount === 1 ? '' : 's'}</span></div>
                       <div className="case-stat-row"><span><b>{item.agreementPaidCount}</b> cumprido{item.agreementPaidCount === 1 ? '' : 's'}</span><span><b>{item.agreementBrokenCount}</b> não cumprido{item.agreementBrokenCount === 1 ? '' : 's'}</span></div>
+                      <div className="case-stat-row case-contact-row"><span>Contatos: <b>{item.contactCount}</b></span><span>Com retorno: <b>{item.contactResponseCount}</b></span><span>Sem retorno: <b>{item.contactNoResponseCount}</b></span></div>
                     </div>
                     <div className="case-comment"><Input value={commentDrafts[item.key] || ''} onChange={event => setCommentDrafts(prev => ({ ...prev, [item.key]: event.target.value }))} placeholder="Adicionar comentário..." /><Button type="button" size="sm" onClick={() => saveComment(item.key)} disabled={savingComment === item.key}>{savingComment === item.key ? 'Salvando' : 'Salvar'}</Button></div>
                   </div>
