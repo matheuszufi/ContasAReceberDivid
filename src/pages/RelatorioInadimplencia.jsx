@@ -487,7 +487,10 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const previousBalance = buildBalance(debits, [previousMonth])
   const [selectedYear, selectedMonthNumber] = month.split('-').map(Number)
   const yearMonths = Array.from({ length: selectedMonthNumber }, (_, index) => `${selectedYear}-${String(index + 1).padStart(2, '0')}`)
-  const yearBalance = buildBalance(debits, yearMonths)
+  const guaranteedDebits = debits.filter(debit => normalizedValue(getGuaranteeKey(debit, tenantMap)) !== 'sem_garantia')
+  const unguaranteedDebits = debits.filter(debit => normalizedValue(getGuaranteeKey(debit, tenantMap)) === 'sem_garantia')
+  const yearBalance = buildBalance(guaranteedDebits, yearMonths)
+  const unguaranteedYearBalance = buildBalance(unguaranteedDebits, yearMonths)
   const pastYearMonths = Array.from({ length: Math.max(0, selectedMonthNumber - 1) }, (_, index) => `${selectedYear}-${String(index + 1).padStart(2, '0')}`)
   const pastYearTotals = pastYearMonths.map(pastMonth => buildBalance(debits, [pastMonth]).total)
   const pastYearAverage = pastYearTotals.length > 0 ? pastYearTotals.reduce((sum, total) => sum + total, 0) / pastYearTotals.length : 0
@@ -500,7 +503,7 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const receivablesForecast = buildReceivablesForecast(debits, [month, previousMonthKey(month)])
   const balanceWithPreviousMonth = buildBalance(debits, [month, previousMonthKey(month)])
   const revenue = monthlyRevenue(tenants)
-  const unguaranteedDebits = monthDebits.filter(debit => normalizedValue(getGuaranteeKey(debit, tenantMap)) === 'sem_garantia')
+  const unguaranteedMonthDebits = monthDebits.filter(debit => normalizedValue(getGuaranteeKey(debit, tenantMap)) === 'sem_garantia')
   const activeTenants = tenants.filter(tenant => tenant.status === 'Ativo')
   const unguaranteedTenants = activeTenants.filter(tenant => normalizedValue(tenant.garantia || 'sem_garantia') === 'sem_garantia')
   const currentRate = revenue > 0 ? (balance.open / revenue) * 100 : 0
@@ -517,14 +520,14 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
     type: debit.tipoDebito || 'Débito',
     value: dashboardDebtValue(debit),
   })
-  const unguaranteedOpen = unguaranteedDebits.reduce((sum, debit) => sum + openValueOf(debit), 0)
-  const unguaranteedTotal = unguaranteedDebits.reduce((sum, debit) => sum + dashboardDebtValue(debit), 0)
+  const unguaranteedOpen = unguaranteedMonthDebits.reduce((sum, debit) => sum + openValueOf(debit), 0)
+  const unguaranteedTotal = unguaranteedMonthDebits.reduce((sum, debit) => sum + dashboardDebtValue(debit), 0)
   const unguaranteedRecovered = Math.max(0, unguaranteedTotal - unguaranteedOpen)
-  const unguaranteedOpenItems = unguaranteedDebits
+  const unguaranteedOpenItems = unguaranteedMonthDebits
     .filter(debit => openValueOf(debit) > 0)
     .map(debit => ({ ...debitItem(debit), value: openValueOf(debit) }))
-  const unguaranteedTotalItems = unguaranteedDebits.map(debitItem)
-  const unguaranteedRecoveredItems = unguaranteedDebits
+  const unguaranteedTotalItems = unguaranteedMonthDebits.map(debitItem)
+  const unguaranteedRecoveredItems = unguaranteedMonthDebits
     .filter(debit => dashboardDebtValue(debit) - openValueOf(debit) > 0)
     .map(debit => ({ ...debitItem(debit), value: dashboardDebtValue(debit) - openValueOf(debit) }))
   const agreementEvents = monthDebits.flatMap(debit => Object.entries(debit.timeline || {}).map(([key, event]) => ({ key, debit, ...event })))
@@ -694,6 +697,7 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
     receivablesForecast,
     balance,
     yearBalance,
+    unguaranteedYearBalance,
     totalVariation: {
       previousMonth: {
         total: previousBalance.total,
@@ -948,9 +952,12 @@ export default function RelatorioInadimplencia() {
                   <span>{formatYearPeriod(selectedMonth)}</span>
                 </div>
                 <div className="annual-summary-grid">
-                  <div className="annual-metric annual-metric-total"><span>Total de inadimplência</span><strong>{formatMoney(metrics.yearBalance.total)}</strong><small>Valor registrado no período</small></div>
-                  <div className="annual-metric annual-metric-recovered"><span>Recuperado no ano</span><strong>{formatMoney(metrics.yearBalance.recovered)}</strong><small>Valores já recuperados</small></div>
-                  <div className="annual-metric annual-metric-open"><span>Em aberto no ano</span><strong>{formatMoney(metrics.yearBalance.open)}</strong><small>Saldo ainda pendente</small></div>
+                  <div className="annual-metric annual-metric-total"><span>Total de inadimplência (apenas garantido)</span><strong>{formatMoney(metrics.yearBalance.total)}</strong><small>Valor registrado no período</small></div>
+                  <div className="annual-metric annual-metric-recovered"><span>Recuperado no ano (garantido)</span><strong>{formatMoney(metrics.yearBalance.recovered)}</strong><small>Valores já recuperados</small></div>
+                  <div className="annual-metric annual-metric-open"><span>Em aberto no ano (garantido)</span><strong>{formatMoney(metrics.yearBalance.open)}</strong><small>Saldo ainda pendente</small></div>
+                  <div className="annual-metric annual-metric-unguaranteed"><span>Total de inadimplência (não garantido)</span><strong>{formatMoney(metrics.unguaranteedYearBalance.total)}</strong><small>Valor registrado no período</small></div>
+                  <div className="annual-metric annual-metric-unguaranteed"><span>Recuperado no ano (não garantido)</span><strong>{formatMoney(metrics.unguaranteedYearBalance.recovered)}</strong><small>Valores já recuperados</small></div>
+                  <div className="annual-metric annual-metric-unguaranteed"><span>Em aberto no ano (não garantido)</span><strong>{formatMoney(metrics.unguaranteedYearBalance.open)}</strong><small>Saldo ainda pendente</small></div>
                 </div>
               </div>
               <div className="summary-grid">
@@ -1257,7 +1264,7 @@ export default function RelatorioInadimplencia() {
                       <div className="case-stat-row"><span><b>{item.agreementPaidCount}</b> cumprido{item.agreementPaidCount === 1 ? '' : 's'}</span><span><b>{item.agreementBrokenCount}</b> não cumprido{item.agreementBrokenCount === 1 ? '' : 's'}</span></div>
                       <div className="case-stat-row case-contact-row"><span>Contatos: <b>{item.contactCount}</b></span><span>Com retorno: <b>{item.contactResponseCount}</b></span><span>Sem retorno: <b>{item.contactNoResponseCount}</b></span></div>
                     </div>
-                    <div className="case-comment"><Input value={commentDrafts[item.key] || ''} onChange={event => setCommentDrafts(prev => ({ ...prev, [item.key]: event.target.value }))} placeholder="Adicionar comentário..." /><Button type="button" size="sm" onClick={() => saveComment(item.key)} disabled={savingComment === item.key}>{savingComment === item.key ? 'Salvando' : 'Salvar'}</Button></div>
+                    <div className="case-comment"><textarea className="case-comment-input" value={commentDrafts[item.key] || ''} onChange={event => setCommentDrafts(prev => ({ ...prev, [item.key]: event.target.value }))} placeholder="Adicionar comentário..." /><Button type="button" size="sm" onClick={() => saveComment(item.key)} disabled={savingComment === item.key}>{savingComment === item.key ? 'Salvando' : 'Salvar'}</Button></div>
                   </div>
                 ))}
               </div>

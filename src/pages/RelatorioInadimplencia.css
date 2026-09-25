@@ -96,15 +96,17 @@
 .annual-summary-kicker { color: #64748b; font-size: 10.5px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; }
 .annual-summary-heading strong { color: #0f172a; font-size: 15px; font-weight: 700; }
 .annual-summary-heading > span { color: #64748b; font-size: 11px; font-weight: 600; }
-.annual-summary-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: #e2e8f0; }
+.annual-summary-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1px; background: #e2e8f0; }
 .annual-metric { position: relative; display: grid; gap: 3px; min-width: 0; padding: 12px 14px 12px 17px; background: #fff; }
 .annual-metric::before { position: absolute; inset: 12px auto 12px 0; width: 3px; border-radius: 0 2px 2px 0; content: ''; background: #64748b; }
 .annual-metric-recovered::before { background: #15803d; }
 .annual-metric-open::before { background: #b45309; }
+.annual-metric-unguaranteed::before { background: #7c3aed; }
 .annual-metric span { color: #64748b; font-size: 10.5px; font-weight: 700; }
 .annual-metric strong { overflow: hidden; color: #0f172a; font-size: clamp(16px, 2vw, 20px); font-weight: 700; letter-spacing: -0.2px; text-overflow: ellipsis; white-space: nowrap; }
 .annual-metric-recovered strong { color: #15803d; }
 .annual-metric-open strong { color: #b45309; }
+.annual-metric-unguaranteed strong { color: #5b5b5c; }
 .annual-metric small { color: #94a3b8; font-size: 10px; line-height: 1.3; }
 .summary-heading-metrics { display: grid; justify-items: end; gap: 6px; }
 .summary-variations { display: flex; justify-content: flex-end; gap: 14px; }
@@ -270,9 +272,10 @@
 .case-contact-row { flex-wrap: wrap; gap: 4px 10px; }
 .case-stats span { color: #94a3b8; font-size: 10px; white-space: nowrap; }
 .case-stats b { color: #334155; font-size: 12px; font-weight: 700; }
-.case-comment { display: flex; width: 100%; gap: 5px; }
-.case-comment input { width: 100%; min-width: 0; min-height: 32px; margin: 0; flex: 1; }
-.case-comment button { flex: 0 0 auto; }
+.case-comment { display: flex; align-self: stretch; width: 100%; gap: 5px; margin: 2px; }
+.case-comment-input { font-size: 12px; width: 100%; min-width: 0; min-height: 32px; height: 100%; margin: 0; padding: 7px 9px; resize: none; flex: 1; text-align: left; vertical-align: top; }
+.case-comment button {width: 80px; height: 100%; flex: 0 0 auto; border-radius: 0px; background:linear-gradient(to right, #444444, #1f1f1f); }
+.case-comment-input::placeholder { color: #94a3b8; font-size: 12px; font-weight: 600; opacity: 1; }
 .case-item { min-width: 0; }
 .recovery-section { margin-top: 12px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px 16px; background: #fff; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
 .recovery-kicker { color: #64748b; }

@@ -966,8 +966,8 @@ export default function Dashboard() {
   const [colFilters, setColFilters] = useState({
     modelo: '',
     garantia: '',
-    // 'todos' contabiliza garantidos + não garantidos (padrão); 'apenas_garantidos' filtra só os garantidos
-    garantidaFiltro: 'todos',
+    // 'todos' contabiliza garantidos + não garantidos; 'apenas_garantidos' filtra só os garantidos (padrão)
+    garantidaFiltro: 'apenas_garantidos',
   })
 
   // Filtros do card "Mapa de Imóveis": quais imóveis aparecem no mapa
@@ -996,7 +996,7 @@ export default function Dashboard() {
     setColFilters(prev => ({ ...prev, [field]: value }))
 
   const limparColFilters = () =>
-    setColFilters({ modelo: '', garantia: '', garantidaFiltro: 'todos' })
+    setColFilters({ modelo: '', garantia: '', garantidaFiltro: 'apenas_garantidos' })
 
   useEffect(() => {
     const imoveisRef = ref(db, 'imoveis')
