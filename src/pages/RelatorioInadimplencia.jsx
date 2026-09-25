@@ -296,9 +296,9 @@ function ReceivingTimeTooltip({ items }) {
 const scenarioColors = ['#2563eb', '#7c3aed', '#0f766e', '#d97706', '#be123c', '#475569']
 
 const guaranteeStatusColors = {
-  inadimplente: '#f97316', juridico: '#ef4444', acionado: '#3b82f6',
-  aguardarAcionar: '#64748b', reprovado: '#dc2626', aprovadoSeguradora: '#54ec26',
-  utilizacaoCaucao: '#0f766e', pagoSeguradora: '#0891b2', recuperado: '#22c55e',
+  inadimplente: '#f79085', juridico: '#fc6666', acionado: '#8eb9ff',
+  aguardarAcionar: '#64748b', reprovado: '#b61919', aprovadoSeguradora: '#1d7b00',
+  utilizacaoCaucao: '#01722e', pagoSeguradora: '#006876', recuperado: '#22c55e',
 }
 const guaranteeStatusLabels = {
   inadimplente: 'Aberto', juridico: 'Jurídico', acionado: 'Acionado',
