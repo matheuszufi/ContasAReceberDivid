@@ -3529,9 +3529,9 @@ export default function Dashboard() {
                     cy="60"
                     r="40"
                     fill="none"
-                    stroke={RECOVERY_COLORS.reprovado}
+                    stroke={RECOVERY_COLORS.acionado}
                     strokeWidth="24"
-                    strokeDasharray={`${(pie.reprovadoPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.reprovadoPercent / 100) * DONUT_CIRCUMFERENCE}`}
+                    strokeDasharray={`${(pie.acionadoPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.acionadoPercent / 100) * DONUT_CIRCUMFERENCE}`}
                     strokeDashoffset="0"
                     transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent + pie.insurerPaidPercent + pie.approvedPercent) / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
@@ -3545,7 +3545,19 @@ export default function Dashboard() {
                     strokeWidth="24"
                     strokeDasharray={`${(pie.waitingPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.waitingPercent / 100) * DONUT_CIRCUMFERENCE}`}
                     strokeDashoffset="0"
-                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent + pie.insurerPaidPercent + pie.approvedPercent + pie.reprovadoPercent) / 100) * 360} 60 60)`}
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent + pie.insurerPaidPercent + pie.approvedPercent + pie.acionadoPercent) / 100) * 360} 60 60)`}
+                    strokeLinecap="butt"
+                  />
+                  <circle
+                    cx="60"
+                    cy="60"
+                    r="40"
+                    fill="none"
+                    stroke={RECOVERY_COLORS.reprovado}
+                    strokeWidth="24"
+                    strokeDasharray={`${(pie.reprovadoPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.reprovadoPercent / 100) * DONUT_CIRCUMFERENCE}`}
+                    strokeDashoffset="0"
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent + pie.insurerPaidPercent + pie.approvedPercent + pie.acionadoPercent + pie.waitingPercent) / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
                   />
                   <circle
@@ -3557,19 +3569,7 @@ export default function Dashboard() {
                     strokeWidth="24"
                     strokeDasharray={`${(pie.juridicoPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.juridicoPercent / 100) * DONUT_CIRCUMFERENCE}`}
                     strokeDashoffset="0"
-                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent + pie.insurerPaidPercent + pie.approvedPercent + pie.reprovadoPercent + pie.waitingPercent) / 100) * 360} 60 60)`}
-                    strokeLinecap="butt"
-                  />
-                  <circle
-                    cx="60"
-                    cy="60"
-                    r="40"
-                    fill="none"
-                    stroke={RECOVERY_COLORS.acionado}
-                    strokeWidth="24"
-                    strokeDasharray={`${(pie.acionadoPercent / 100) * DONUT_CIRCUMFERENCE} ${DONUT_CIRCUMFERENCE - (pie.acionadoPercent / 100) * DONUT_CIRCUMFERENCE}`}
-                    strokeDashoffset="0"
-                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent + pie.insurerPaidPercent + pie.approvedPercent + pie.reprovadoPercent + pie.waitingPercent + pie.juridicoPercent) / 100) * 360} 60 60)`}
+                    transform={`rotate(${90 + ((pie.recoveredPercent + pie.utilizationPercent + pie.insurerPaidPercent + pie.approvedPercent + pie.acionadoPercent + pie.waitingPercent + pie.reprovadoPercent) / 100) * 360} 60 60)`}
                     strokeLinecap="butt"
                   />
                 </svg>
@@ -3867,15 +3867,15 @@ export default function Dashboard() {
                         }}
                         wrapperStyle={{ zIndex: 1000, pointerEvents: 'none' }}
                       />
-                      <Bar dataKey="inadimplente" name={garantiaStatusChartData.labels.inadimplente} stackId="status" fill="#f97316" />
-                      <Bar dataKey="juridico" name={garantiaStatusChartData.labels.juridico} stackId="status" fill="#ef4444" />
-                      <Bar dataKey="acionado" name={garantiaStatusChartData.labels.acionado} stackId="status" fill="#3b82f6" />
+                      <Bar dataKey="inadimplente" name={garantiaStatusChartData.labels.inadimplente} stackId="status" fill="#ffe3e3" />
+                      <Bar dataKey="juridico" name={garantiaStatusChartData.labels.juridico} stackId="status" fill="#ff8282" />
+                      <Bar dataKey="acionado" name={garantiaStatusChartData.labels.acionado} stackId="status" fill="#3b83f6a7" />
                       <Bar dataKey="aguardarAcionar" name={garantiaStatusChartData.labels.aguardarAcionar} stackId="status" fill="#64748b" />
                       <Bar dataKey="reprovado" name={garantiaStatusChartData.labels.reprovado} stackId="status" fill="#dc2626" />
                       <Bar dataKey="aprovadoSeguradora" name={garantiaStatusChartData.labels.aprovadoSeguradora} stackId="status" fill="#54ec26" />
                       <Bar dataKey="utilizacaoCaucao" name={garantiaStatusChartData.labels.utilizacaoCaucao} stackId="status" fill="#0f766e" />
-                      <Bar dataKey="pagoSeguradora" name={garantiaStatusChartData.labels.pagoSeguradora} stackId="status" fill="#0891b2" />
-                      <Bar dataKey="recuperado" name={garantiaStatusChartData.labels.recuperado} stackId="status" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="pagoSeguradora" name={garantiaStatusChartData.labels.pagoSeguradora} stackId="status" fill="#165d14" />
+                      <Bar dataKey="recuperado" name={garantiaStatusChartData.labels.recuperado} stackId="status" fill="#10a908" radius={[4, 4, 0, 0]} />
                     </BarChart>
                     </ResponsiveContainer>
                     </div>
