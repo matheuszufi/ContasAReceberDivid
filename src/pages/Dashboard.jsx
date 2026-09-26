@@ -966,8 +966,8 @@ export default function Dashboard() {
   const [colFilters, setColFilters] = useState({
     modelo: '',
     garantia: '',
-    // 'todos' contabiliza garantidos + não garantidos (padrão); 'apenas_garantidos' filtra só os garantidos
-    garantidaFiltro: 'todos',
+    // 'todos' contabiliza garantidos + não garantidos; 'apenas_garantidos' filtra só os garantidos (padrão)
+    garantidaFiltro: 'apenas_garantidos',
   })
 
   // Filtros do card "Mapa de Imóveis": quais imóveis aparecem no mapa
@@ -996,7 +996,7 @@ export default function Dashboard() {
     setColFilters(prev => ({ ...prev, [field]: value }))
 
   const limparColFilters = () =>
-    setColFilters({ modelo: '', garantia: '', garantidaFiltro: 'todos' })
+    setColFilters({ modelo: '', garantia: '', garantidaFiltro: 'apenas_garantidos' })
 
   useEffect(() => {
     const imoveisRef = ref(db, 'imoveis')
@@ -3399,7 +3399,7 @@ export default function Dashboard() {
       </motion.div>
 
       <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
-      <Card className="mb-3 border border-blue-100/70 bg-[linear-gradient(130deg,#fffdf7_0%,#f5f7f4_100%)] shadow-lg">
+      <Card className="mb-3 border border-blue-100/70 bg-[linear-gradient(130deg,#fffdf7_0%,#f5f7f4_100%)] shadow-md">
         <motion.div variants={staggerItemVariants}>
         <CardHeader className="flex w-full flex-row items-center justify-between gap-3 border-b py-2 ">
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
@@ -3452,7 +3452,7 @@ export default function Dashboard() {
             <option value="todos">Garantidos + Não Garantidos</option>
             <option value="apenas_garantidos">Somente Garantidos</option>
           </select>
-          {(colFilters.modelo || colFilters.garantia || colFilters.garantidaFiltro !== 'todos') && (
+          {(colFilters.modelo || colFilters.garantia || colFilters.garantidaFiltro !== 'apenas_garantidos') && (
             <Button variant="outline" size="sm" className="h-7 text-xs" onClick={limparColFilters}>
               Limpar filtros
             </Button>
@@ -3462,7 +3462,7 @@ export default function Dashboard() {
         <motion.div variants={staggerItemVariants}>
         <CardContent className="p-2 bg-[linear-gradient(135deg,#fffdf7_0%,#f5f7f4_100%)]">
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-[460px_minmax(0,1fr)_300px] ">
-            <div className="recovery-panel flex min-w-0 flex-col border bg-card p-2v shadow-md">
+            <div className="recovery-panel flex min-w-0 flex-col border bg-card p-2v shadow-sm">
               <div className="recovery-panel-header mb-2 ">
                 <div>
                   <h4 className="text-sm font-medium">Recuperação de Inadimplência</h4>
@@ -3744,7 +3744,7 @@ export default function Dashboard() {
               </AnimatePresence>
             </div>
 
-      <div className="flex h-full min-h-0 min-w-0 flex-col border border-slate-200 bg-[linear-gradient(135deg,#ededed_0%,#f0f0f0_100%)] p-2 shadow-md">
+      <div className="flex h-full min-h-0 min-w-0 flex-col border border-slate-200 bg-[linear-gradient(135deg,#ededed_0%,#f0f0f0_100%)] p-2 shadow-sm">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-medium">Pagamentos por mês</h4>
@@ -3819,7 +3819,7 @@ export default function Dashboard() {
                   )
                 })}
               </div>
-              <div className="period-chart-panel mt-3 min-h-0 w-full rounded-lg border border-slate-200 bg-slate-50/70 p-3 shadow-md">
+              <div className="period-chart-panel mt-3 min-h-0 w-full rounded-lg border border-slate-200 bg-slate-50/70 p-3 shadow-sm">
                 <div className="period-chart-heading">
                   <div>
                     <p className="period-chart-title">Valores por tipo de garantia</p>
@@ -3897,7 +3897,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border bg-card p-2 shadow-md">
+            <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border bg-card p-2 shadow-sm">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-medium">Maiores inadimplentes</h4>
