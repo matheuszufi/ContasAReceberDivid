@@ -435,6 +435,7 @@ body {
 .month-grid.month-grid-compact {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
+    /* background: linear-gradient(135deg,#fbfbfb,#c0bebee4); */
   }
 
 @media (max-width: 700px) {
@@ -453,6 +454,8 @@ body {
     border-radius: 10px;
     padding: 9px 10px 9px 12px;
     justify-content: flex-start;
+    background: linear-gradient(135deg,#fbfbfb,#f3f2f2);
+    /* box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06); */
     min-height: 96px;
   }
 

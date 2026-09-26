@@ -2610,7 +2610,7 @@ export default function Dashboard() {
           { label: 'Em Aberto', valor: fmtMoney(totalNegativo), color: '#dc2626' },
           { label: '% Recuperado', valor: `${percentPositivo}%`, color: percentPositivo >= 50 ? '#16a34a' : '#dc2626' },
           { label: 'Qtd. Registros', valor: String(itens.length), color: '#1e293b' },
-          { label: 'Ticket Médio', valor: fmtMoney(ticketMedio), color: '#1e293b' },
+          { label: 'Ticket Médio', valor: fmtMoney(ticketMedio), color: '#0f6523' },
         ]
       }
 
@@ -2751,7 +2751,7 @@ export default function Dashboard() {
       <div className="dashboard-page" ref={dashboardPageRef}>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-3">
         <motion.div className="min-w-0" {...cardHoverMotion}>
-        <Card className="min-w-0">
+       <Card className="min-w-0 bg-[linear-gradient(135deg,#fcfcfc_0%,#f5f5f5_100%)]">
           <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center  bg-blue-500/10 text-blue-600">
               <Building2 className="size-4" />
@@ -2764,7 +2764,7 @@ export default function Dashboard() {
         </Card>
         </motion.div>
         <motion.div {...cardHoverMotion}>
-        <Card>
+        <Card className="min-w-0 bg-[linear-gradient(135deg,#fcfcfc_0%,#f5f8ff_100%)]">
           <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-emerald-500/10 text-emerald-600">
               <Users className="size-4" />
@@ -2777,7 +2777,7 @@ export default function Dashboard() {
         </Card>
         </motion.div>
         <motion.div {...cardHoverMotion}>
-        <Card>
+          <Card className="min-w-0 bg-[linear-gradient(135deg,#fcfcfc_0%,#f5f8ff_100%)]">
           <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-amber-500/10 text-amber-600">
               <TriangleAlert className="size-4" />
@@ -2790,7 +2790,7 @@ export default function Dashboard() {
         </Card>
         </motion.div>
         <motion.div {...cardHoverMotion}>
-        <Card>
+        <Card className="min-w-0 bg-[linear-gradient(135deg,#fcfcfc_0%,#f5f8ff_100%)]">
           <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-violet-500/10 text-violet-600">
               <Wallet className="size-4" />
@@ -2803,7 +2803,7 @@ export default function Dashboard() {
         </Card>
         </motion.div>
         <motion.div {...cardHoverMotion}>
-        <Card>
+        <Card className="min-w-0 bg-[linear-gradient(135deg,#fcfcfc_0%,#f5f8ff_100%)]">
           <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-cyan-500/10 text-cyan-600">
               <TrendingUp className="size-4" />
@@ -2816,7 +2816,7 @@ export default function Dashboard() {
         </Card>
         </motion.div>
         <motion.div {...cardHoverMotion}>
-        <Card>
+        <Card className="min-w-0 bg-[linear-gradient(135deg,#fcfcfc_0%,#f5f8ff_100%)]">
           <CardContent className="flex items-center gap-2">
             <div className="flex size-9 shrink-0 items-center justify-center bg-orange-500/10 text-orange-600">
               <Clock className="size-4" />
@@ -3399,7 +3399,7 @@ export default function Dashboard() {
       </motion.div>
 
       <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
-      <Card className="mb-3">
+      <Card className="mb-3 border border-blue-100/70">
         <motion.div variants={staggerItemVariants}>
         <CardHeader className="flex w-full flex-row items-center justify-between gap-3 border-b py-2">
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
@@ -3460,13 +3460,13 @@ export default function Dashboard() {
         </div>
         </motion.div>
         <motion.div variants={staggerItemVariants}>
-        <CardContent className="p-2">
-          <div className="grid grid-cols-1 gap-2 xl:grid-cols-[460px_minmax(0,1fr)_300px]">
-            <div className="recovery-panel flex min-w-0 flex-col border bg-card p-2">
-              <div className="recovery-panel-header mb-2">
+        <CardContent className="p-2 bg-[linear-gradient(135deg,#ededed_0%,#e8e8e8_100%)]">
+          <div className="grid grid-cols-1 gap-2 xl:grid-cols-[460px_minmax(0,1fr)_300px] ">
+            <div className="recovery-panel flex min-w-0 flex-col border bg-card p-2v">
+              <div className="recovery-panel-header mb-2 ">
                 <div>
                   <h4 className="text-sm font-medium">Recuperação de Inadimplência</h4>
-                  <p className="text-xs text-muted-foreground">Quanto do total foi recuperado no período</p>
+                  {/* <p className="text-xs text-muted-foreground">Quanto do total foi recuperado no período</p> */}
                 </div>
                 <p className="text-xs text-muted-foreground">{selectedPeriodLabel}</p>
               </div>
@@ -3744,7 +3744,7 @@ export default function Dashboard() {
               </AnimatePresence>
             </div>
 
-            <div className="flex h-full min-h-0 min-w-0 flex-col border bg-card p-2">
+      <div className="flex h-full min-h-0 min-w-0 flex-col border border-slate-200 bg-[linear-gradient(135deg,#ededed_0%,#f0f0f0_100%)] p-2">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-medium">Pagamentos por mês</h4>
