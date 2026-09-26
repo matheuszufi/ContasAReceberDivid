@@ -966,8 +966,8 @@ export default function Dashboard() {
   const [colFilters, setColFilters] = useState({
     modelo: '',
     garantia: '',
-    // 'todos' contabiliza garantidos + não garantidos; 'apenas_garantidos' filtra só os garantidos (padrão)
-    garantidaFiltro: 'apenas_garantidos',
+    // 'todos' contabiliza garantidos + não garantidos (padrão); 'apenas_garantidos' filtra só os garantidos
+    garantidaFiltro: 'todos',
   })
 
   // Filtros do card "Mapa de Imóveis": quais imóveis aparecem no mapa
@@ -996,7 +996,7 @@ export default function Dashboard() {
     setColFilters(prev => ({ ...prev, [field]: value }))
 
   const limparColFilters = () =>
-    setColFilters({ modelo: '', garantia: '', garantidaFiltro: 'apenas_garantidos' })
+    setColFilters({ modelo: '', garantia: '', garantidaFiltro: 'todos' })
 
   useEffect(() => {
     const imoveisRef = ref(db, 'imoveis')
@@ -2934,7 +2934,7 @@ export default function Dashboard() {
         >
           {inquilinosAtivosComMaisInadimplencias.length > 0 && (
             <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
-            <Card className="w-full border-amber-300" style={{ background: '#fffbeb' }}>
+              <Card className="w-full border-amber-300"style={{background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)'}}>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b45309' }}>
                   <Trophy className="size-4" />
@@ -2956,7 +2956,7 @@ export default function Dashboard() {
           )}
           {inquilinosQueUsaramGarantia.length > 0 && (
             <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
-            <Card className="w-full border-orange-300" style={{ background: '#fff7ed' }}>
+              <Card className="w-full border-orange-300" style={{background: 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)'}}>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#c2410c' }}>
                   <Wallet className="size-4" />
@@ -2978,7 +2978,7 @@ export default function Dashboard() {
           )}
           {acordosInadimplencias.length > 0 && (
             <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
-            <Card className="w-full border-red-300" style={{ background: '#fef2f2' }}>
+              <Card className="w-full border-red-300" style={{background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)'}}>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#b91c1c' }}>
                   <Handshake className="size-4" />
@@ -3015,7 +3015,12 @@ export default function Dashboard() {
           )}
           {proximasOcupacoes.length > 0 && (
             <motion.div variants={staggerItemVariants} className="w-full sm:flex-1">
-            <Card className="w-full border-cyan-300" style={{ background: '#ecfeff' }}>
+     <Card
+  className="w-full border-cyan-300"
+  style={{
+    background: 'linear-gradient(135deg, #ecfeff 0%, #b2ecf1 100%)'
+  }}
+>
               <CardHeader className="">
                 <CardTitle className="flex items-center gap-2 text-sm" style={{ color: '#0f766e' }}>
                   <CalendarDays className="size-4" />

@@ -73,10 +73,9 @@ export default function Login() {
             <img src={logo} alt="Divid Logo" />
           </div>
           <div className="auth-hero-badge">Sistema financeiro</div>
-          <h1>Controle total do seu imóvel e do seu fluxo financeiro.</h1>
+          <h1>Morar bem faz sentido.</h1>
           <p>
-            Acompanhe inadimplência, seguros, garantias e movimentações em um único lugar,
-            com organização e segurança para a sua operação.
+           Moradia por assinatura em Floripa e Curitiba
           </p>
           <ul className="auth-benefits">
             <li>Dashboard em tempo real</li>
