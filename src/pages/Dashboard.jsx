@@ -3399,11 +3399,11 @@ export default function Dashboard() {
       </motion.div>
 
       <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
-      <Card className="mb-3 border border-blue-100/70">
+      <Card className="mb-3 border border-blue-100/70 bg-[linear-gradient(130deg,#fffdf7_0%,#f5f7f4_100%)] shadow-lg">
         <motion.div variants={staggerItemVariants}>
-        <CardHeader className="flex w-full flex-row items-center justify-between gap-3 border-b py-2">
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-3 border-b py-2 ">
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-            <CardTitle className="shrink-0 text-sm">Inadimplência por Período</CardTitle>
+            <CardTitle className="shrink-0 text-lg ">Inadimplência por Período</CardTitle>
             <CardDescription className="truncate text-xs text-muted-foreground">
               Navegue por ano e filtre por mês para ver valores e recuperação.
             </CardDescription>
@@ -3460,9 +3460,9 @@ export default function Dashboard() {
         </div>
         </motion.div>
         <motion.div variants={staggerItemVariants}>
-        <CardContent className="p-2 bg-[linear-gradient(135deg,#ededed_0%,#e8e8e8_100%)]">
+        <CardContent className="p-2 bg-[linear-gradient(135deg,#fffdf7_0%,#f5f7f4_100%)]">
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-[460px_minmax(0,1fr)_300px] ">
-            <div className="recovery-panel flex min-w-0 flex-col border bg-card p-2v">
+            <div className="recovery-panel flex min-w-0 flex-col border bg-card p-2v shadow-md">
               <div className="recovery-panel-header mb-2 ">
                 <div>
                   <h4 className="text-sm font-medium">Recuperação de Inadimplência</h4>
@@ -3744,7 +3744,7 @@ export default function Dashboard() {
               </AnimatePresence>
             </div>
 
-      <div className="flex h-full min-h-0 min-w-0 flex-col border border-slate-200 bg-[linear-gradient(135deg,#ededed_0%,#f0f0f0_100%)] p-2">
+      <div className="flex h-full min-h-0 min-w-0 flex-col border border-slate-200 bg-[linear-gradient(135deg,#ededed_0%,#f0f0f0_100%)] p-2 shadow-md">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-medium">Pagamentos por mês</h4>
@@ -3819,7 +3819,7 @@ export default function Dashboard() {
                   )
                 })}
               </div>
-              <div className="period-chart-panel mt-3 min-h-0 w-full rounded-lg border border-slate-200 bg-slate-50/70 p-3 shadow-inner">
+              <div className="period-chart-panel mt-3 min-h-0 w-full rounded-lg border border-slate-200 bg-slate-50/70 p-3 shadow-md">
                 <div className="period-chart-heading">
                   <div>
                     <p className="period-chart-title">Valores por tipo de garantia</p>
@@ -3897,7 +3897,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border bg-card p-2">
+            <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden border bg-card p-2 shadow-md">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-medium">Maiores inadimplentes</h4>
