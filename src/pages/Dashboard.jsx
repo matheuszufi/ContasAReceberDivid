@@ -3958,7 +3958,7 @@ export default function Dashboard() {
       </motion.div>
 
       <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
-      <Card className="mb-3">
+      <Card className="mb-3 bg-[linear-gradient(180deg,#fcfcfc_0%,#dfdfdf_100%)] shadow-lg">
         <motion.div variants={staggerItemVariants}>
         <CardHeader className="flex w-full flex-row flex-wrap items-center justify-between gap-2 border-b py-2">
           <div>
@@ -4124,7 +4124,7 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="min-w-0 rounded-md border bg-muted/10 p-2">
+            <div className="min-w-0 rounded-md border bg-white p-2">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <div>
                   <h4 className="text-sm font-medium">Total de inadimplência por mês</h4>
