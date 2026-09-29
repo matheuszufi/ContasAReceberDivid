@@ -2026,13 +2026,15 @@ export default function Dashboard() {
       .map(i => ({
         id: i.id,
         nome: i.nome || 'Inquilino sem nome',
+        imovel: imovelMap[i.imovelId],
+        codigoImovel: i.codigoImovel || '',
         dataEntrada: i.dataEntrada,
         garantia: i.garantia || 'sem_garantia',
         garantiaPaga: !!i.garantiaPaga,
         hoje: i.dataEntrada === hojeKey,
       }))
       .sort((a, b) => a.dataEntrada.localeCompare(b.dataEntrada))
-  }, [inquilinos])
+  }, [inquilinos, imovelMap])
 
   const handleCadastroOutroSistemaChange = async (inquilinoId, checked) => {
     setInquilinos(prev => prev.map(inquilino => (
@@ -3043,7 +3045,12 @@ export default function Dashboard() {
                           aria-label={`Marcar ${i.nome} como cadastrado em outro sistema`}
                           className="size-3.5 shrink-0 cursor-pointer"
                         />
-                        <span className="font-small">{i.nome}</span>
+                        <span className="font-small">
+                          {i.nome}
+                          <span className="ml-1 text-muted-foreground">
+                            ({i.imovel?.nome || i.imovel?.codigo || i.codigoImovel || 'Imóvel não informado'})
+                          </span>
+                        </span>
                       </label>
                       <span className="text-muted-foreground">
                         {(i.garantia === 'caucao' || i.garantia === 'adiantamento') && (
