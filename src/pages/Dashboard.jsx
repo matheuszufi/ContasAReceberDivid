@@ -2429,6 +2429,7 @@ export default function Dashboard() {
   )
 
   const [eventosMesFiltro, setEventosMesFiltro] = useState(currentMonth)
+  const [eventosStatusFiltro, setEventosStatusFiltro] = useState('todos')
 
   // Meses com pelo menos um evento, do mais recente para o mais antigo, para popular o filtro
   const eventosMesesDisponiveis = useMemo(
@@ -2437,10 +2438,11 @@ export default function Dashboard() {
   )
 
   const eventosFiltrados = useMemo(
-    () => eventosMesFiltro === 'todos'
-      ? eventosDocumentosSolicitados
-      : eventosDocumentosSolicitados.filter(item => item.mesReferencia === eventosMesFiltro),
-    [eventosDocumentosSolicitados, eventosMesFiltro]
+    () => eventosDocumentosSolicitados.filter(item => (
+      (eventosMesFiltro === 'todos' || item.mesReferencia === eventosMesFiltro) &&
+      (eventosStatusFiltro === 'todos' || item.statusEvento === eventosStatusFiltro)
+    )),
+    [eventosDocumentosSolicitados, eventosMesFiltro, eventosStatusFiltro]
   )
 
   const handleExcluirEventoTimeline = async (debitoId, eventoKey) => {
@@ -4461,6 +4463,15 @@ export default function Dashboard() {
               ))}
               <option value="todos">Todos os meses</option>
             </select>
+            <select
+              value={eventosStatusFiltro}
+              onChange={e => setEventosStatusFiltro(e.target.value)}
+              aria-label="Filtrar eventos por status"
+              className="h-8 min-w-0 flex-1 rounded-md border border-violet-200 bg-white px-2 text-xs shadow-sm sm:flex-none"
+            >
+              <option value="todos">Todos os status</option>
+              <option value="sem_movimento">Sem movimento</option>
+            </select>
             <Button variant="outline" size="sm" className="h-8 border-violet-200 bg-white text-xs hover:bg-violet-50" onClick={() => abrirRelatorioModal('seguradoras')}>
               <FileText className="size-3.5" /> Gerar Relatório
             </Button>
@@ -4475,7 +4486,7 @@ export default function Dashboard() {
               <History className="mb-2 size-5 text-violet-500" />
               <p className="text-xs text-muted-foreground">
                 {eventosMesFiltro === 'todos'
-                  ? 'Nenhum evento registrado na timeline ainda.'
+                  ? 'Nenhum evento encontrado com os filtros selecionados.'
                   : `Nenhum evento registrado em ${getMonthLabel(eventosMesFiltro)}.`}
               </p>
             </div>
