@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { onValue, ref, runTransaction, update } from 'firebase/database'
-import { CalendarDays, ChevronLeft, ChevronRight, FilePlus2, Loader2, X } from 'lucide-react'
+import { jsPDF } from 'jspdf'
+import { CalendarDays, ChevronLeft, ChevronRight, Download, FilePlus2, Loader2, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { db, auth } from '../firebase'
 import Layout from '../components/Layout'
@@ -291,6 +292,11 @@ function ReceivingTimeTooltip({ items }) {
       </Tooltip>
     </TooltipProvider>
   )
+}
+
+const hexToRgb = hex => {
+  const value = parseInt(hex.replace('#', ''), 16)
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255]
 }
 
 const scenarioColors = ['#2563eb', '#7c3aed', '#0f766e', '#d97706', '#be123c', '#475569']
@@ -769,6 +775,7 @@ export default function RelatorioInadimplencia() {
   const [commentDrafts, setCommentDrafts] = useState({})
   const [savingComment, setSavingComment] = useState('')
   const [error, setError] = useState('')
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   useEffect(() => onValue(ref(db, 'relatoriosInadimplencia'), snapshot => {
     const value = snapshot.val() || {}
@@ -886,6 +893,372 @@ export default function RelatorioInadimplencia() {
     }
   }
 
+  const exportReportPdf = () => {
+    if (!selectedReport || exportingPdf) return
+    setExportingPdf(true)
+
+    try {
+      const COLOR = {
+        navy: [15, 47, 136], slate: [71, 85, 105], slateLight: [148, 163, 184],
+        ink: [15, 23, 42], border: [226, 232, 240], panel: [248, 250, 252],
+        blue: [37, 99, 235], amber: [180, 83, 9], green: [21, 128, 61], red: [185, 28, 28],
+      }
+
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
+      const margin = 12
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const contentWidth = pageWidth - margin * 2
+      let y = margin
+
+      const ensureSpace = height => {
+        if (y + height <= pageHeight - margin) return
+        pdf.addPage()
+        y = margin
+      }
+
+      const sectionTitle = (number, title, subtitle) => {
+        ensureSpace(16)
+        pdf.setFillColor(...COLOR.navy)
+        pdf.roundedRect(margin, y, 7, 7, 1.2, 1.2, 'F')
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(8)
+        pdf.setTextColor(255, 255, 255)
+        pdf.text(number, margin + 3.5, y + 4.8, { align: 'center' })
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(12)
+        pdf.setTextColor(...COLOR.navy)
+        pdf.text(title, margin + 10, y + 5)
+        y += 9
+        if (subtitle) {
+          pdf.setFont('helvetica', 'normal')
+          pdf.setFontSize(8.3)
+          pdf.setTextColor(...COLOR.slate)
+          const lines = pdf.splitTextToSize(subtitle, contentWidth - 10)
+          pdf.text(lines, margin + 10, y)
+          y += lines.length * 3.6 + 2
+        }
+        pdf.setDrawColor(...COLOR.border)
+        pdf.line(margin, y, pageWidth - margin, y)
+        y += 5
+      }
+
+      const subheading = text => {
+        ensureSpace(7)
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(9.3)
+        pdf.setTextColor(...COLOR.navy)
+        pdf.text(text, margin, y)
+        y += 5.5
+      }
+
+      const drawMetricGrid = (items, columns = 3) => {
+        const gap = 4
+        const boxHeight = 17
+        const boxWidth = (contentWidth - gap * (columns - 1)) / columns
+        for (let i = 0; i < items.length; i += columns) {
+          ensureSpace(boxHeight + gap)
+          items.slice(i, i + columns).forEach((item, col) => {
+            const x = margin + col * (boxWidth + gap)
+            const color = item.color || COLOR.blue
+            pdf.setFillColor(...COLOR.panel)
+            pdf.setDrawColor(...COLOR.border)
+            pdf.roundedRect(x, y, boxWidth, boxHeight, 1.5, 1.5, 'FD')
+            pdf.setFillColor(...color)
+            pdf.rect(x, y, 1.3, boxHeight, 'F')
+            pdf.setFont('helvetica', 'normal')
+            pdf.setFontSize(7.1)
+            pdf.setTextColor(...COLOR.slate)
+            const labelLines = pdf.splitTextToSize(item.label, boxWidth - 6).slice(0, 2)
+            pdf.text(labelLines, x + 4, y + 4.6)
+            pdf.setFont('helvetica', 'bold')
+            pdf.setFontSize(10.5)
+            pdf.setTextColor(...COLOR.ink)
+            pdf.text(String(item.value), x + 4, y + 11.6)
+            if (item.note) {
+              pdf.setFont('helvetica', 'normal')
+              pdf.setFontSize(6.6)
+              pdf.setTextColor(...COLOR.slateLight)
+              pdf.text(pdf.splitTextToSize(item.note, boxWidth - 6)[0] || '', x + 4, y + boxHeight - 2.4)
+            }
+          })
+          y += boxHeight + gap
+        }
+        y += 1
+      }
+
+      const drawHorizontalBars = items => {
+        if (items.length === 0) {
+          ensureSpace(6)
+          pdf.setFont('helvetica', 'normal')
+          pdf.setFontSize(8)
+          pdf.setTextColor(...COLOR.slate)
+          pdf.text('Nenhuma inadimplência aberta.', margin, y)
+          y += 6
+          return
+        }
+        const labelWidth = 34
+        const valueWidth = 34
+        const maxBarWidth = contentWidth - labelWidth - valueWidth
+        const barHeight = 5
+        items.forEach((item, index) => {
+          ensureSpace(barHeight + 3.5)
+          pdf.setFont('helvetica', 'normal')
+          pdf.setFontSize(7.6)
+          pdf.setTextColor(...COLOR.slate)
+          pdf.text(pdf.splitTextToSize(item.label, labelWidth - 2)[0] || item.label, margin, y + 3.6)
+          const barWidth = Math.max(0.8, (item.percentage / 100) * maxBarWidth)
+          pdf.setFillColor(...hexToRgb(scenarioColors[index % scenarioColors.length]))
+          pdf.roundedRect(margin + labelWidth, y, barWidth, barHeight, 1, 1, 'F')
+          pdf.setFont('helvetica', 'bold')
+          pdf.setFontSize(7.6)
+          pdf.setTextColor(...COLOR.ink)
+          pdf.text(`${item.percentage.toFixed(1)}% · ${formatMoney(item.open)}`, margin + labelWidth + maxBarWidth + 2, y + 3.6)
+          y += barHeight + 3.5
+        })
+        y += 1.5
+      }
+
+      const drawTable = (headers, rows, widths) => {
+        ensureSpace(9)
+        pdf.setFillColor(...COLOR.navy)
+        pdf.rect(margin, y, contentWidth, 6.5, 'F')
+        pdf.setFont('helvetica', 'bold')
+        pdf.setFontSize(7.6)
+        pdf.setTextColor(255, 255, 255)
+        let headerX = margin
+        headers.forEach((header, index) => {
+          pdf.text(header, headerX + 2, y + 4.4)
+          headerX += widths[index]
+        })
+        y += 6.5
+
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(7.4)
+        rows.forEach((row, rowIndex) => {
+          const cellLines = row.map((cell, index) => pdf.splitTextToSize(String(cell ?? '—'), widths[index] - 4))
+          const rowHeight = Math.max(...cellLines.map(lines => lines.length)) * 3.3 + 2.6
+          ensureSpace(rowHeight)
+          if (rowIndex % 2 === 1) {
+            pdf.setFillColor(...COLOR.panel)
+            pdf.rect(margin, y, contentWidth, rowHeight, 'F')
+          }
+          pdf.setTextColor(...COLOR.slate)
+          let cellX = margin
+          row.forEach((_, index) => {
+            pdf.text(cellLines[index], cellX + 2, y + 3.8)
+            cellX += widths[index]
+          })
+          pdf.setDrawColor(...COLOR.border)
+          pdf.line(margin, y + rowHeight, margin + contentWidth, y + rowHeight)
+          y += rowHeight
+        })
+        y += 4
+      }
+
+      const narrative = text => {
+        const lines = pdf.splitTextToSize(text, contentWidth - 10)
+        const boxHeight = lines.length * 4.1 + 5.5
+        ensureSpace(boxHeight + 3)
+        pdf.setFillColor(240, 245, 255)
+        pdf.setDrawColor(...COLOR.border)
+        pdf.roundedRect(margin, y, contentWidth, boxHeight, 1.5, 1.5, 'FD')
+        pdf.setFillColor(...COLOR.navy)
+        pdf.rect(margin, y, 1.4, boxHeight, 'F')
+        pdf.setFont('helvetica', 'italic')
+        pdf.setFontSize(8.6)
+        pdf.setTextColor(30, 41, 59)
+        pdf.text(lines, margin + 6, y + 5.2, { lineHeightFactor: 1.35 })
+        y += boxHeight + 4
+      }
+
+      const nextMonthKey = monthKeyFromDate(monthEndDate(selectedMonth))
+      const percentualLabel = value => `${value.toFixed(2)}%`
+      const trendWord = delta => (delta > 0 ? 'aumento' : delta < 0 ? 'redução' : 'estabilidade')
+      const absMoney = value => formatMoney(Math.abs(value))
+
+      // Cabeçalho
+      pdf.setFont('helvetica', 'bold')
+      pdf.setFontSize(18)
+      pdf.setTextColor(...COLOR.navy)
+      pdf.text('Relatório de Inadimplência', margin, y)
+      y += 7.5
+      pdf.setFont('helvetica', 'normal')
+      pdf.setFontSize(10.5)
+      pdf.setTextColor(...COLOR.slate)
+      pdf.text(formatMonth(selectedMonth), margin, y)
+      pdf.setFontSize(8.5)
+      pdf.text(`Gerado em ${new Date().toLocaleString('pt-BR')}`, pageWidth - margin, y, { align: 'right' })
+      y += 4
+      pdf.setDrawColor(...COLOR.navy)
+      pdf.setLineWidth(0.6)
+      pdf.line(margin, y, pageWidth - margin, y)
+      pdf.setLineWidth(0.2)
+      y += 7
+
+      // 01 · Painel resumo
+      sectionTitle('01', 'Painel resumo', `Visão consolidada do mês e do acumulado de ${selectedMonth.slice(0, 4)}.`)
+      narrative(
+        `Em ${formatMonth(selectedMonth)}, a carteira de inadimplência somou ${formatMoney(metrics.balance.total)}, sendo ${formatMoney(metrics.balance.recovered)} já recuperados e ${formatMoney(metrics.balance.open)} ainda em aberto. ` +
+        `O resultado apresenta ${trendWord(metrics.totalVariation.previousMonth.delta)} de ${absMoney(metrics.totalVariation.previousMonth.delta)} frente ao mês anterior e ${trendWord(metrics.totalVariation.pastYearAverage.delta)} de ${absMoney(metrics.totalVariation.pastYearAverage.delta)} em relação à média dos meses anteriores. ` +
+        `A taxa de inadimplência atual é de ${percentualLabel(metrics.currentRate)}, contra uma meta projetada de ${percentualLabel(metrics.projectedRate)}; ` +
+        `${metrics.recoveryToProjected > 0 ? `para atingir a meta, ainda é preciso recuperar ${formatMoney(metrics.recoveryToProjected)} do faturamento de ${formatMoney(metrics.revenue)}.` : 'a meta do período já foi atingida.'}`
+      )
+      subheading(`Acumulado no ano (${formatYearPeriod(selectedMonth)})`)
+      drawMetricGrid([
+        { label: 'Total garantido', value: formatMoney(metrics.yearBalance.total), color: hexToRgb('#2563eb') },
+        { label: 'Recuperado garantido', value: formatMoney(metrics.yearBalance.recovered), color: hexToRgb('#15803d') },
+        { label: 'Em aberto garantido', value: formatMoney(metrics.yearBalance.open), color: hexToRgb('#b45309') },
+        { label: 'Total não garantido', value: formatMoney(metrics.unguaranteedYearBalance.total), color: hexToRgb('#b91c1c') },
+        { label: 'Recuperado não garantido', value: formatMoney(metrics.unguaranteedYearBalance.recovered), color: hexToRgb('#b91c1c') },
+        { label: 'Em aberto não garantido', value: formatMoney(metrics.unguaranteedYearBalance.open), color: hexToRgb('#b91c1c') },
+      ])
+      subheading('Indicadores do mês')
+      drawMetricGrid([
+        { label: `Saldo total (${formatMonth(selectedMonth)})`, value: formatMoney(metrics.balance.total) },
+        { label: 'Recuperado no mês', value: formatMoney(metrics.balance.recovered), color: hexToRgb('#15803d') },
+        { label: 'Em aberto no mês', value: formatMoney(metrics.balance.open), color: hexToRgb('#b45309') },
+        { label: 'Faturamento do mês', value: formatMoney(metrics.revenue) },
+        { label: 'Taxa atual de inadimplência', value: percentualLabel(metrics.currentRate) },
+        { label: 'Taxa projetada (meta)', value: percentualLabel(metrics.projectedRate) },
+        { label: 'Valor da meta', value: formatMoney(metrics.projectedValue) },
+        { label: 'Recuperar para atingir a meta', value: formatMoney(metrics.recoveryToProjected) },
+        {
+          label: 'Variação vs mês anterior',
+          value: formatSignedMoney(metrics.totalVariation.previousMonth.delta),
+          color: hexToRgb(metrics.totalVariation.previousMonth.delta > 0 ? '#b91c1c' : '#15803d'),
+        },
+        {
+          label: 'Variação vs média de meses anteriores',
+          value: formatSignedMoney(metrics.totalVariation.pastYearAverage.delta),
+          color: hexToRgb(metrics.totalVariation.pastYearAverage.delta > 0 ? '#b91c1c' : '#15803d'),
+        },
+        { label: 'Carteira sem garantia', value: percentualLabel(metrics.unguaranteedTenantRate), note: '% de inquilinos ativos sem garantia' },
+        { label: 'Exposição sem garantia', value: percentualLabel(metrics.unguaranteedExposureRate), note: `Sobre ${formatMoney(metrics.revenue)}` },
+        { label: `Previsto até 01/${nextMonthKey.slice(5)}/${nextMonthKey.slice(0, 4)}`, value: formatMoney(metrics.forecast.total), color: hexToRgb('#15803d') },
+        { label: 'Previsto com mês anterior', value: formatMoney(metrics.forecastWithPreviousMonth.total), color: hexToRgb('#15803d') },
+        { label: 'Tempo médio para receber', value: `${metrics.averageReceivingDays.toFixed(1).replace('.', ',')} dias` },
+        { label: 'Tempo médio (c/ mês anterior)', value: `${metrics.averageReceivingDaysWithPreviousMonth.toFixed(1).replace('.', ',')} dias` },
+      ])
+
+      // 02 · Previsão de recebimentos
+      sectionTitle('02', 'Previsão de recebimentos', `Valores previstos para inadimplências de ${formatMonth(selectedMonth)} e ${formatMonth(previousMonthKey(selectedMonth))}.`)
+      narrative(
+        `A expectativa é recuperar ${formatMoney(metrics.forecast.total)} até o início de ${formatMonth(nextMonthKey)}, chegando a ${formatMoney(metrics.forecastWithPreviousMonth.total)} ao somar as inadimplências do mês anterior ainda em aberto. ` +
+        `Dos ${metrics.agreementMadeCount} acordo(s) firmado(s), ${metrics.agreementPaidCount} já foram pagos, ${metrics.agreementOpenCount} seguem em aberto e ${metrics.agreementBrokenCount} foram quebrados — uma taxa de quebra de ${metrics.agreementBreakRate.toFixed(2)}%. ` +
+        `O tempo médio para recebimento está em ${metrics.averageReceivingDays.toFixed(1).replace('.', ',')} dias.`
+      )
+      drawMetricGrid([
+        { label: 'Acordos pagos', value: String(metrics.agreementPaidCount), color: hexToRgb('#15803d') },
+        { label: 'Acordos em aberto', value: String(metrics.agreementOpenCount), color: hexToRgb('#b45309') },
+        { label: 'Acordos não cumpridos', value: String(metrics.agreementBrokenCount), color: hexToRgb('#b91c1c') },
+      ])
+      subheading('Horizonte de recebimento')
+      drawMetricGrid(
+        metrics.receivablesForecast.horizons.map(horizon => ({ label: `Até ${horizon.days} dias`, value: formatMoney(horizon.total) }))
+      )
+
+      // 04 · Cenários
+      sectionTitle('04', 'Cenário do mês vigente', `Inadimplência aberta de ${formatMonth(selectedMonth)} por modelo e garantia.`)
+      {
+        const topModel = metrics.modelScenario.reduce((max, item) => (!max || item.open > max.open ? item : max), null)
+        const topGuarantee = metrics.guaranteeScenario.reduce((max, item) => (!max || item.open > max.open ? item : max), null)
+        narrative(
+          topModel && topGuarantee
+            ? `O modelo "${topModel.label}" concentra a maior parcela da inadimplência aberta, com ${formatMoney(topModel.open)} (${topModel.percentage.toFixed(1)}% do total). ` +
+              `Entre as garantias, "${topGuarantee.label}" representa a maior exposição, com ${formatMoney(topGuarantee.open)} (${topGuarantee.percentage.toFixed(1)}%), sinalizando onde a cobrança deve ser priorizada.`
+            : 'Não há inadimplência aberta relevante para destacar por modelo ou garantia neste mês.'
+        )
+      }
+      subheading('Participação por modelo')
+      drawHorizontalBars(metrics.modelScenario)
+      subheading('Participação por garantia')
+      drawHorizontalBars(metrics.guaranteeScenario)
+      subheading('Valores por tipo de garantia')
+      if (metrics.guaranteeValueData.length === 0) {
+        ensureSpace(6)
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(8)
+        pdf.setTextColor(...COLOR.slate)
+        pdf.text('Nenhuma inadimplência registrada no mês.', margin, y)
+        y += 6
+      } else {
+        drawTable(
+          ['Garantia', 'Total do período'],
+          metrics.guaranteeValueData.map(item => [
+            item.garantia,
+            formatMoney(metrics.guaranteeStatusKeys.reduce((sum, status) => sum + item[status], 0)),
+          ]),
+          [contentWidth - 55, 55]
+        )
+      }
+
+      // 05 · BlackList
+      sectionTitle('05', 'BlackList', `10 inquilinos ativos com mais registros de inadimplência e ocorrência em ${formatMonth(selectedMonth)}.`)
+      {
+        const topBlacklist = metrics.blacklistItems[0]
+        const anniversaryCount = metrics.contractAnniversaryItems.length
+        narrative(
+          topBlacklist
+            ? `${topBlacklist.name} é o inquilino com maior volume de ocorrências, somando ${topBlacklist.recordCount} registro(s) e ${formatMoney(topBlacklist.value)} em aberto — candidato prioritário para negociação direta. ` +
+              `${anniversaryCount > 0 ? `Além disso, ${anniversaryCount} contrato(s) completam aniversário neste mês e merecem atenção redobrada na renovação.` : 'Nenhum contrato com inadimplência completa aniversário neste mês.'}`
+            : 'Não há inquilinos com registros relevantes de inadimplência neste mês.'
+        )
+      }
+      if (metrics.blacklistItems.length === 0) {
+        ensureSpace(6)
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(8)
+        pdf.setTextColor(...COLOR.slate)
+        pdf.text('Nenhum inquilino ativo possui registro de inadimplência neste mês.', margin, y)
+        y += 6
+      } else {
+        drawTable(
+          ['Inquilino', 'Registros', 'Valor em aberto'],
+          metrics.blacklistItems.map(item => [item.name, String(item.recordCount), formatMoney(item.value)]),
+          [contentWidth - 75, 30, 45]
+        )
+      }
+      subheading('Contratos completando 1 ou mais anos')
+      if (metrics.contractAnniversaryItems.length === 0) {
+        ensureSpace(6)
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(8)
+        pdf.setTextColor(...COLOR.slate)
+        pdf.text('Nenhum contrato com inadimplência completa aniversário neste mês.', margin, y)
+        y += 6
+      } else {
+        drawTable(
+          ['Inquilino', 'Aniversário', 'Inadimplências'],
+          metrics.contractAnniversaryItems.map(item => [
+            item.name,
+            `${item.years} ano(s) em ${formatMonth(item.anniversaryMonth)}`,
+            String(item.debtCount),
+          ]),
+          [contentWidth - 80, 55, 25]
+        )
+      }
+
+      // Rodapé com numeração de páginas
+      const totalPages = pdf.getNumberOfPages()
+      for (let page = 1; page <= totalPages; page += 1) {
+        pdf.setPage(page)
+        pdf.setFont('helvetica', 'normal')
+        pdf.setFontSize(7.5)
+        pdf.setTextColor(...COLOR.slateLight)
+        pdf.text('Contas a Receber Divid · Relatório de Inadimplência', margin, pageHeight - 6)
+        pdf.text(`Página ${page} de ${totalPages}`, pageWidth - margin, pageHeight - 6, { align: 'right' })
+      }
+
+      pdf.save(`relatorio-inadimplencia_${selectedMonth}.pdf`)
+    } catch (exportError) {
+      console.error('Erro ao exportar relatório em PDF:', exportError)
+      setError('Não foi possível exportar o relatório em PDF.')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   const reportLabel = selectedReport ? formatMonth(selectedMonth) : 'Nenhum relatório criado'
   const nextMonth = monthKeyFromDate(monthEndDate(selectedMonth))
 
@@ -897,9 +1270,14 @@ export default function RelatorioInadimplencia() {
             <p className="report-eyebrow">Relatório mensal</p>
             <h2>{reportLabel}</h2>
           </div>
-          <Button onClick={() => { setNewMonth(getCurrentMonth()); setError(''); setShowCreate(true) }}>
-            <FilePlus2 /> Criar relatório
-          </Button>
+          <div className="report-toolbar-actions">
+            <Button variant="outline" onClick={exportReportPdf} disabled={exportingPdf}>
+              {exportingPdf ? <Loader2 className="spin" /> : <Download />} {exportingPdf ? 'Exportando...' : 'Exportar PDF'}
+            </Button>
+            <Button onClick={() => { setNewMonth(getCurrentMonth()); setError(''); setShowCreate(true) }}>
+              <FilePlus2 /> Criar relatório
+            </Button>
+          </div>
         </div>
 
         {loading ? (

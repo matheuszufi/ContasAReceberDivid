@@ -24,6 +24,7 @@
 
 .report-toolbar h2 { font-size: clamp(19px, 2.4vw, 24px); font-weight: 700; letter-spacing: -0.2px; line-height: 1.15; }
 .report-eyebrow { margin: 0 0 4px; color: #64748b; font-size: 10.5px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
+.report-toolbar-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 .report-navigation {
   display: flex;
@@ -348,7 +349,7 @@
 
 @media (max-width: 800px) {
   .report-toolbar { align-items: stretch; flex-direction: column; }
-  .report-toolbar button { align-self: flex-start; }
+  .report-toolbar-actions { align-self: flex-start; }
   .summary-row { grid-template-columns: 1fr; }
   .report-page { padding-right: 0; padding-left: 0; }
   .scenario-grid { grid-template-columns: 1fr; }

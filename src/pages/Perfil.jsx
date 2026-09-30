@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { ref, onValue, update } from 'firebase/database'
+import { get, ref, onValue, update } from 'firebase/database'
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
 } from 'firebase/auth'
+import * as XLSX from 'xlsx'
 import { db } from '../firebase'
 import { useAuth } from '../auth'
 import Layout from '../components/Layout'
@@ -12,6 +13,40 @@ import './Perfil.css'
 
 const novoUsuarioInicial = { email: '', password: '', role: 'user' }
 const senhaFormInicial = { senhaAtual: '', novaSenha: '', confirmarSenha: '' }
+
+const COLECOES_EXPORTAVEIS = [
+  'usuarios',
+  'usuariosMeta/hasAdmin',
+  'imoveis',
+  'inquilinos',
+  'proprietarios',
+  'contas',
+  'inadimplencias',
+  'relatoriosInadimplencia',
+  'seguros',
+  'valoresVariaveis',
+  'cobrancasParceladas',
+  'historicoAlteracoes',
+]
+
+const valorParaExcel = valor => {
+  if (valor === null || valor === undefined) return ''
+  if (typeof valor === 'object') return JSON.stringify(valor)
+  return valor
+}
+
+const nomeAbaDisponivel = (nome, nomesUsados) => {
+  const base = String(nome).replace(/[\\/?*\[\]:]/g, '-').slice(0, 31) || 'Dados'
+  let nomeFinal = base
+  let contador = 2
+  while (nomesUsados.has(nomeFinal)) {
+    const sufixo = `_${contador}`
+    nomeFinal = `${base.slice(0, 31 - sufixo.length)}${sufixo}`
+    contador += 1
+  }
+  nomesUsados.add(nomeFinal)
+  return nomeFinal
+}
 
 export default function Perfil() {
   const { user, isAdmin, createUser } = useAuth()
@@ -27,6 +62,8 @@ export default function Perfil() {
   const [alterandoSenha, setAlterandoSenha] = useState(false)
   const [senhaErro, setSenhaErro] = useState(null)
   const [senhaSucesso, setSenhaSucesso] = useState(false)
+  const [exportandoBanco, setExportandoBanco] = useState(false)
+  const [exportacaoErro, setExportacaoErro] = useState(null)
 
   useEffect(() => {
     return onValue(ref(db, 'usuariosMeta/hasAdmin'), snap => setHasAdmin(snap.val() === true))
@@ -154,6 +191,49 @@ export default function Perfil() {
     }
   }
 
+  const handleExportarBanco = async () => {
+    setExportacaoErro(null)
+    setExportandoBanco(true)
+
+    try {
+      const resultados = await Promise.all(
+        COLECOES_EXPORTAVEIS.map(async colecao => {
+          const snapshot = await get(ref(db, colecao))
+          return [colecao, snapshot.val()]
+        })
+      )
+      const banco = Object.fromEntries(resultados)
+      const workbook = XLSX.utils.book_new()
+      const nomesAbas = new Set()
+
+      Object.entries(banco).forEach(([colecao, dados]) => {
+        const linhas = dados && typeof dados === 'object'
+          ? Object.entries(dados).map(([id, registro]) => {
+            if (registro && typeof registro === 'object' && !Array.isArray(registro)) {
+              return { id, ...Object.fromEntries(Object.entries(registro).map(([campo, valor]) => [campo, valorParaExcel(valor)])) }
+            }
+            return { id, valor: valorParaExcel(registro) }
+          })
+          : [{ valor: valorParaExcel(dados) }]
+
+        const worksheet = XLSX.utils.json_to_sheet(linhas)
+        XLSX.utils.book_append_sheet(workbook, worksheet, nomeAbaDisponivel(colecao, nomesAbas))
+      })
+
+      if (workbook.SheetNames.length === 0) {
+        XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([['Banco de dados vazio']]), 'Banco')
+      }
+
+      const dataAtual = new Date().toISOString().slice(0, 10)
+      XLSX.writeFile(workbook, `backup_banco_dados_${dataAtual}.xlsx`)
+    } catch (err) {
+      console.error('Erro ao exportar banco de dados:', err)
+      setExportacaoErro('Não foi possível exportar o banco de dados. Tente novamente.')
+    } finally {
+      setExportandoBanco(false)
+    }
+  }
+
   return (
     <Layout title="Meu Perfil" subtitle="Gerencie seus dados de acesso">
       {error && <div className="error-msg">{error}</div>}
@@ -177,6 +257,20 @@ export default function Perfil() {
             >
               {hasAdmin ? 'Já existe um administrador no sistema' : 'Tornar-se Administrador'}
             </button>
+          )}
+
+          {isAdmin && (
+            <div className="exportacao-banco">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={exportandoBanco}
+                onClick={handleExportarBanco}
+              >
+                {exportandoBanco ? 'Exportando banco...' : 'Exportar banco de dados em Excel'}
+              </button>
+              {exportacaoErro && <div className="error-msg">{exportacaoErro}</div>}
+            </div>
           )}
         </div>
       </div>
