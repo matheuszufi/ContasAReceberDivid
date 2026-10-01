@@ -1914,7 +1914,9 @@ export default function Dashboard() {
     return MONTH_LABELS.map((label, index) => {
       const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
       const totals = yearMonthTotals[key] || emptyMonthTotals()
-      const total = Object.values(totals).reduce((sum, value) => sum + Number(value || 0), 0)
+      // Soma apenas os campos numéricos de status (ignora "comEncargos", que é um objeto auxiliar)
+      const total = totals.inadimplente + totals.recuperado + totals.utilizacaoCaucao + totals.pagoSeguradora +
+        totals.aprovadoSeguradora + totals.reprovado + totals.aguardarAcionar + totals.juridico + totals.acionado
       const quitado = totals.recuperado + totals.utilizacaoCaucao + totals.pagoSeguradora
       const emAberto = total - quitado
 

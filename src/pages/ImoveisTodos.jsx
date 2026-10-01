@@ -227,6 +227,7 @@ export default function ImoveisTodos() {
   const [desocupacaoFormAberto, setDesocupacaoFormAberto] = useState(false)
   const [valorFocadoKey, setValorFocadoKey] = useState(null)
   const [filterNome, setFilterNome]           = useState('')
+  const [filterProprietario, setFilterProprietario] = useState('')
   const [filterImovel, setFilterImovel]       = useState('')
   const [filterModelo, setFilterModelo]       = useState('')
   const [filterInadimplentes, setFilterInadimplentes] = useState(false)
@@ -427,6 +428,7 @@ export default function ImoveisTodos() {
  
   const filteredRows = rows.filter(({ imovel, inquilino }) => {
     if (filterNome && !normalizeTexto(inquilino.nome).includes(normalizeTexto(filterNome))) return false
+    if (filterProprietario && !normalizeTexto(imovel.proprietarioNome || imovel.proprietarioId).includes(normalizeTexto(filterProprietario))) return false
     if (filterImovel && !imovel.codigo?.toLowerCase().includes(filterImovel.toLowerCase())) return false
     if (filterModelo && imovel.modelo !== filterModelo) return false
     if (filterInadimplentes) {
@@ -1449,6 +1451,13 @@ export default function ImoveisTodos() {
             />
             <input
               type="text"
+              placeholder="Proprietário..."
+              value={filterProprietario}
+              onChange={e => setFilterProprietario(e.target.value)}
+              style={{ padding: '5px 10px', border: '1.5px solid #e2e8f0', borderRadius: 6, fontSize: 13, width: 180, outline: 'none' }}
+            />
+            <input
+              type="text"
               placeholder="Imóvel..."
               value={filterImovel}
               onChange={e => setFilterImovel(e.target.value)}
@@ -1504,12 +1513,12 @@ export default function ImoveisTodos() {
               />
               Mostrar inquilinos inativos
             </label>
-            {(filterNome || filterImovel || filterModelo || filterInadimplentes || filterContasVariaveis || filterDesocupacao || filterEstrangeiro || filterInativos) && (
+            {(filterNome || filterProprietario || filterImovel || filterModelo || filterInadimplentes || filterContasVariaveis || filterDesocupacao || filterEstrangeiro || filterInativos) && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="ml-auto text-muted-foreground"
-                onClick={() => { setFilterNome(''); setFilterImovel(''); setFilterModelo(''); setFilterInadimplentes(false); setFilterContasVariaveis(false); setFilterDesocupacao(false); setFilterEstrangeiro(false); setFilterInativos(false) }}
+                onClick={() => { setFilterNome(''); setFilterProprietario(''); setFilterImovel(''); setFilterModelo(''); setFilterInadimplentes(false); setFilterContasVariaveis(false); setFilterDesocupacao(false); setFilterEstrangeiro(false); setFilterInativos(false) }}
               >
                 <X /> Limpar ({filteredRows.length}/{rows.length})
               </Button>
