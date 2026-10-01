@@ -160,6 +160,10 @@ export default function ImoveisTodos() {
   const [diaSaidaModal, setDiaSaidaModal] = useState('')
   const [contasProporcionaisModal, setContasProporcionaisModal] = useState([])
   const [desocupacaoModal, setDesocupacaoModal] = useState(false)
+  const [reajusteAberto, setReajusteAberto] = useState(false)
+  const [reajustePercentual, setReajustePercentual] = useState('')
+  const [reajusteSalvando, setReajusteSalvando] = useState(false)
+  const [desocupacaoFormAberto, setDesocupacaoFormAberto] = useState(false)
   const [filterNome, setFilterNome]           = useState('')
   const [filterImovel, setFilterImovel]       = useState('')
   const [filterModelo, setFilterModelo]       = useState('')
@@ -211,6 +215,7 @@ export default function ImoveisTodos() {
     setModal(null); setVarValues({}); setRegistradoVar({}); setExtraContas([]); setBoletosModal([]); setSaveError('')
     extraSavedRef.current = {}; boletoSavedRef.current = {}
     setRegForm(null); setObsModal(''); setDiaSaidaModal(''); setContasProporcionaisModal([]); setDesocupacaoModal(false)
+    setReajusteAberto(false); setReajustePercentual(''); setDesocupacaoFormAberto(false)
   }
  
   const goInquilino = (inquilinoId) => navigate(`/inquilinos/editar/${inquilinoId}`)
@@ -411,11 +416,24 @@ export default function ImoveisTodos() {
 
   const MAX_MESES_GARANTIA_PAGAMENTO = 3
 
+  // Valor "cheio" do aluguel vigente em um mês específico, considerando o histórico de reajustes —
+  // um reajuste feito a partir de um mês não altera o valor já exibido nos meses anteriores a ele.
+  const getAluguelCheioNoMes = (inquilino, imovel, mesKey) => {
+    const atual = Number(inquilino?.valorAluguel || imovel?.valorAluguel) || 0
+    const historico = inquilino?.historicoAluguel
+    if (!historico || !mesKey) return atual
+    const entries = Object.values(historico).filter(h => h && h.mes).sort((a, b) => a.mes.localeCompare(b.mes))
+    if (!entries.length) return atual
+    const aplicaveis = entries.filter(h => h.mes <= mesKey)
+    if (!aplicaveis.length) return Number(entries[0].valorAnterior ?? entries[0].valor) || atual
+    return Number(aplicaveis[aplicaveis.length - 1].valor) || atual
+  }
+
   // Valor do aluguel de um mês específico do inquilino (considera override salvo e fração de entrada)
   const getAluguelDoMes = (imovel, inquilino, mesKey) => {
     const { mesInicio } = getMesRange(inquilino)
     const vv = valoresVariaveis[inquilino.id]?.[mesKey] || {}
-    const aluguelCheio = Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
+    const aluguelCheio = getAluguelCheioNoMes(inquilino, imovel, mesKey)
     return '_aluguel' in vv ? Number(vv._aluguel) || 0 : (mesKey === mesInicio ? aluguelCheio * getFracaoEntrada(inquilino) : aluguelCheio)
   }
 
@@ -436,7 +454,7 @@ export default function ImoveisTodos() {
     if ((mesInicio && cellKey < mesInicio) || (mesFim && cellKey > mesFim)) return 0
     const vv = valoresVariaveis[inquilino.id]?.[cellKey] || {}
     const { extras: cellExtras, ...cellVarVals } = vv
-    const aluguelCheio = Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
+    const aluguelCheio = getAluguelCheioNoMes(inquilino, imovel, cellKey)
     const aluguel      = '_aluguel' in cellVarVals ? Number(cellVarVals._aluguel) || 0 : (cellKey === mesInicio ? aluguelCheio * getFracaoEntrada(inquilino) : aluguelCheio)
     const valorSeguro  = '_seguro'  in cellVarVals ? Number(cellVarVals._seguro)  || 0 : ((inquilino.garantia === 'seguro' && isMesDentroRange(cellKey, inquilino.seguroFiancaMesInicio, inquilino.seguroFiancaMesFim)) ? Number(inquilino.valorSeguro) || 0 : 0)
     const valorGaragem = '_garagem' in cellVarVals ? Number(cellVarVals._garagem) || 0 : (Number(inquilino.vagas) || 0) * (Number(inquilino.valorVaga) || 0)
@@ -644,7 +662,7 @@ export default function ImoveisTodos() {
     const { imovel, inquilino } = modal
     const { mesInicio } = getMesRange(inquilino)
     if (key === '_aluguel') {
-      const aluguelCheio = Number(inquilino.valorAluguel || imovel.valorAluguel) || 0
+      const aluguelCheio = getAluguelCheioNoMes(inquilino, imovel, modal.key)
       return modal.key === mesInicio ? aluguelCheio * getFracaoEntrada(inquilino) : aluguelCheio
     }
     if (key === '_seguro') {
@@ -867,6 +885,43 @@ export default function ImoveisTodos() {
     setExtraContas(next)
     console.log('[handleExtraToggleRegistrado] idx', idx, 'novo estado local:', next[idx])
     saveExtra(idx, next[idx])
+  }
+
+  // Aplica um reajuste percentual ao aluguel a partir do mês aberto no modal. O novo valor passa a
+  // valer de "modal.key" em diante; meses anteriores continuam usando o valor registrado no histórico.
+  const handleReajustarAluguel = async () => {
+    if (!modal?.inquilino?.id || !modal?.key || modal.inquilino._historico) return
+    const percentual = parseFloat(String(reajustePercentual).replace(',', '.'))
+    if (Number.isNaN(percentual)) {
+      setSaveError('Informe uma taxa de reajuste válida.')
+      return
+    }
+    const { inquilino, imovel } = modal
+    const valorAnterior = getAluguelCheioNoMes(inquilino, imovel, modal.key)
+    const valorNovo = Math.round(valorAnterior * (1 + percentual / 100) * 100) / 100
+    setReajusteSalvando(true)
+    try {
+      const historicoRef = push(ref(db, `inquilinos/${inquilino.id}/historicoAluguel`))
+      const novaEntrada = { mes: modal.key, valor: valorNovo, valorAnterior, percentual, registradoEm: new Date().toISOString() }
+      await set(historicoRef, novaEntrada)
+      await update(ref(db, `inquilinos/${inquilino.id}`), { valorAluguel: valorNovo })
+      setModal(m => m ? {
+        ...m,
+        inquilino: {
+          ...m.inquilino,
+          valorAluguel: valorNovo,
+          historicoAluguel: { ...(m.inquilino.historicoAluguel || {}), [historicoRef.key]: novaEntrada },
+        },
+      } : m)
+      setSaveError('')
+      setReajusteAberto(false)
+      setReajustePercentual('')
+    } catch (err) {
+      console.error('Erro ao reajustar aluguel:', err)
+      setSaveError(`Erro ao reajustar aluguel: ${err.message}`)
+    } finally {
+      setReajusteSalvando(false)
+    }
   }
 
   // ---- Boletos avulsos do mês (com vencimento) ----
@@ -1833,7 +1888,7 @@ export default function ImoveisTodos() {
                 }
               })
               const { mesInicio: modalMesInicio } = getMesRange(modal.inquilino)
-              const aluguelCheio   = Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
+              const aluguelCheio   = getAluguelCheioNoMes(modal.inquilino, modal.imovel, modal.key)
               const aluguelBase    = modal.key === modalMesInicio ? aluguelCheio * getFracaoEntrada(modal.inquilino) : aluguelCheio
               const seguroBase     = (modal.inquilino.garantia === 'seguro' && isMesDentroRange(modal.key, modal.inquilino.seguroFiancaMesInicio, modal.inquilino.seguroFiancaMesFim)) ? Number(modal.inquilino.valorSeguro) || 0 : 0
               const garagemBase    = (Number(modal.inquilino.vagas) || 0) * (Number(modal.inquilino.valorVaga) || 0)
@@ -1860,7 +1915,6 @@ export default function ImoveisTodos() {
               const garantiaSaldoRestante = Math.max(0, garantiaDisponivelValor - garantiaValorTotalUsado)
               const temVariavel    = allContas.some(c => c.isVariavel)
               const varPreenchido  = allContas.filter(c => c.isVariavel).every(c => Number(varValues[c.key]) > 0)
-              const diasNoMesModal = getDiasNoMes(modal.key)
  
               const EditableRow = ({ icon, label, baseVal, vKey, showSeguro, registradoKey }) => {
                 const hasOv      = vKey in varValues
@@ -1915,81 +1969,6 @@ export default function ImoveisTodos() {
                   )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <EditableRow icon="🏠" label="Aluguel"       baseVal={aluguelBase}  vKey="_aluguel" />
-
-                    {/* Desocupação e rateio proporcional por dia do mês */}
-                    <div style={{
-                      display: 'flex', flexDirection: 'column', gap: 8,
-                      background: (diaSaidaModal || desocupacaoModal) ? '#eff6ff' : '#fff',
-                      border: `1.5px dashed ${(diaSaidaModal || desocupacaoModal) ? '#93c5fd' : '#e2e8f0'}`,
-                      borderRadius: 6, padding: '8px 10px', marginTop: -2, marginBottom: 2,
-                    }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#1e293b', fontWeight: 700, cursor: 'pointer' }}>
-                        <input
-                          type="checkbox"
-                          checked={desocupacaoModal}
-                          onChange={e => handleToggleDesocupacao(e.target.checked)}
-                          disabled={!!modal.inquilino._historico}
-                          style={{ cursor: 'pointer' }}
-                        />
-                        🚪 Registrar desocupação neste mês
-                      </label>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                        <span style={{ color: '#64748b', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
-                          📆 Dia de saída
-                        </span>
-                        <input
-                          type="number"
-                          min="1"
-                          max={diasNoMesModal}
-                          placeholder="—"
-                          value={diaSaidaModal}
-                          onChange={e => handleDiaSaidaChange(e.target.value)}
-                          style={{
-                            width: 56, padding: '3px 6px', border: '1.5px solid #cbd5e1', borderRadius: 5,
-                            fontSize: 12, textAlign: 'center', outline: 'none', background: '#fff', color: '#334155', fontWeight: 600,
-                          }}
-                        />
-                        <span style={{ color: '#94a3b8', flexShrink: 0 }}>
-                          de {diasNoMesModal} dias do mês
-                        </span>
-                        {diaSaidaModal && (
-                          <button
-                            onClick={() => handleDiaSaidaChange('')}
-                            title="Limpar dia de saída e voltar aos valores cheios"
-                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0, marginLeft: 'auto' }}
-                          >↺</button>
-                        )}
-                      </div>
-
-                      <div>
-                        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>Ratear proporcionalmente pelos dias:</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {getContasProrateaveis().map(({ key, label, icone }) => {
-                            const selecionada = contasProporcionaisModal.includes(key)
-                            return (
-                              <label
-                                key={key}
-                                style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11,
-                                  background: selecionada ? '#dbeafe' : '#f1f5f9',
-                                  border: `1px solid ${selecionada ? '#93c5fd' : '#e2e8f0'}`,
-                                  borderRadius: 12, padding: '2px 8px', cursor: 'pointer',
-                                }}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={selecionada}
-                                  onChange={() => handleContaProporcionalToggle(key)}
-                                  style={{ cursor: 'pointer' }}
-                                />
-                                {icone} {label}
-                              </label>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    </div>
 
                     {allContas.map(({ key, label, icone, value, isVariavel, origem }) => {
                       const hasOverride = key in varValues
@@ -2496,13 +2475,31 @@ export default function ImoveisTodos() {
  
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={closeModal}>Fechar</button>
+              {!regForm && !modal.inquilino._historico && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ width: 'auto' }}
+                  onClick={() => { setReajustePercentual(''); setReajusteAberto(true) }}
+                >
+                  🔁 Reajustar Aluguel
+                </button>
+              )}
+              {!regForm && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ width: 'auto' }}
+                  onClick={() => setDesocupacaoFormAberto(true)}
+                >
+                  🚪 Registrar Desocup.
+                </button>
+              )}
               {!regForm && (
                 <button
                   className="btn btn-primary"
                   style={{ width: 'auto' }}
                   onClick={() => {
                     const { mesInicio: _modalMesInicio } = getMesRange(modal.inquilino)
-                    const _aluguelCheio = Number(modal.inquilino.valorAluguel || modal.imovel.valorAluguel) || 0
+                    const _aluguelCheio = getAluguelCheioNoMes(modal.inquilino, modal.imovel, modal.key)
                     const _aluguel     = '_aluguel' in varValues ? Number(varValues._aluguel) || 0 : (modal.key === _modalMesInicio ? _aluguelCheio * getFracaoEntrada(modal.inquilino) : _aluguelCheio)
                     const _allContas   = (modal.imovel.contasInclusas || modal.inquilino.contasInclusas || [])
                       .filter(k => !isContaPagaImobiliaria(modal.inquilino, k))
@@ -2531,10 +2528,165 @@ export default function ImoveisTodos() {
                     })
                   }}
                 >
-                  ➕ Registrar Inadimplência
+                  ➕ Registrar Inad.
                 </button>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {reajusteAberto && modal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => { setReajusteAberto(false); setReajustePercentual('') }}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: 12, padding: 20, width: '100%', maxWidth: 380, boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 15 }}>🔁 Reajustar Aluguel</h3>
+              <button className="btn btn-secondary" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => { setReajusteAberto(false); setReajustePercentual('') }}>✕</button>
+            </div>
+            {(() => {
+              const aluguelAtual = getAluguelCheioNoMes(modal.inquilino, modal.imovel, modal.key)
+              const [anoRef, mesRef] = modal.key.split('-')
+              return (
+                <>
+                  <p style={{ margin: '0 0 12px', fontSize: 12, color: '#64748b' }}>
+                    O novo valor passa a valer a partir de {MESES[Number(mesRef) - 1]}/{anoRef}. Meses anteriores continuam exibindo o valor antigo do aluguel.
+                  </p>
+                  <div style={{ fontSize: 12, color: '#475569', marginBottom: 10 }}>
+                    Valor atual: <strong>{fmtBRL(aluguelAtual)}</strong>
+                  </div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4 }}>Taxa de reajuste (%)</label>
+                  <input
+                    type="number" step="0.01" autoFocus
+                    placeholder="Ex.: 10"
+                    value={reajustePercentual}
+                    onChange={e => setReajustePercentual(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #cbd5e1', borderRadius: 6, fontSize: 14, outline: 'none', boxSizing: 'border-box', marginBottom: 10 }}
+                  />
+                  {reajustePercentual !== '' && !Number.isNaN(parseFloat(reajustePercentual)) && (
+                    <div style={{ fontSize: 12, color: '#1e3a8a', background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 6, padding: '6px 10px', marginBottom: 12 }}>
+                      Novo valor: <strong>{fmtBRL(aluguelAtual * (1 + parseFloat(reajustePercentual) / 100))}</strong>
+                    </div>
+                  )}
+                  {saveError && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 6, padding: '6px 10px', fontSize: 12, marginBottom: 10 }}>
+                      ⚠️ {saveError}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <button className="btn btn-secondary" style={{ width: 'auto' }} onClick={() => { setReajusteAberto(false); setReajustePercentual('') }}>Cancelar</button>
+                    <button
+                      className="btn btn-primary"
+                      style={{ width: 'auto' }}
+                      onClick={handleReajustarAluguel}
+                      disabled={reajusteSalvando || reajustePercentual === ''}
+                    >
+                      {reajusteSalvando ? 'Salvando...' : '💾 Confirmar Reajuste'}
+                    </button>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+        </div>
+      )}
+
+      {desocupacaoFormAberto && modal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setDesocupacaoFormAberto(false)}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: 12, padding: 20, width: '100%', maxWidth: 420, boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 15 }}>🚪 Registrar Desocupação</h3>
+              <button className="btn btn-secondary" style={{ width: 'auto', padding: '4px 10px' }} onClick={() => setDesocupacaoFormAberto(false)}>✕</button>
+            </div>
+            {(() => {
+              const diasNoMesModal = getDiasNoMes(modal.key)
+              const [anoRef, mesRef] = modal.key.split('-')
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#1e293b', fontWeight: 700, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={desocupacaoModal}
+                      onChange={e => handleToggleDesocupacao(e.target.checked)}
+                      disabled={!!modal.inquilino._historico}
+                      style={{ cursor: 'pointer' }}
+                    />
+                    Registrar desocupação neste mês ({MESES[Number(mesRef) - 1]}/{anoRef})
+                  </label>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                    <span style={{ color: '#64748b', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      📆 Dia de saída
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={diasNoMesModal}
+                      placeholder="—"
+                      value={diaSaidaModal}
+                      onChange={e => handleDiaSaidaChange(e.target.value)}
+                      style={{
+                        width: 64, padding: '4px 8px', border: '1.5px solid #cbd5e1', borderRadius: 5,
+                        fontSize: 13, textAlign: 'center', outline: 'none', background: '#fff', color: '#334155', fontWeight: 600,
+                      }}
+                    />
+                    <span style={{ color: '#94a3b8', flexShrink: 0 }}>
+                      de {diasNoMesModal} dias do mês
+                    </span>
+                    {diaSaidaModal && (
+                      <button
+                        onClick={() => handleDiaSaidaChange('')}
+                        title="Limpar dia de saída e voltar aos valores cheios"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 14, padding: '0 2px', lineHeight: 1, flexShrink: 0, marginLeft: 'auto' }}
+                      >↺</button>
+                    )}
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: 12, color: '#64748b', marginBottom: 4 }}>Ratear proporcionalmente pelos dias:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {getContasProrateaveis().map(({ key, label, icone }) => {
+                        const selecionada = contasProporcionaisModal.includes(key)
+                        return (
+                          <label
+                            key={key}
+                            style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12,
+                              background: selecionada ? '#dbeafe' : '#f1f5f9',
+                              border: `1px solid ${selecionada ? '#93c5fd' : '#e2e8f0'}`,
+                              borderRadius: 12, padding: '2px 8px', cursor: 'pointer',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selecionada}
+                              onChange={() => handleContaProporcionalToggle(key)}
+                              style={{ cursor: 'pointer' }}
+                            />
+                            {icone} {label}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 4 }}>
+                    <button className="btn btn-primary" style={{ width: 'auto' }} onClick={() => setDesocupacaoFormAberto(false)}>Concluído</button>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}

@@ -1007,6 +1007,34 @@ required
           </div>
         </div>
 
+        {isEdit && form.historicoAluguel && Object.keys(form.historicoAluguel).length > 0 && (
+          <div className="form-section">
+            <div className="form-section-header">
+              <span className="form-section-icon">🔁</span>
+              <h3>Histórico de Valor de Aluguel</h3>
+            </div>
+            <div className="form-section-body">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {Object.values(form.historicoAluguel)
+                  .sort((a, b) => (b.mes || '').localeCompare(a.mes || ''))
+                  .map((h, i) => (
+                    <div key={i} style={{ border: '1px solid #ddd', borderRadius: 6, padding: '8px 12px', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <strong>📅 Reajuste em {formatMonth(h.mes)}</strong>
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {formatMoney(h.valorAnterior)} → {formatMoney(h.valor)}
+                      </span>
+                      {typeof h.percentual === 'number' && (
+                        <span style={{ marginLeft: 'auto', fontWeight: 700, color: h.percentual >= 0 ? '#166534' : '#991b1b' }}>
+                          {h.percentual > 0 ? '+' : ''}{h.percentual}%
+                        </span>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {isEdit && form.historicoImoveis && Object.keys(form.historicoImoveis).length > 0 && (
           <div className="form-section">
             <div className="form-section-header">
