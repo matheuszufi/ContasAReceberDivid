@@ -865,16 +865,25 @@ const getDebtValue = (item) => {
   return parseFloat(item.valorTotal) || parseFloat(item.valorOriginal) || 0
 }
 
+// Valor bruto do débito (coluna "Total c/ Encargos"), ignorando o valor efetivamente recebido
+const getDebtEncargosValue = (item) => parseFloat(item.valorTotal) || parseFloat(item.valorOriginal) || 0
+
 const buildMonthlyTotals = (items, year) => {
   const map = {}
+  const encargosMap = {}
   items.forEach(item => {
     const monthKey = getMonthKey(item)
     if (!monthKey?.startsWith(year)) return
-    const value = getDebtValue(item)
+    const categoria = classifyDebt(item)
     if (!map[monthKey]) {
       map[monthKey] = emptyMonthTotals()
+      encargosMap[monthKey] = emptyMonthTotals()
     }
-    map[monthKey][classifyDebt(item)] += value
+    map[monthKey][categoria] += getDebtValue(item)
+    encargosMap[monthKey][categoria] += getDebtEncargosValue(item)
+  })
+  Object.keys(map).forEach(monthKey => {
+    map[monthKey].comEncargos = encargosMap[monthKey]
   })
   return map
 }
@@ -1630,6 +1639,9 @@ export default function Dashboard() {
     const total = totals.inadimplente + totals.recuperado + totals.utilizacaoCaucao + totals.pagoSeguradora + totals.aprovadoSeguradora + totals.aguardarAcionar + totals.juridico + totals.acionado + totals.reprovado
     // "Recuperado" no card soma tudo que já foi quitado: pago direto, uso de caução/adiantamento e pago pela seguradora
     const recuperadoTotal = totals.recuperado + totals.utilizacaoCaucao + totals.pagoSeguradora
+    const comEncargos = totals.comEncargos || emptyMonthTotals()
+    // Mesmo grupo de débitos quitados, mas somando o "Total c/ Encargos" (valor bruto), para comparar com o valor efetivamente recebido
+    const recuperadoComEncargos = comEncargos.recuperado + comEncargos.utilizacaoCaucao + comEncargos.pagoSeguradora
     const recoveredPercent = total > 0 ? Math.round((recuperadoTotal / total) * 100) : 0
     const approvedPercent = total > 0 ? Math.round((totals.aprovadoSeguradora / total) * 100) : 0
     const reprovadoPercent = total > 0 ? Math.round((totals.reprovado / total) * 100) : 0
@@ -1644,6 +1656,7 @@ export default function Dashboard() {
       inadimplente: totals.inadimplente,
       recuperado: totals.recuperado,
       recuperadoTotal,
+      recuperadoComEncargos,
       utilizacaoCaucao: totals.utilizacaoCaucao,
       pagoSeguradora: totals.pagoSeguradora,
       aprovadoSeguradora: totals.aprovadoSeguradora,
@@ -3797,13 +3810,31 @@ export default function Dashboard() {
                           <strong>{fmtMoney(totalCard)}</strong>
                         </div>
                         <div className="mc-values-row">
-                          <div className="mc-value-group">
-                            <span className="mc-value-label" style={{ '--dot-color': RECOVERY_COLORS.recuperado }}>Recuperado</span>
-                            <strong>
-                              {fmtMoney(card.recuperadoTotal)}{' '}
-                              <span className="text-muted-foreground font-normal">({card.recoveredPercent}%)</span>
-                            </strong>
-                          </div>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="mc-value-group cursor-default">
+                                  <span className="mc-value-label" style={{ '--dot-color': RECOVERY_COLORS.recuperado }}>Recuperado</span>
+                                  <strong>
+                                    {fmtMoney(card.recuperadoTotal)}{' '}
+                                    <span className="text-muted-foreground font-normal">({card.recoveredPercent}%)</span>
+                                  </strong>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent className="recovery-status-tooltip max-w-none">
+                                <div className="space-y-1 text-xs">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span className="text-muted-foreground">Total c/ encargos</span>
+                                    <strong>{fmtMoney(card.recuperadoComEncargos)}</strong>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span className="text-muted-foreground">Valor recebido</span>
+                                    <strong>{fmtMoney(card.recuperadoTotal)}</strong>
+                                  </div>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                           <div className="mc-value-group">
                             {/* "Em aberto" aqui é todo débito não pago, incluindo os que já
                                 estão com seguradora acionada ou em processo jurídico */}
