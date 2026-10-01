@@ -405,14 +405,28 @@ const historyValue = item => {
   return received > 0 ? received : Number(item.valorTotal || 0)
 }
 
-const historyCategory = item => {
-  const next = normalizeHistoryValue(item.valorNovoKey || item.valorNovoLabel)
+const historyCategory = (item, debitsById) => {
+  const nextKey = normalizeHistoryValue(item.valorNovoKey)
+  const nextLabel = normalizeHistoryValue(item.valorNovoLabel)
+  const next = nextKey || nextLabel
   if (item.campo === 'seguroAcionado') {
     if (next === 'acionado') return 'activated'
     if (next === 'pagamentoaprovado') return 'approved'
-    if (next === 'pagopelaseguradora') return 'insurerPaid'
   }
-  if (item.campo === 'status' && (next === 'pago' || next === 'pagocaucao')) return 'recovered'
+  // "Pago pela seguradora" só conta pela mudança de status em si (não pelo campo Seguro
+  // Acionado), para não duplicar a mesma inadimplência quando os dois campos coincidem.
+  if (item.campo === 'status') {
+    if (nextKey === 'pagopelaseguradora' || nextLabel === 'pagopelaseguradora') return 'insurerPaid'
+    if (nextKey === 'pago' || (!nextKey && nextLabel === 'pago')) {
+      const currentDebit = debitsById?.[item.debitoId]
+      // Se o débito está (ou ficou) marcado como "Pago pela seguradora" em Status e/ou
+      // Seguro Acionado, essa mudança para "pago" não conta como "Recuperado".
+      const currentStatus = normalizeHistoryValue(currentDebit?.status)
+      const currentSeguroAcionado = normalizeHistoryValue(currentDebit?.seguroAcionado)
+      if (currentStatus === 'pagopelaseguradora' || currentSeguroAcionado === 'pagopelaseguradora') return null
+      return 'recovered'
+    }
+  }
   return null
 }
 
@@ -425,19 +439,37 @@ const historyItem = item => ({
 
 const getHistoryDate = item => new Date(Number(item.data))
 
+const parseDateOnly = value => {
+  if (!value) return null
+  const [y, m, d] = String(value).split('-').map(Number)
+  if (!y || !m || !d) return null
+  const date = new Date(y, m - 1, d)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+// "Pago pela seguradora" é contabilizado pela Data de Pagamento do débito (não pela data
+// do registro de histórico), já que é isso que define a que mês/semana o pagamento pertence.
+const getRecoveryDate = (item, category, debitsById) => {
+  if (category === 'insurerPaid') return parseDateOnly(debitsById?.[item.debitoId]?.dataPagamento)
+  return getHistoryDate(item)
+}
+
 const getWeekLabel = (start, end) => {
   const formatDay = date => String(date.getDate()).padStart(2, '0')
   const month = String(end.getMonth() + 1).padStart(2, '0')
   return `${formatDay(start)} a ${formatDay(end)}/${month}`
 }
 
-const buildRecoveryMetrics = (history, month) => {
+const buildRecoveryMetrics = (history, month, debits = []) => {
+  const debitsById = Object.fromEntries(debits.map(debit => [debit.id, debit]))
   const [year, monthNumber] = month.split('-').map(Number)
   const monthStart = new Date(year, monthNumber - 1, 1)
   const monthEnd = new Date(year, monthNumber, 0)
   const monthHistory = history.filter(item => {
-    const date = getHistoryDate(item)
-    return !Number.isNaN(date.getTime()) && date >= monthStart && date <= new Date(year, monthNumber - 1, monthEnd.getDate(), 23, 59, 59, 999) && historyCategory(item)
+    const category = historyCategory(item, debitsById)
+    if (!category) return false
+    const date = getRecoveryDate(item, category, debitsById)
+    return date && !Number.isNaN(date.getTime()) && date >= monthStart && date <= new Date(year, monthNumber - 1, monthEnd.getDate(), 23, 59, 59, 999)
   })
   const weeks = []
   let startDay = 1
@@ -447,13 +479,20 @@ const buildRecoveryMetrics = (history, month) => {
     const start = new Date(year, monthNumber - 1, startDay)
     const end = new Date(year, monthNumber - 1, endDay)
     const weekHistory = monthHistory.filter(item => {
-      const date = getHistoryDate(item)
+      const category = historyCategory(item, debitsById)
+      const date = getRecoveryDate(item, category, debitsById)
       return date >= start && date <= new Date(year, monthNumber - 1, endDay, 23, 59, 59, 999)
     })
     const totals = { recovered: 0, activated: 0, approved: 0, insurerPaid: 0 }
     const items = { recovered: [], activated: [], approved: [], insurerPaid: [] }
+    const seenInsurerPaidDebits = new Set()
     weekHistory.forEach(item => {
-      const category = historyCategory(item)
+      const category = historyCategory(item, debitsById)
+      // Evita contar a mesma inadimplência duas vezes como "Pago pela seguradora".
+      if (category === 'insurerPaid') {
+        if (seenInsurerPaidDebits.has(item.debitoId)) return
+        seenInsurerPaidDebits.add(item.debitoId)
+      }
       const value = historyValue(item)
       totals[category] += value
       items[category].push(historyItem(item))
@@ -465,7 +504,7 @@ const buildRecoveryMetrics = (history, month) => {
 
   const byReference = Object.values(monthHistory.reduce((groups, item) => {
     const referenceMonth = item.mesReferencia || 'sem_mes'
-    const category = historyCategory(item)
+    const category = historyCategory(item, debitsById)
     if (!groups[referenceMonth]) {
       groups[referenceMonth] = {
         referenceMonth,
@@ -474,7 +513,12 @@ const buildRecoveryMetrics = (history, month) => {
         approved: 0,
         insurerPaid: 0,
         items: { recovered: [], activated: [], approved: [], insurerPaid: [] },
+        seenInsurerPaidDebits: new Set(),
       }
+    }
+    if (category === 'insurerPaid') {
+      if (groups[referenceMonth].seenInsurerPaidDebits.has(item.debitoId)) return groups
+      groups[referenceMonth].seenInsurerPaidDebits.add(item.debitoId)
     }
     groups[referenceMonth][category] += historyValue(item)
     groups[referenceMonth].items[category].push(historyItem(item))
@@ -813,8 +857,8 @@ export default function RelatorioInadimplencia() {
     [debits, tenants, properties, selectedMonth, percentage]
   )
   const recoveryMetrics = useMemo(
-    () => buildRecoveryMetrics(historicoAlteracoes, selectedMonth),
-    [historicoAlteracoes, selectedMonth]
+    () => buildRecoveryMetrics(historicoAlteracoes, selectedMonth, debits),
+    [historicoAlteracoes, selectedMonth, debits]
   )
   const reportMonths = reports.map(report => report.month)
   const selectedIndex = reportMonths.indexOf(selectedMonth)

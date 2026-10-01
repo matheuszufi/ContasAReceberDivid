@@ -35,6 +35,7 @@ const STATUS_OPCOES = [
   { value: 'juridico',        label: 'Jurídico',          bg: '#fef2f2',   color: '#b91c1c', border: '#fecaca' },
   { value: 'pago',            label: 'Pago',              bg: '#f0fdf4',   color: '#166534', border: '#86efac' },
   { value: 'pago_caucao',     label: 'Pago com caução',   bg: '#ecfdf5',   color: '#047857', border: '#6ee7b7' },
+  { value: 'pago_pela_seguradora', label: 'Pago pela seguradora', bg: '#ecfeff', color: '#0e7490', border: '#67e8f9' },
 ]
 
 const SEGURO_ACIONADO_OPCOES = [
@@ -90,9 +91,9 @@ const GARANTIDA_STYLE = {
   nao_garantida: { bg: '#fef2f2', color: '#b91c1c', border: '#fecaca' },
 }
 
-const isStatusRecuperado = status => status === 'pago' || status === 'pago_caucao'
+const isStatusRecuperado = status => status === 'pago' || status === 'pago_caucao' || status === 'pago_pela_seguradora'
 const isSeguroRecuperado = seguroAcionado => seguroAcionado === 'pago_pela_seguradora'
-const podeInformarDataPagamento = d => d.status === 'pago' || d.status === 'pago_caucao' || d.seguroAcionado === 'pagamento_aprovado' || d.seguroAcionado === 'pago_pela_seguradora'
+const podeInformarDataPagamento = d => isStatusRecuperado(d.status) || d.seguroAcionado === 'pagamento_aprovado' || d.seguroAcionado === 'pago_pela_seguradora'
 
 const fmtMoney = (v) =>
   'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
@@ -509,6 +510,7 @@ export default function Inadimplentes() {
         // (o Dashboard usa o timestamp "data" abaixo, não este campo, para decidir em que mês exibir o registro)
         valorTotal: d.valorTotal || d.valorOriginal || 0,
         valorRecebido: d.valorRecebido || null,
+        seguroAcionado: d.seguroAcionado || null,
         mesReferencia: d.mesReferencia || null,
         dataSeguro: d.dataSeguro || null,
         data: Date.now(),

@@ -837,7 +837,7 @@ const DONUT_CIRCUMFERENCE = 2 * Math.PI * DONUT_RADIUS
 const classifyDebt = (item) => {
   if (item.seguroAcionado === 'pago_pela_seguradora') return 'pagoSeguradora'
   if (item.status === 'pago_caucao') return 'utilizacaoCaucao'
-  if (item.status === 'pago') return 'recuperado'
+  if (item.status === 'pago' || item.status === 'pago_pela_seguradora') return 'recuperado'
   if (item.status === 'juridico' || item.seguroAcionado === 'juridico') return 'juridico'
   if (item.seguroAcionado === 'acionado') return 'acionado'
   if (item.seguroAcionado === 'pagamento_aprovado') return 'aprovadoSeguradora'
@@ -1237,7 +1237,7 @@ export default function Dashboard() {
     const hoje = new Date()
     hoje.setHours(0, 0, 0, 0)
 
-    return inadimplencias
+    const pagamentos = inadimplencias
       .filter(debito => {
         const dataPagamento = debito.dataPagamento
         if (!dataPagamento) return false
@@ -1265,7 +1265,19 @@ export default function Dashboard() {
           seguroLabel,
         }
       })
-      .sort((a, b) => a.dataPagamento.localeCompare(b.dataPagamento))
+
+    const unicos = new Map()
+    pagamentos.forEach(pagamento => {
+      const chave = pagamento.inquilinoId && pagamento.mesReferencia
+        ? `${pagamento.inquilinoId}_${pagamento.mesReferencia}`
+        : pagamento.id
+      const atual = unicos.get(chave)
+      if (!atual || (pagamento.atualizadoEm || pagamento.criadoEm || '') > (atual.atualizadoEm || atual.criadoEm || '')) {
+        unicos.set(chave, pagamento)
+      }
+    })
+
+    return [...unicos.values()].sort((a, b) => a.dataPagamento.localeCompare(b.dataPagamento))
   }, [inadimplencias])
 
   const totalProximosPagamentosSeguradora = useMemo(

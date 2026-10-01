@@ -295,14 +295,12 @@ export default function ImportarInadimplencia() {
       const existentesSnap = await get(ref(db, 'inadimplencias'))
       const existentesData = existentesSnap.val() || {}
       const existentes = Object.entries(existentesData).map(([id, v]) => ({ id, ...v }))
-      // Fila de débitos já existentes por inquilino+mês; cada linha da planilha consome um
-      // débito da fila (update) e, quando a fila esgota, uma nova inadimplência é criada —
-      // assim várias linhas com o mesmo inquilino/mês geram vários débitos, não um só.
-      const filaExistentes = {}
+      // Reutiliza um único débito por inquilino e mês de referência.
+      const existentesPorChave = {}
       existentes.forEach(e => {
         if (e.inquilinoId && e.mesReferencia) {
           const chave = `${e.inquilinoId}_${e.mesReferencia}`
-          ;(filaExistentes[chave] = filaExistentes[chave] || []).push(e.id)
+          if (!existentesPorChave[chave]) existentesPorChave[chave] = e.id
         }
       })
 
@@ -317,7 +315,7 @@ export default function ImportarInadimplencia() {
         }
         const inquilino = p.inquilino
         const chave = `${p.inquilinoId}_${p.mesReferencia}`
-        const existenteId = filaExistentes[chave]?.shift()
+        const existenteId = existentesPorChave[chave]
 
         // A planilha de inadimplência (página Inadimplentes) usa 'pago'/'selecione' como
         // vocabulário de status, diferente do 'Pago'/'Pendente' usado no preview da importação.
@@ -334,7 +332,7 @@ export default function ImportarInadimplencia() {
           })
           atualizados++
         } else {
-          await push(ref(db, 'inadimplencias'), {
+          const novoRef = await push(ref(db, 'inadimplencias'), {
             inquilinoId:    p.inquilinoId,
             inquilinoNome:  inquilino?.nome || p.nomeInformado,
             imovelId:       inquilino?.imovelId    || '',
@@ -353,6 +351,7 @@ export default function ImportarInadimplencia() {
             observacao:     '',
             criadoEm:       new Date().toISOString(),
           })
+          existentesPorChave[chave] = novoRef.key
           criados++
         }
       }
