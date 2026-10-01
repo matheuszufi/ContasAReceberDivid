@@ -1628,7 +1628,9 @@ export default function Dashboard() {
     const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
     const totals = yearMonthTotals[key] || emptyMonthTotals()
     const total = totals.inadimplente + totals.recuperado + totals.utilizacaoCaucao + totals.pagoSeguradora + totals.aprovadoSeguradora + totals.aguardarAcionar + totals.juridico + totals.acionado + totals.reprovado
-    const recoveredPercent = total > 0 ? Math.round((totals.recuperado / total) * 100) : 0
+    // "Recuperado" no card soma tudo que já foi quitado: pago direto, uso de caução/adiantamento e pago pela seguradora
+    const recuperadoTotal = totals.recuperado + totals.utilizacaoCaucao + totals.pagoSeguradora
+    const recoveredPercent = total > 0 ? Math.round((recuperadoTotal / total) * 100) : 0
     const approvedPercent = total > 0 ? Math.round((totals.aprovadoSeguradora / total) * 100) : 0
     const reprovadoPercent = total > 0 ? Math.round((totals.reprovado / total) * 100) : 0
     const waitingPercent = total > 0 ? Math.round((totals.aguardarAcionar / total) * 100) : 0
@@ -1641,6 +1643,7 @@ export default function Dashboard() {
       label,
       inadimplente: totals.inadimplente,
       recuperado: totals.recuperado,
+      recuperadoTotal,
       utilizacaoCaucao: totals.utilizacaoCaucao,
       pagoSeguradora: totals.pagoSeguradora,
       aprovadoSeguradora: totals.aprovadoSeguradora,
@@ -3797,7 +3800,7 @@ export default function Dashboard() {
                           <div className="mc-value-group">
                             <span className="mc-value-label" style={{ '--dot-color': RECOVERY_COLORS.recuperado }}>Recuperado</span>
                             <strong>
-                              {fmtMoney(card.recuperado)}{' '}
+                              {fmtMoney(card.recuperadoTotal)}{' '}
                               <span className="text-muted-foreground font-normal">({card.recoveredPercent}%)</span>
                             </strong>
                           </div>
