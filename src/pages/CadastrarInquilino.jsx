@@ -39,6 +39,13 @@ const formatMoney = value => Number(value || 0).toLocaleString('pt-BR', {
   currency: 'BRL',
 })
 
+const parseMoneyValue = value => {
+  if (value === '' || value == null) return 0
+  const cleaned = String(value).replace(/R\$/g, '').replace(/\s/g, '')
+  const normalized = cleaned.includes(',') ? cleaned.replace(/\./g, '').replace(',', '.') : cleaned
+  return Number(normalized) || 0
+}
+
 const formatMonth = monthKey => {
   if (!monthKey) return 'Mês não informado'
   const [year, month] = monthKey.split('-')
@@ -91,6 +98,7 @@ export default function CadastrarInquilino() {
   const { id } = useParams()
   const isEdit = Boolean(id)
   const [form, setForm] = useState(initialForm)
+  const [valorAluguelFocado, setValorAluguelFocado] = useState(false)
   const [imoveis, setImoveis] = useState([])
   const [segurosCatalogo, setSegurosCatalogo] = useState([])
   const [contasCatalogo, setContasCatalogo] = useState([])
@@ -249,6 +257,8 @@ export default function CadastrarInquilino() {
         valorGarantiaUtilizado: (value === 'caucao' || value === 'adiantamento') ? prev.valorGarantiaUtilizado : '',
         valorGarantiaRestante: (value === 'caucao' || value === 'adiantamento') ? prev.valorGarantiaRestante : '',
       }))
+    } else if (name === 'valorAluguel') {
+      setForm(prev => ({ ...prev, valorAluguel: value.replace(/[^0-9,.-]/g, '') }))
     } else {
       setForm(prev => ({ ...prev, [name]: value }))
     }
@@ -336,7 +346,7 @@ export default function CadastrarInquilino() {
         codigoImovel: imovelAntigo?.codigo || form.codigoImovel || null,
         dataEntrada: form.dataEntrada || null,
         dataSaida: trocaForm.dataSaidaAntiga,
-        valorAluguelAnterior: parseFloat(form.valorAluguel) || 0,
+        valorAluguelAnterior: parseMoneyValue(form.valorAluguel),
       }
       await set(histRef, historicoEntry)
 
@@ -425,7 +435,7 @@ export default function CadastrarInquilino() {
       contasValores: contasValoresParsed,
       contasVariavel: contasVariavelFinal,
       contasPagador: contasPagadorFinal,
-      valorAluguel: parseFloat(form.valorAluguel) || 0,
+      valorAluguel: parseMoneyValue(form.valorAluguel),
       vagas: parseInt(form.vagas) || 0,
       valorVaga: parseFloat(form.valorVaga) || 0,
       valorSeguro: parseFloat(form.valorSeguro) || 0,
@@ -693,8 +703,11 @@ required
               <div className="form-group">
                 <label>Valor do Aluguel (R$) *</label>
                 <input
-                  name="valorAluguel" type="number" step="0.01" min="0" required
-                  value={form.valorAluguel} onChange={handleChange} placeholder="0,00"
+                  name="valorAluguel" type="text" inputMode="decimal" required
+                  value={valorAluguelFocado ? form.valorAluguel : formatMoney(form.valorAluguel)}
+                  onFocus={() => setValorAluguelFocado(true)}
+                  onBlur={() => setValorAluguelFocado(false)}
+                  onChange={handleChange} placeholder="R$ 0,00"
                 />
               </div>
               <div className="form-group">

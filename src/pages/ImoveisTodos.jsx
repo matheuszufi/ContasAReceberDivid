@@ -67,6 +67,13 @@ function getCellSummary(items) {
 const fmtBRL = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const padM   = n => String(n).padStart(2, '0')
 
+const parseMoney = value => {
+  if (value === '' || value == null) return 0
+  const cleaned = String(value).replace(/R\$/g, '').replace(/\s/g, '')
+  const normalized = cleaned.includes(',') ? cleaned.replace(/\./g, '').replace(',', '.') : cleaned
+  return Number(normalized) || 0
+}
+
 // Arredonda um valor monetário para no máximo 2 casas decimais (evita arrastar dízimas de
 // ponto flutuante, ex.: rateio proporcional) e formata como string plana para os inputs
 // da "Composição do Valor Mensal"
@@ -128,6 +135,56 @@ const thL = { padding: '10px 12px', textAlign: 'left',   fontWeight: 600, fontSi
 const thC = { padding: '10px 6px',  textAlign: 'center', fontWeight: 600, fontSize: 12, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '2px solid #e2e8f0', minWidth: 88, background: '#f8fafc' }
 const tdL = { padding: '10px 12px', textAlign: 'left',   verticalAlign: 'middle', borderBottom: '1px solid #f1f5f9' }
 const tdC = { padding: '5px 4px',   textAlign: 'center', verticalAlign: 'middle', borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }
+
+// Hoisted fora do componente: definir isso dentro do render do modal recriava o tipo do componente a
+// cada tecla digitada, forçando o React a desmontar/remontar o <input>, o que disparava o onBlur (e o
+// salvamento) a cada dígito.
+const EditableValorRow = ({
+  icon, label, baseVal, vKey, showSeguro, registradoKey,
+  varValues, committedVarValues, contasProporcionaisModal, modal, registradoVar,
+  valorFocadoKey, setValorFocadoKey,
+  handleVarValue, handleVarValueBlur, handleRemoveVarValue, handleToggleRegistradoVar,
+}) => {
+  const hasOv      = vKey in varValues
+  const curVal     = hasOv ? varValues[vKey] : fmt2(baseVal)
+  const displayVal = valorFocadoKey === vKey ? curVal : fmtBRL(curVal || baseVal)
+  const isModified = vKey in committedVarValues && parseFloat(committedVarValues[vKey]) !== baseVal
+  const bc         = isModified ? '#fcd34d' : '#e2e8f0'
+  const registrada = registradoKey ? !!registradoVar[registradoKey] : false
+  const isProporcional = contasProporcionaisModal.includes(vKey)
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 13, opacity: registrada ? 0.55 : 1 }}>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+        {registradoKey && (
+          <input
+            type="checkbox"
+            checked={registrada}
+            onChange={() => handleToggleRegistradoVar(registradoKey)}
+            title="Registrada no sistema de pagamento"
+            style={{ cursor: 'pointer' }}
+          />
+        )}
+        {icon} {label}{showSeguro && modal.inquilino.seguro ? ` — ${SEGURO_LABELS[modal.inquilino.seguro] || modal.inquilino.seguro}` : ''}
+        {isModified && <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#b45309', borderRadius: 8, padding: '1px 6px' }}>alterado</span>}
+        {isProporcional && <span style={{ fontSize: 10, fontWeight: 700, background: '#dbeafe', color: '#1d4ed8', borderRadius: 8, padding: '1px 6px' }}>📆 proporcional</span>}
+      </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <input
+          type="text" inputMode="decimal"
+          placeholder={fmtBRL(baseVal)}
+          value={displayVal}
+          onChange={e => handleVarValue(vKey, e.target.value)}
+          style={{ width: 110, padding: '4px 8px', border: `1.5px solid ${bc}`, borderRadius: 6, fontSize: 13, textAlign: 'right', outline: 'none', background: isModified ? '#fffbeb' : '#fff', color: isModified ? '#92400e' : '#334155', fontWeight: 600 }}
+          onFocus={e => { setValorFocadoKey(vKey); e.target.style.borderColor = '#f59e0b' }}
+          onBlur={e  => { e.target.style.borderColor = bc; handleVarValueBlur(vKey); setValorFocadoKey(null) }}
+        />
+        {isModified && (
+          <button onClick={() => handleRemoveVarValue(vKey)} title="Reverter" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 15, padding: '0 2px', lineHeight: 1 }}>↺</button>
+        )}
+      </div>
+    </div>
+  )
+}
  
 export default function ImoveisTodos() {
   const navigate = useNavigate()
@@ -145,6 +202,9 @@ export default function ImoveisTodos() {
   const [contasCatalogo, setContasCatalogo] = useState([])
   const [modal, setModal]           = useState(null)
   const [varValues, setVarValues]   = useState({})
+  // Espelha varValues mas só é atualizado no blur — evita que o selo "alterado" e o destaque
+  // visual apareçam a cada tecla digitada, só depois que o usuário termina de editar o campo.
+  const [committedVarValues, setCommittedVarValues] = useState({})
   const [registradoVar, setRegistradoVar] = useState({})
   const [extraContas, setExtraContas] = useState([])
   const [boletosModal, setBoletosModal] = useState([])
@@ -152,6 +212,7 @@ export default function ImoveisTodos() {
   // com o valor atual ao clicar em "Salvar cobranças" e só então registrar a alteração no histórico.
   const extraSavedRef = useRef({})
   const boletoSavedRef = useRef({})
+  const varValuesSavedRef = useRef({})
   const [salvandoCobrancas, setSalvandoCobrancas] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [regForm, setRegForm]         = useState(null)
@@ -164,6 +225,7 @@ export default function ImoveisTodos() {
   const [reajustePercentual, setReajustePercentual] = useState('')
   const [reajusteSalvando, setReajusteSalvando] = useState(false)
   const [desocupacaoFormAberto, setDesocupacaoFormAberto] = useState(false)
+  const [valorFocadoKey, setValorFocadoKey] = useState(null)
   const [filterNome, setFilterNome]           = useState('')
   const [filterImovel, setFilterImovel]       = useState('')
   const [filterModelo, setFilterModelo]       = useState('')
@@ -212,10 +274,11 @@ export default function ImoveisTodos() {
   const sortArrow = (field) => sortBy === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
  
   const closeModal = () => {
-    setModal(null); setVarValues({}); setRegistradoVar({}); setExtraContas([]); setBoletosModal([]); setSaveError('')
-    extraSavedRef.current = {}; boletoSavedRef.current = {}
+    setModal(null); setVarValues({}); setCommittedVarValues({}); setRegistradoVar({}); setExtraContas([]); setBoletosModal([]); setSaveError('')
+    extraSavedRef.current = {}; boletoSavedRef.current = {}; varValuesSavedRef.current = {}
     setRegForm(null); setObsModal(''); setDiaSaidaModal(''); setContasProporcionaisModal([]); setDesocupacaoModal(false)
     setReajusteAberto(false); setReajustePercentual(''); setDesocupacaoFormAberto(false)
+    setValorFocadoKey(null)
   }
  
   const goInquilino = (inquilinoId) => navigate(`/inquilinos/editar/${inquilinoId}`)
@@ -613,6 +676,8 @@ export default function ImoveisTodos() {
     const { extras, _obs, _registrado, _travado, _travadoEm, _diaSaida, _contasProporcionais, boletos, ...vals } = saved
     console.log('[openModal] inquilino', row.inquilino.id, 'mes', key, 'dados carregados:', saved)
     setVarValues(vals || {})
+    setCommittedVarValues(vals || {})
+    varValuesSavedRef.current = { ...(vals || {}) }
     setRegistradoVar(_registrado || {})
     setExtraContas(extras ? Object.entries(extras).map(([id, v]) => ({ id, ...v })) : [])
     setBoletosModal(boletos ? Object.entries(boletos).map(([id, v]) => ({ id, ...v })) : [])
@@ -625,25 +690,36 @@ export default function ImoveisTodos() {
   }
  
   const handleVarValue = (contaKey, rawValue) => {
-    const valorAnterior = varValues[contaKey]
-    const valorDigitado = capDecimals(rawValue)
+    const valorDigitado = capDecimals(String(rawValue).replace(',', '.'))
     setVarValues(prev => ({ ...prev, [contaKey]: valorDigitado }))
+  }
+
+  const handleVarValueBlur = (contaKey) => {
+    if (!(contaKey in varValues)) return
     if (modal?.inquilino?.id && modal?.key) {
-      const novoValor = Math.round((parseFloat(valorDigitado) || 0) * 100) / 100
+      const valorAnterior = varValuesSavedRef.current[contaKey]
+      const valorDigitado = varValues[contaKey] ?? ''
+      const novoValor = Math.round(parseMoney(valorDigitado) * 100) / 100
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), {
         [contaKey]: novoValor,
       }).catch(err => { console.error('Erro ao salvar valor:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
-      registrarAlteracaoConta(modal, modal.key, contaKey, fmtBRL(valorAnterior), fmtBRL(novoValor))
+      if (parseMoney(valorAnterior) !== novoValor) {
+        registrarAlteracaoConta(modal, modal.key, contaKey, fmtBRL(valorAnterior ?? getBaseValorConta(contaKey)), fmtBRL(novoValor))
+        varValuesSavedRef.current[contaKey] = novoValor
+      }
+      setCommittedVarValues(prev => ({ ...prev, [contaKey]: novoValor }))
     }
   }
  
   const handleRemoveVarValue = (contaKey) => {
-    const valorAnterior = varValues[contaKey]
+    const valorAnterior = varValuesSavedRef.current[contaKey]
     setVarValues(prev => { const n = { ...prev }; delete n[contaKey]; return n })
+    setCommittedVarValues(prev => { const n = { ...prev }; delete n[contaKey]; return n })
     if (modal?.inquilino?.id && modal?.key) {
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), { [contaKey]: null })
         .catch(err => { console.error('Erro ao reverter valor:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
-      registrarAlteracaoConta(modal, modal.key, contaKey, fmtBRL(valorAnterior), 'Valor padrão (revertido)')
+      registrarAlteracaoConta(modal, modal.key, contaKey, fmtBRL(valorAnterior ?? getBaseValorConta(contaKey)), 'Valor padrão (revertido)')
+      delete varValuesSavedRef.current[contaKey]
       // Se essa conta fazia parte do rateio proporcional, tira ela da seleção também
       if (contasProporcionaisModal.includes(contaKey)) {
         const next = contasProporcionaisModal.filter(k => k !== contaKey)
@@ -1916,46 +1992,12 @@ export default function ImoveisTodos() {
               const temVariavel    = allContas.some(c => c.isVariavel)
               const varPreenchido  = allContas.filter(c => c.isVariavel).every(c => Number(varValues[c.key]) > 0)
  
-              const EditableRow = ({ icon, label, baseVal, vKey, showSeguro, registradoKey }) => {
-                const hasOv      = vKey in varValues
-                const curVal     = hasOv ? varValues[vKey] : fmt2(baseVal)
-                const isModified = hasOv && parseFloat(varValues[vKey]) !== baseVal
-                const bc         = isModified ? '#fcd34d' : '#e2e8f0'
-                const registrada = registradoKey ? !!registradoVar[registradoKey] : false
-                const isProporcional = contasProporcionaisModal.includes(vKey)
-                return (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 13, opacity: registrada ? 0.55 : 1 }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-                      {registradoKey && (
-                        <input
-                          type="checkbox"
-                          checked={registrada}
-                          onChange={() => handleToggleRegistradoVar(registradoKey)}
-                          title="Registrada no sistema de pagamento"
-                          style={{ cursor: 'pointer' }}
-                        />
-                      )}
-                      {icon} {label}{showSeguro && modal.inquilino.seguro ? ` — ${SEGURO_LABELS[modal.inquilino.seguro] || modal.inquilino.seguro}` : ''}
-                      {isModified && <span style={{ fontSize: 10, fontWeight: 700, background: '#fef3c7', color: '#b45309', borderRadius: 8, padding: '1px 6px' }}>alterado</span>}
-                      {isProporcional && <span style={{ fontSize: 10, fontWeight: 700, background: '#dbeafe', color: '#1d4ed8', borderRadius: 8, padding: '1px 6px' }}>📆 proporcional</span>}
-                    </span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <input
-                        type="number" step="0.01"
-                        placeholder={fmt2(baseVal) || '0,00'}
-                        value={curVal}
-                        onChange={e => handleVarValue(vKey, e.target.value)}
-                        style={{ width: 110, padding: '4px 8px', border: `1.5px solid ${bc}`, borderRadius: 6, fontSize: 13, textAlign: 'right', outline: 'none', background: isModified ? '#fffbeb' : '#fff', color: isModified ? '#92400e' : '#334155', fontWeight: 600 }}
-                        onFocus={e => (e.target.style.borderColor = '#f59e0b')}
-                        onBlur={e  => (e.target.style.borderColor = bc)}
-                      />
-                      {isModified && (
-                        <button onClick={() => handleRemoveVarValue(vKey)} title="Reverter" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 15, padding: '0 2px', lineHeight: 1 }}>↺</button>
-                      )}
-                    </div>
-                  </div>
-                )
+              const editableRowProps = {
+                varValues, committedVarValues, contasProporcionaisModal, modal, registradoVar,
+                valorFocadoKey, setValorFocadoKey,
+                handleVarValue, handleVarValueBlur, handleRemoveVarValue, handleToggleRegistradoVar,
               }
+ 
               return (
                 <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 16px', marginBottom: 16, ...(modal.travado ? { opacity: 0.65, pointerEvents: 'none' } : {}) }}>
                   <div style={{ fontWeight: 700, fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
@@ -1968,12 +2010,12 @@ export default function ImoveisTodos() {
                     </div>
                   )}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <EditableRow icon="🏠" label="Aluguel"       baseVal={aluguelBase}  vKey="_aluguel" />
+                    <EditableValorRow icon="🏠" label="Aluguel"       baseVal={aluguelBase}  vKey="_aluguel" {...editableRowProps} />
 
                     {allContas.map(({ key, label, icone, value, isVariavel, origem }) => {
                       const hasOverride = key in varValues
                       const inputVal    = hasOverride ? varValues[key] : fmt2(value)
-                      const isModified  = hasOverride && parseFloat(varValues[key]) !== value
+                      const isModified  = key in committedVarValues && parseFloat(committedVarValues[key]) !== value
                       const isProporcional = contasProporcionaisModal.includes(key)
                       const borderColor = isVariavel ? '#c4b5fd' : isModified ? '#fcd34d' : '#e2e8f0'
                       const bgColor     = isVariavel ? '#faf5ff' : isModified ? '#fffbeb' : '#fff'
@@ -2022,7 +2064,7 @@ export default function ImoveisTodos() {
                                   background: bgColor, color: txtColor, fontWeight: 600,
                                 }}
                                 onFocus={e => (e.target.style.borderColor = isVariavel ? '#7c3aed' : '#f59e0b')}
-                                onBlur={e  => (e.target.style.borderColor = borderColor)}
+                                onBlur={e  => { e.target.style.borderColor = borderColor; handleVarValueBlur(key) }}
                               />
                               {!isVariavel && isModified && (
                                 <button
@@ -2040,13 +2082,13 @@ export default function ImoveisTodos() {
                       )
                     })}
                     {seguroBase > 0 && (
-                      <EditableRow icon="🛡️" label="Seguro Fiança" baseVal={seguroBase}  vKey="_seguro"  showSeguro registradoKey="_seguro" />
+                      <EditableValorRow icon="🛡️" label="Seguro Fiança" baseVal={seguroBase}  vKey="_seguro"  showSeguro registradoKey="_seguro" {...editableRowProps} />
                     )}
                     {garagemBase > 0 && (
-                      <EditableRow icon="🚗" label={`Garagem (${modal.inquilino.vagas} vaga${Number(modal.inquilino.vagas) > 1 ? 's' : ''})`} baseVal={garagemBase} vKey="_garagem" registradoKey="_garagem" />
+                      <EditableValorRow icon="🚗" label={`Garagem (${modal.inquilino.vagas} vaga${Number(modal.inquilino.vagas) > 1 ? 's' : ''})`} baseVal={garagemBase} vKey="_garagem" registradoKey="_garagem" {...editableRowProps} />
                     )}
                     {garantiaBase > 0 && (
-                      <EditableRow icon="🔒" label={modal.inquilino.garantia === 'caucao' ? 'Caução' : 'Adiantamento'} baseVal={garantiaBase} vKey="_garantia" registradoKey="_garantia" />
+                      <EditableValorRow icon="🔒" label={modal.inquilino.garantia === 'caucao' ? 'Caução' : 'Adiantamento'} baseVal={garantiaBase} vKey="_garantia" registradoKey="_garantia" {...editableRowProps} />
                     )}
                     {garantiaDisponivelValor > 0 && (
                       <div style={{
