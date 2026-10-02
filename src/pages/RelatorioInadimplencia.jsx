@@ -405,28 +405,20 @@ const historyValue = item => {
   return received > 0 ? received : Number(item.valorTotal || 0)
 }
 
-const historyCategory = (item, debitsById) => {
+// Espelha exatamente o critério do card "Histórico de Alterações na Inadimplência" do
+// Dashboard (isHistoricoAlteracaoVisivel), para que a Recuperação por semana só contabilize
+// o que de fato aparece naquele histórico.
+const historyCategory = item => {
+  if (item.origem === 'planilha_cobranca') return null
   const nextKey = normalizeHistoryValue(item.valorNovoKey)
   const nextLabel = normalizeHistoryValue(item.valorNovoLabel)
   const next = nextKey || nextLabel
   if (item.campo === 'seguroAcionado') {
     if (next === 'acionado') return 'activated'
     if (next === 'pagamentoaprovado') return 'approved'
+    if (next === 'pagopelaseguradora') return 'insurerPaid'
   }
-  // "Pago pela seguradora" só conta pela mudança de status em si (não pelo campo Seguro
-  // Acionado), para não duplicar a mesma inadimplência quando os dois campos coincidem.
-  if (item.campo === 'status') {
-    if (nextKey === 'pagopelaseguradora' || nextLabel === 'pagopelaseguradora') return 'insurerPaid'
-    if (nextKey === 'pago' || (!nextKey && nextLabel === 'pago')) {
-      const currentDebit = debitsById?.[item.debitoId]
-      // Se o débito está (ou ficou) marcado como "Pago pela seguradora" em Status e/ou
-      // Seguro Acionado, essa mudança para "pago" não conta como "Recuperado".
-      const currentStatus = normalizeHistoryValue(currentDebit?.status)
-      const currentSeguroAcionado = normalizeHistoryValue(currentDebit?.seguroAcionado)
-      if (currentStatus === 'pagopelaseguradora' || currentSeguroAcionado === 'pagopelaseguradora') return null
-      return 'recovered'
-    }
-  }
+  if (item.campo === 'status' && next === 'pago') return 'recovered'
   return null
 }
 
@@ -466,7 +458,7 @@ const buildRecoveryMetrics = (history, month, debits = []) => {
   const monthStart = new Date(year, monthNumber - 1, 1)
   const monthEnd = new Date(year, monthNumber, 0)
   const monthHistory = history.filter(item => {
-    const category = historyCategory(item, debitsById)
+    const category = historyCategory(item)
     if (!category) return false
     const date = getRecoveryDate(item, category, debitsById)
     return date && !Number.isNaN(date.getTime()) && date >= monthStart && date <= new Date(year, monthNumber - 1, monthEnd.getDate(), 23, 59, 59, 999)
@@ -479,7 +471,7 @@ const buildRecoveryMetrics = (history, month, debits = []) => {
     const start = new Date(year, monthNumber - 1, startDay)
     const end = new Date(year, monthNumber - 1, endDay)
     const weekHistory = monthHistory.filter(item => {
-      const category = historyCategory(item, debitsById)
+      const category = historyCategory(item)
       const date = getRecoveryDate(item, category, debitsById)
       return date >= start && date <= new Date(year, monthNumber - 1, endDay, 23, 59, 59, 999)
     })
@@ -487,7 +479,7 @@ const buildRecoveryMetrics = (history, month, debits = []) => {
     const items = { recovered: [], activated: [], approved: [], insurerPaid: [] }
     const seenInsurerPaidDebits = new Set()
     weekHistory.forEach(item => {
-      const category = historyCategory(item, debitsById)
+      const category = historyCategory(item)
       // Evita contar a mesma inadimplência duas vezes como "Pago pela seguradora".
       if (category === 'insurerPaid') {
         if (seenInsurerPaidDebits.has(item.debitoId)) return
@@ -504,7 +496,7 @@ const buildRecoveryMetrics = (history, month, debits = []) => {
 
   const byReference = Object.values(monthHistory.reduce((groups, item) => {
     const referenceMonth = item.mesReferencia || 'sem_mes'
-    const category = historyCategory(item, debitsById)
+    const category = historyCategory(item)
     if (!groups[referenceMonth]) {
       groups[referenceMonth] = {
         referenceMonth,
@@ -1549,9 +1541,9 @@ export default function RelatorioInadimplencia() {
                   <thead>
                     <tr>
                       <th>Semana</th>
-                      <th>Recuperado</th>
                       <th>Seguros acionados</th>
                       <th>Seguros aprovados</th>
+                      <th>Recuperado</th>
                       <th>Pago pela seguradora</th>
                       <th>Total recuperado</th>
                     </tr>
@@ -1560,9 +1552,9 @@ export default function RelatorioInadimplencia() {
                     {recoveryMetrics.weeks.map(week => (
                       <tr key={week.label}>
                         <td className="recovery-week-label">{week.label}</td>
-                        <td><ListTooltip title={`Recuperado · ${week.label}`} items={week.items.recovered} emptyLabel="Nenhuma recuperação"><span className="recovery-value recovery-value-green">{formatMoney(week.totals.recovered)}</span></ListTooltip></td>
                         <td><ListTooltip title={`Seguros acionados · ${week.label}`} items={week.items.activated} emptyLabel="Nenhum seguro acionado"><span className="recovery-value">{formatMoney(week.totals.activated)}</span></ListTooltip></td>
                         <td><ListTooltip title={`Seguros aprovados · ${week.label}`} items={week.items.approved} emptyLabel="Nenhum seguro aprovado"><span className="recovery-value">{formatMoney(week.totals.approved)}</span></ListTooltip></td>
+                        <td><ListTooltip title={`Recuperado · ${week.label}`} items={week.items.recovered} emptyLabel="Nenhuma recuperação"><span className="recovery-value recovery-value-green">{formatMoney(week.totals.recovered)}</span></ListTooltip></td>
                         <td><ListTooltip title={`Pago pela seguradora · ${week.label}`} items={week.items.insurerPaid} emptyLabel="Nenhum pagamento pela seguradora"><span className="recovery-value recovery-value-blue">{formatMoney(week.totals.insurerPaid)}</span></ListTooltip></td>
                         <td><span className="recovery-value recovery-value-green">{formatMoney(week.totals.recovered + week.totals.insurerPaid)}</span></td>
                       </tr>
@@ -1586,9 +1578,9 @@ export default function RelatorioInadimplencia() {
                   <thead>
                     <tr>
                       <th>Mês de referência</th>
-                      <th>Recuperado</th>
                       <th>Seguros acionados</th>
                       <th>Seguros aprovados</th>
+                      <th>Recuperado</th>
                       <th>Pago pela seguradora</th>
                       <th>Total recuperado</th>
                     </tr>
@@ -1599,9 +1591,9 @@ export default function RelatorioInadimplencia() {
                     ) : recoveryMetrics.byReference.map(reference => (
                       <tr key={reference.referenceMonth}>
                         <td className="recovery-week-label">{reference.referenceMonth === 'sem_mes' ? 'Sem mês informado' : formatMonth(reference.referenceMonth)}</td>
-                        <td><ListTooltip title={`Recuperado · ${reference.referenceMonth === 'sem_mes' ? 'Sem mês informado' : formatMonth(reference.referenceMonth)}`} items={reference.items.recovered} emptyLabel="Nenhuma recuperação"><span className="recovery-value recovery-value-green">{formatMoney(reference.recovered)}</span></ListTooltip></td>
                         <td><ListTooltip title={`Seguros acionados · ${reference.referenceMonth === 'sem_mes' ? 'Sem mês informado' : formatMonth(reference.referenceMonth)}`} items={reference.items.activated} emptyLabel="Nenhum seguro acionado"><span className="recovery-value">{formatMoney(reference.activated)}</span></ListTooltip></td>
                         <td><ListTooltip title={`Seguros aprovados · ${reference.referenceMonth === 'sem_mes' ? 'Sem mês informado' : formatMonth(reference.referenceMonth)}`} items={reference.items.approved} emptyLabel="Nenhum seguro aprovado"><span className="recovery-value">{formatMoney(reference.approved)}</span></ListTooltip></td>
+                        <td><ListTooltip title={`Recuperado · ${reference.referenceMonth === 'sem_mes' ? 'Sem mês informado' : formatMonth(reference.referenceMonth)}`} items={reference.items.recovered} emptyLabel="Nenhuma recuperação"><span className="recovery-value recovery-value-green">{formatMoney(reference.recovered)}</span></ListTooltip></td>
                         <td><ListTooltip title={`Pago pela seguradora · ${reference.referenceMonth === 'sem_mes' ? 'Sem mês informado' : formatMonth(reference.referenceMonth)}`} items={reference.items.insurerPaid} emptyLabel="Nenhum pagamento pela seguradora"><span className="recovery-value recovery-value-blue">{formatMoney(reference.insurerPaid)}</span></ListTooltip></td>
                         <td><span className="recovery-value recovery-value-green">{formatMoney(reference.recovered + reference.insurerPaid)}</span></td>
                       </tr>

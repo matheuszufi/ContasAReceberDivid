@@ -19,6 +19,7 @@ import {
   Plus,
   FileSpreadsheet,
   FileText,
+  Clock,
   Search,
   MessageCircle,
   Pencil,
@@ -867,6 +868,9 @@ export default function Inadimplentes() {
         </Button>
         <Button variant="outline" onClick={() => navigate('/inadimplentes/relatorio')}>
           <FileText /> Relatório de inadimplência
+        </Button>
+        <Button variant="outline" onClick={() => navigate('/inadimplentes/historico')}>
+          <Clock /> Histórico de alterações
         </Button>
         <div className="relative ml-auto w-full max-w-xs">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

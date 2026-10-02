@@ -28,6 +28,7 @@ const SeguroIncendio          = lazy(() => import('./pages/SeguroIncendio'))
 const Desocupacoes            = lazy(() => import('./pages/Desocupacoes'))
 const Perfil                  = lazy(() => import('./pages/Perfil'))
 const AlteracoesPlanilha       = lazy(() => import('./pages/AlteracoesPlanilha'))
+const HistoricoAlteracoesInadimplencia = lazy(() => import('./pages/HistoricoAlteracoesInadimplencia'))
 const SimuladorVendas          = lazy(() => import('./pages/SimuladorVendas'))
 
 
@@ -92,6 +93,7 @@ export default function App() {
         <Route path="/inquilinos/importar"        element={<PrivateRoute><ImportarPlanilha /></PrivateRoute>} />
         <Route path="/inadimplentes"              element={<PrivateRoute><Inadimplentes /></PrivateRoute>} />
         <Route path="/inadimplentes/relatorio"   element={<PrivateRoute><RelatorioInadimplencia /></PrivateRoute>} />
+        <Route path="/inadimplentes/historico"   element={<PrivateRoute><HistoricoAlteracoesInadimplencia /></PrivateRoute>} />
         <Route path="/inadimplentes/importar"     element={<PrivateRoute><ImportarInadimplencia /></PrivateRoute>} />
         <Route path="/inadimplentes/cadastrar"    element={<PrivateRoute><CadastrarInadimplencia /></PrivateRoute>} />
         <Route path="/inadimplentes/editar/:id"   element={<PrivateRoute><CadastrarInadimplencia /></PrivateRoute>} />

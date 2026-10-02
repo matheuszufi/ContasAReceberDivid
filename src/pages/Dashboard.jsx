@@ -1241,8 +1241,9 @@ export default function Dashboard() {
       .filter(debito => {
         const dataPagamento = debito.dataPagamento
         if (!dataPagamento) return false
-        const statusSeguro = debito.seguroAcionado
-        if (!(statusSeguro === 'pagamento_aprovado' || statusSeguro === 'pago_pela_seguradora')) return false
+        // Conta uma única vez mesmo se Seguro Acionado e Status estiverem ambos aprovados.
+        const aprovado = debito.seguroAcionado === 'pagamento_aprovado' || debito.status === 'seguro_aprovado'
+        if (!aprovado) return false
 
         const data = new Date(`${dataPagamento}T00:00:00`)
         if (Number.isNaN(data.getTime())) return false
