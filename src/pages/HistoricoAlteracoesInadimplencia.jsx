@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ref, onValue, remove } from 'firebase/database'
+import { ref, onValue, remove, update } from 'firebase/database'
 import { useNavigate } from 'react-router-dom'
-import { Clock, ArrowRight, X } from 'lucide-react'
+import { Clock, ArrowRight, X, Pencil, Check } from 'lucide-react'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -22,6 +22,17 @@ const fmtDataHora = (timestamp) => {
   return new Date(timestamp).toLocaleString('pt-BR', {
     day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
   })
+}
+
+const toDatetimeLocal = (timestamp) => {
+  const d = timestamp ? new Date(timestamp) : new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const fromDatetimeLocal = (value) => {
+  const timestamp = new Date(value).getTime()
+  return Number.isFinite(timestamp) ? timestamp : null
 }
 
 const formatDateToMonthKey = (value) => {
@@ -77,6 +88,8 @@ export default function HistoricoAlteracoesInadimplencia() {
   const [filtroInquilino, setFiltroInquilino] = useState('')
   const [filtroValorRecebido, setFiltroValorRecebido] = useState('')
   const [filtroDataPagamento, setFiltroDataPagamento] = useState('')
+  const [editingDataId, setEditingDataId] = useState(null)
+  const [dataDraft, setDataDraft] = useState('')
 
   useEffect(() => onValue(ref(db, 'historicoAlteracoes'), snap => {
     const data = snap.val()
@@ -167,6 +180,23 @@ export default function HistoricoAlteracoesInadimplencia() {
   const handleExcluirHistorico = async (id) => {
     if (!window.confirm('Deseja excluir este registro do histórico?')) return
     await remove(ref(db, `historicoAlteracoes/${id}`))
+  }
+
+  const handleIniciarEdicaoData = (item) => {
+    setEditingDataId(item.id)
+    setDataDraft(toDatetimeLocal(item.data))
+  }
+
+  const handleCancelarEdicaoData = () => {
+    setEditingDataId(null)
+    setDataDraft('')
+  }
+
+  const handleSalvarData = async (id) => {
+    const novaData = fromDatetimeLocal(dataDraft)
+    if (!novaData) return
+    await update(ref(db, `historicoAlteracoes/${id}`), { data: novaData })
+    setEditingDataId(null)
   }
 
   return (
@@ -284,20 +314,52 @@ export default function HistoricoAlteracoesInadimplencia() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <span className="text-muted-foreground">{fmtDataHora(item.data)}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-6 shrink-0 text-muted-foreground opacity-100 transition-opacity hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          handleExcluirHistorico(item.id)
-                        }}
-                        aria-label="Excluir registro do histórico"
-                        title="Excluir registro do histórico"
-                      >
-                        <X className="size-3.5" />
-                      </Button>
+                      {editingDataId === item.id ? (
+                        <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
+                          <Input
+                            type="datetime-local"
+                            value={dataDraft}
+                            onChange={e => setDataDraft(e.target.value)}
+                            className="h-7 w-auto text-xs"
+                          />
+                          <Button variant="ghost" size="icon" className="size-6 shrink-0 text-emerald-600" onClick={() => handleSalvarData(item.id)} aria-label="Salvar data" title="Salvar data">
+                            <Check className="size-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="size-6 shrink-0 text-muted-foreground" onClick={handleCancelarEdicaoData} aria-label="Cancelar edição" title="Cancelar edição">
+                            <X className="size-3.5" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <span className="text-muted-foreground">{fmtDataHora(item.data)}</span>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 shrink-0 text-muted-foreground opacity-100 transition-opacity hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleIniciarEdicaoData(item)
+                            }}
+                            aria-label="Editar data de registro"
+                            title="Editar data de registro"
+                          >
+                            <Pencil className="size-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 shrink-0 text-muted-foreground opacity-100 transition-opacity hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleExcluirHistorico(item.id)
+                            }}
+                            aria-label="Excluir registro do histórico"
+                            title="Excluir registro do histórico"
+                          >
+                            <X className="size-3.5" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   </div>
                 )

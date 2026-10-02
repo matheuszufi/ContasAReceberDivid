@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { onValue, ref, runTransaction, update } from 'firebase/database'
 import { jsPDF } from 'jspdf'
-import { CalendarDays, ChevronLeft, ChevronRight, Download, FilePlus2, Loader2, X } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Download, FilePlus2, Loader2, Lock, Unlock, X } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { db, auth } from '../firebase'
 import Layout from '../components/Layout'
@@ -812,6 +812,7 @@ export default function RelatorioInadimplencia() {
   const [savingComment, setSavingComment] = useState('')
   const [error, setError] = useState('')
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [savingLock, setSavingLock] = useState(false)
 
   useEffect(() => onValue(ref(db, 'relatoriosInadimplencia'), snapshot => {
     const value = snapshot.val() || {}
@@ -854,6 +855,7 @@ export default function RelatorioInadimplencia() {
   )
   const reportMonths = reports.map(report => report.month)
   const selectedIndex = reportMonths.indexOf(selectedMonth)
+  const isLocked = !!selectedReport?.locked
 
   useEffect(() => {
     setPercentageDraft(String(selectedReport?.projectedPercentage ?? 0))
@@ -899,6 +901,7 @@ export default function RelatorioInadimplencia() {
   }
 
   const savePercentage = async () => {
+    if (isLocked) return
     const value = Number(percentageDraft)
     if (!selectedReport || !Number.isFinite(value) || value < 0 || value > 100) {
       setError('Informe um percentual entre 0 e 100.')
@@ -918,7 +921,7 @@ export default function RelatorioInadimplencia() {
   }
 
   const saveComment = async debitId => {
-    if (!selectedReport) return
+    if (!selectedReport || isLocked) return
     setSavingComment(debitId)
     try {
       await update(ref(db, `relatoriosInadimplencia/${selectedMonth}/comments`), {
@@ -926,6 +929,29 @@ export default function RelatorioInadimplencia() {
       })
     } finally {
       setSavingComment('')
+    }
+  }
+
+  const toggleLock = async () => {
+    if (!selectedReport) return
+    const willLock = !isLocked
+    const confirmMessage = willLock
+      ? `Travar o relatório de ${formatMonth(selectedMonth)}? Depois de travado, o percentual projetado e os comentários não poderão mais ser alterados.`
+      : `Destravar o relatório de ${formatMonth(selectedMonth)}? Ele voltará a poder ser editado.`
+    if (!window.confirm(confirmMessage)) return
+    setSavingLock(true)
+    setError('')
+    try {
+      await update(ref(db, `relatoriosInadimplencia/${selectedMonth}`), {
+        locked: willLock,
+        lockedAt: willLock ? Date.now() : null,
+      })
+      if (willLock) setEditingPercentage(false)
+    } catch (saveError) {
+      console.error('Erro ao travar/destravar relatório:', saveError)
+      setError('Não foi possível travar/destravar o relatório.')
+    } finally {
+      setSavingLock(false)
     }
   }
 
@@ -1304,9 +1330,15 @@ export default function RelatorioInadimplencia() {
         <div className="report-toolbar">
           <div>
             <p className="report-eyebrow">Relatório mensal</p>
-            <h2>{reportLabel}</h2>
+            <h2>{reportLabel} {isLocked && <span className="report-lock-badge"><Lock className="size-3.5" /> Travado</span>}</h2>
           </div>
           <div className="report-toolbar-actions">
+            {selectedReport && (
+              <Button variant="outline" onClick={toggleLock} disabled={savingLock}>
+                {savingLock ? <Loader2 className="spin" /> : isLocked ? <Unlock /> : <Lock />}
+                {savingLock ? 'Salvando...' : isLocked ? 'Destravar relatório' : 'Travar relatório'}
+              </Button>
+            )}
             <Button variant="outline" onClick={exportReportPdf} disabled={exportingPdf}>
               {exportingPdf ? <Loader2 className="spin" /> : <Download />} {exportingPdf ? 'Exportando...' : 'Exportar PDF'}
             </Button>
@@ -1379,14 +1411,14 @@ export default function RelatorioInadimplencia() {
                   <article className="summary-card summary-card-featured accent-blue">
                     <div className="projected-card-heading">
                       <span>Meta de inadimplencia</span>
-                      {editingPercentage ? (
+                      {editingPercentage && !isLocked ? (
                         <div className="percentage-editor">
                           <Input autoFocus type="number" min="0" max="100" step="0.01" value={percentageDraft} onChange={event => setPercentageDraft(event.target.value)} aria-label="Taxa projetada" />
                           <span>%</span>
                           <Button type="button" size="sm" onClick={savePercentage} disabled={savingPercentage}>{savingPercentage ? 'Salvando' : 'Salvar'}</Button>
                         </div>
                       ) : (
-                        <button type="button" className="rate-edit-button projected-rate-control" onClick={() => setEditingPercentage(true)}>
+                        <button type="button" className="rate-edit-button projected-rate-control" onClick={() => !isLocked && setEditingPercentage(true)} disabled={isLocked}>
                           <span>Taxa projetada</span> <b>{metrics.projectedRate.toFixed(2)}%</b>
                         </button>
                       )}
@@ -1678,7 +1710,7 @@ export default function RelatorioInadimplencia() {
                       <div className="case-stat-row"><span><b>{item.agreementPaidCount}</b> cumprido{item.agreementPaidCount === 1 ? '' : 's'}</span><span><b>{item.agreementBrokenCount}</b> não cumprido{item.agreementBrokenCount === 1 ? '' : 's'}</span></div>
                       <div className="case-stat-row case-contact-row"><span>Contatos: <b>{item.contactCount}</b></span><span>Com retorno: <b>{item.contactResponseCount}</b></span><span>Sem retorno: <b>{item.contactNoResponseCount}</b></span></div>
                     </div>
-                    <div className="case-comment"><textarea className="case-comment-input" value={commentDrafts[item.key] || ''} onChange={event => setCommentDrafts(prev => ({ ...prev, [item.key]: event.target.value }))} placeholder="Adicionar comentário..." /><Button type="button" size="sm" onClick={() => saveComment(item.key)} disabled={savingComment === item.key}>{savingComment === item.key ? 'Salvando' : 'Salvar'}</Button></div>
+                    <div className="case-comment"><textarea className="case-comment-input" value={commentDrafts[item.key] || ''} onChange={event => setCommentDrafts(prev => ({ ...prev, [item.key]: event.target.value }))} placeholder="Adicionar comentário..." disabled={isLocked} /><Button type="button" size="sm" onClick={() => saveComment(item.key)} disabled={savingComment === item.key || isLocked}>{savingComment === item.key ? 'Salvando' : 'Salvar'}</Button></div>
                   </div>
                 ))}
               </div>
