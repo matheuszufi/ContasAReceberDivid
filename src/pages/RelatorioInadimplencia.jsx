@@ -291,7 +291,7 @@ function BalanceTooltip({ guaranteedBalance, combinedBalance }) {
       <Tooltip>
         <TooltipTrigger asChild>
           <button type="button" className="balance-tooltip-trigger" aria-label="Saldo apenas de inadimplências garantidas. Passe o mouse para ver o total geral.">
-            <span className="balance-tooltip-hint">Somente garantidas · passe para ver o total geral</span>
+            {/* <span className="balance-tooltip-hint">Somente garantidas · passe para ver o total geral</span> */}
             <span className="balance-breakdown">
               <small>Total: <b>{formatMoney(guaranteedBalance.total)}</b></small>
               <small>Recuperado: <b>{formatMoney(guaranteedBalance.recovered)}</b></small>
@@ -305,6 +305,29 @@ function BalanceTooltip({ guaranteedBalance, combinedBalance }) {
             <span>Total: {formatMoney(combinedBalance.total)}</span>
             <span>Recuperado: {formatMoney(combinedBalance.recovered)}</span>
             <span>Em aberto: {formatMoney(combinedBalance.open)}</span>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+function AnnualBalanceTooltip({ className, label, value, combinedValue, unguaranteedValue, detail }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" className={`annual-metric ${className} annual-metric-tooltip`}>
+            <span>{label}</span>
+            <strong>{formatMoney(value)}</strong>
+            <small>{detail}</small>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="start" className="forecast-tooltip-content">
+          <div className="forecast-tooltip-list">
+            <strong>Detalhamento anual</strong>
+            <span>Garantido + não garantido: {formatMoney(combinedValue)}</span>
+            <span>Apenas não garantido: {formatMoney(unguaranteedValue)}</span>
           </div>
         </TooltipContent>
       </Tooltip>
@@ -1411,12 +1434,9 @@ export default function RelatorioInadimplencia() {
                   <span>{formatYearPeriod(selectedMonth)}</span>
                 </div>
                 <div className="annual-summary-grid">
-                  <div className="annual-metric annual-metric-total"><span>Total de inadimplência (apenas garantido)</span><strong>{formatMoney(metrics.yearBalance.total)}</strong><small>Valor registrado no período</small></div>
-                  <div className="annual-metric annual-metric-recovered"><span>Recuperado no ano (garantido)</span><strong>{formatMoney(metrics.yearBalance.recovered)}</strong><small>Valores já recuperados</small></div>
-                  <div className="annual-metric annual-metric-open"><span>Em aberto no ano (garantido)</span><strong>{formatMoney(metrics.yearBalance.open)}</strong><small>Saldo ainda pendente</small></div>
-                  <div className="annual-metric annual-metric-unguaranteed"><span>Total de inadimplência (não garantido)</span><strong>{formatMoney(metrics.unguaranteedYearBalance.total)}</strong><small>Valor registrado no período</small></div>
-                  <div className="annual-metric annual-metric-unguaranteed"><span>Recuperado no ano (não garantido)</span><strong>{formatMoney(metrics.unguaranteedYearBalance.recovered)}</strong><small>Valores já recuperados</small></div>
-                  <div className="annual-metric annual-metric-unguaranteed"><span>Em aberto no ano (não garantido)</span><strong>{formatMoney(metrics.unguaranteedYearBalance.open)}</strong><small>Saldo ainda pendente</small></div>
+                  <AnnualBalanceTooltip className="annual-metric-total" label="Total de inadimplência (apenas garantido)" value={metrics.yearBalance.total} combinedValue={metrics.yearBalance.total + metrics.unguaranteedYearBalance.total} unguaranteedValue={metrics.unguaranteedYearBalance.total} detail="Valor registrado no período" />
+                  <AnnualBalanceTooltip className="annual-metric-recovered" label="Recuperado no ano (garantido)" value={metrics.yearBalance.recovered} combinedValue={metrics.yearBalance.recovered + metrics.unguaranteedYearBalance.recovered} unguaranteedValue={metrics.unguaranteedYearBalance.recovered} detail="Valores já recuperados" />
+                  <AnnualBalanceTooltip className="annual-metric-open" label="Em aberto no ano (garantido)" value={metrics.yearBalance.open} combinedValue={metrics.yearBalance.open + metrics.unguaranteedYearBalance.open} unguaranteedValue={metrics.unguaranteedYearBalance.open} detail="Saldo ainda pendente" />
                 </div>
               </div>
               <div className="summary-grid">
@@ -1513,21 +1533,23 @@ export default function RelatorioInadimplencia() {
                     </div>
                   </article>
                 </div>
-                <div className="receiving-time-card">
-                  <div>
-                    <span>Tempo para Receber Inadimplências</span>
-                    <small>Média entre vencimento e pagamento no mês de {formatMonth(selectedMonth)}</small>
+                <div className="receiving-time-grid">
+                  <div className="receiving-time-card">
+                    <div>
+                      <span>Tempo para Receber Inadimplências</span>
+                      <small>Média entre vencimento e pagamento no mês de {formatMonth(selectedMonth)}</small>
+                    </div>
+                    <strong>{metrics.averageReceivingDays.toFixed(1).replace('.', ',')} dias</strong>
+                    <ReceivingTimeTooltip items={metrics.receivingTimeItems} />
                   </div>
-                  <strong>{metrics.averageReceivingDays.toFixed(1).replace('.', ',')} dias</strong>
-                  <ReceivingTimeTooltip items={metrics.receivingTimeItems} />
-                </div>
-                <div className="receiving-time-card receiving-time-card-previous">
-                  <div>
-                    <span>Tempo para Receber Inadimplências com mês anterior</span>
-                    <small>Média entre vencimento e pagamento de {formatMonth(selectedMonth)} e {formatMonth(previousMonthKey(selectedMonth))}</small>
+                  <div className="receiving-time-card receiving-time-card-previous">
+                    <div>
+                      <span>Tempo para Receber Inadimplências com mês anterior</span>
+                      <small>Média entre vencimento e pagamento de {formatMonth(selectedMonth)} e {formatMonth(previousMonthKey(selectedMonth))}</small>
+                    </div>
+                    <strong>{metrics.averageReceivingDaysWithPreviousMonth.toFixed(1).replace('.', ',')} dias</strong>
+                    <ReceivingTimeTooltip items={metrics.receivingTimeItemsWithPreviousMonth} />
                   </div>
-                  <strong>{metrics.averageReceivingDaysWithPreviousMonth.toFixed(1).replace('.', ',')} dias</strong>
-                  <ReceivingTimeTooltip items={metrics.receivingTimeItemsWithPreviousMonth} />
                 </div>
               </div>
             </section>
