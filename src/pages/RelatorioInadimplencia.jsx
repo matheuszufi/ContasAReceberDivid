@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { onValue, ref, runTransaction, update } from 'firebase/database'
 import { jsPDF } from 'jspdf'
 import { CalendarDays, ChevronLeft, ChevronRight, Download, FilePlus2, Loader2, Lock, Unlock, X } from 'lucide-react'
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from 'recharts'
 import { db, auth } from '../firebase'
 import Layout from '../components/Layout'
 import { Button } from '../components/ui/button'
@@ -326,50 +326,18 @@ const classifyGuaranteeStatus = debit => {
   return 'inadimplente'
 }
 
-function ScenarioChart({ title, data }) {
-  const chartData = data.map(item => ({
-    ...item,
-    percentageLabel: `${item.percentage.toFixed(1)}%`,
-  }))
-
-  return (
-    <div className="scenario-chart">
-      <h4>{title}</h4>
-      {chartData.length === 0 ? (
-        <div className="scenario-chart-empty">Nenhuma inadimplência aberta.</div>
-      ) : (
-        <ResponsiveContainer width="100%" height={Math.max(150, chartData.length * 48)}>
-          <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 42, left: 4, bottom: 4 }}>
-            <XAxis type="number" domain={[0, 100]} hide />
-            <YAxis type="category" dataKey="label" width={92} tick={{ fill: '#475569', fontSize: 11 }} axisLine={false} tickLine={false} />
-            <RechartsTooltip
-              formatter={(value) => [`${Number(value).toFixed(2)}%`, 'Participação']}
-              labelFormatter={label => title.replace('Participação ', '') + ` · ${label}`}
-              contentStyle={{ border: '1px solid #dbe3ef', borderRadius: 8, fontSize: 11 }}
-            />
-            <Bar dataKey="percentage" radius={[0, 4, 4, 0]} barSize={22}>
-              {chartData.map((item, index) => <Cell key={item.key} fill={scenarioColors[index % scenarioColors.length]} />)}
-              <LabelList dataKey="percentageLabel" position="right" fill="#334155" fontSize={11} fontWeight={700} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      )}
-    </div>
-  )
-}
-
 function GuaranteeValueChart({ data, total, statusKeys }) {
   return (
     <div className="scenario-guarantee-chart">
       <div className="scenario-guarantee-heading">
-        <div><h4>Valores por tipo de garantia</h4><p>Distribuição dos débitos de todo o mês selecionado.</p></div>
+        <div><h4>Valores por tipo de garantia</h4><p>Distribuição das inadimplências garantidas do mês selecionado.</p></div>
         <strong>{formatMoney(total)}</strong>
       </div>
-      {data.length === 0 || total === 0 ? <div className="scenario-chart-empty">Nenhuma inadimplência registrada no mês.</div> : (
+      {data.length === 0 || total === 0 ? <div className="scenario-chart-empty">Nenhuma inadimplência garantida registrada no mês.</div> : (
         <>
           <div className="scenario-guarantee-canvas">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} margin={{ top: 12, right: 8, left: 4, bottom: 8 }}>
+              <BarChart data={data} margin={{ top: 12, right: 8, left: 4, bottom: 8 }} barCategoryGap="28%">
                 <CartesianGrid vertical={false} stroke="#dbe5f0" strokeDasharray="4 4" />
                 <XAxis dataKey="garantia" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 600 }} interval={0} />
                 <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#64748b' }} width={58} tickFormatter={formatMoney} />
@@ -378,7 +346,7 @@ function GuaranteeValueChart({ data, total, statusKeys }) {
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length) return null
                     const guaranteeTotal = payload.reduce((sum, item) => sum + Number(item.value || 0), 0)
-                    return <div className="scenario-guarantee-tooltip"><p>Garantia: {label}</p>{payload.map(item => <span key={item.dataKey} style={{ color: item.color }}>{guaranteeStatusLabels[item.dataKey] || item.name}: {formatMoney(item.value)}</span>)}<strong>Total: {formatMoney(guaranteeTotal)}</strong></div>
+                    return <div className="scenario-guarantee-tooltip"><p>Garantia: {label}</p>{payload.filter(item => Number(item.value) > 0).map(item => <span key={item.dataKey} style={{ color: item.color }}>{guaranteeStatusLabels[item.dataKey] || item.name}: {formatMoney(item.value)}</span>)}<strong>Total: {formatMoney(guaranteeTotal)}</strong></div>
                   }}
                 />
                 {statusKeys.map((status, index) => <Bar key={status} dataKey={status} name={guaranteeStatusLabels[status]} stackId="status" fill={guaranteeStatusColors[status]} radius={index === statusKeys.length - 1 ? [4, 4, 0, 0] : undefined} />)}
@@ -618,10 +586,11 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   }
   const scenarioGroups = (items, getKey, labels) => Object.entries(items.reduce((groups, debit) => {
     const key = getKey(debit)
-    if (!groups[key]) groups[key] = { total: 0, open: 0, items: [] }
+    if (!groups[key]) groups[key] = { total: 0, open: 0, count: 0, items: [] }
     groups[key].total += dashboardDebtValue(debit)
     groups[key].open += openValueOf(debit)
-    if (openValueOf(debit) > 0) groups[key].items.push({ ...debitItem(debit), value: openValueOf(debit) })
+    groups[key].count += 1
+    groups[key].items.push(debitItem(debit))
     return groups
   }, {})).map(([key, values]) => ({
     key,
@@ -629,14 +598,17 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
     total: values.total,
     open: values.open,
     items: values.items,
-    percentage: balance.open > 0 ? (values.open / balance.open) * 100 : 0,
+    // Participação de todas as inadimplências do mês (pagas ou não), somando 100% no total.
+    percentage: items.length > 0 ? (values.count / items.length) * 100 : 0,
   }))
   const modelScenario = scenarioGroups(monthDebits, getModel, { MA: 'MA', ML: 'ML', ME: 'ME' })
   const guaranteeScenario = scenarioGroups(monthDebits, debit => normalizedValue(getGuaranteeKey(debit, tenantMap)), {
     ...guaranteeLabels,
   })
   const guaranteeStatusKeys = Object.keys(guaranteeStatusLabels)
-  const guaranteeValueData = Object.entries(monthDebits.reduce((groups, debit) => {
+  // Considera apenas inadimplências cuja coluna "garantida" está como garantida (padrão quando não definida).
+  const guaranteedMonthDebits = monthDebits.filter(debit => debit.garantida !== 'nao_garantida')
+  const guaranteeValueData = Object.entries(guaranteedMonthDebits.reduce((groups, debit) => {
     const guaranteeKey = normalizedValue(getGuaranteeKey(debit, tenantMap))
     if (!groups[guaranteeKey]) {
       groups[guaranteeKey] = { garantia: guaranteeLabels[guaranteeKey] || guaranteeKey, ...Object.fromEntries(guaranteeStatusKeys.map(status => [status, 0])) }
@@ -1643,17 +1615,22 @@ export default function RelatorioInadimplencia() {
             </section>
             <section className="scenario-section">
               <div className="section-heading">
-                <div><span className="section-kicker scenario-kicker">04</span><div><h3>Cenário do mês vigente</h3><p>Inadimplência aberta de {formatMonth(selectedMonth)} por modelo e garantia.</p></div></div>
+                <div><span className="section-kicker scenario-kicker">04</span><div><h3>Cenário do mês vigente</h3><p>Participação de todas as inadimplências (abertas ou pagas) de {formatMonth(selectedMonth)} por modelo e garantia.</p></div></div>
               </div>
               <div className="scenario-grid">
-                <ScenarioChart title="Participação por modelo" data={metrics.modelScenario} />
-                <ScenarioChart title="Participação por garantia" data={metrics.guaranteeScenario} />
                 <div className="scenario-group">
                   <h4>Por modelo</h4>
                   <div className="scenario-items">
-                    {metrics.modelScenario.length === 0 ? <small>Nenhuma inadimplência aberta.</small> : metrics.modelScenario.map(item => (
-                      <ListTooltip key={item.key} title={`Modelo · ${item.label}`} items={item.items} emptyLabel="Nenhuma inadimplência aberta">
-                        <div className="scenario-item"><span>{item.label}</span><b>Total: {formatMoney(item.total)} · Aberto: {formatMoney(item.open)} · {item.percentage.toFixed(2)}%</b></div>
+                    {metrics.modelScenario.length === 0 ? <small>Nenhuma inadimplência no mês.</small> : metrics.modelScenario.map((item, index) => (
+                      <ListTooltip key={item.key} title={`Modelo · ${item.label}`} items={item.items} emptyLabel="Nenhuma inadimplência no mês">
+                        <div className="scenario-item">
+                          <div className="scenario-item-head">
+                            <span className="scenario-item-label"><i className="scenario-dot" style={{ background: scenarioColors[index % scenarioColors.length] }} />{item.label}</span>
+                            <b>{item.percentage.toFixed(2)}%</b>
+                          </div>
+                          <div className="scenario-item-bar"><span style={{ width: `${Math.min(100, item.percentage)}%`, background: scenarioColors[index % scenarioColors.length] }} /></div>
+                          <div className="scenario-item-meta">Total: {formatMoney(item.total)} · Aberto: {formatMoney(item.open)}</div>
+                        </div>
                       </ListTooltip>
                     ))}
                   </div>
@@ -1661,9 +1638,16 @@ export default function RelatorioInadimplencia() {
                 <div className="scenario-group">
                   <h4>Por garantia</h4>
                   <div className="scenario-items">
-                    {metrics.guaranteeScenario.length === 0 ? <small>Nenhuma inadimplência aberta.</small> : metrics.guaranteeScenario.map(item => (
-                      <ListTooltip key={item.key} title={`Garantia · ${item.label}`} items={item.items} emptyLabel="Nenhuma inadimplência aberta">
-                        <div className="scenario-item"><span>{item.label}</span><b>Total: {formatMoney(item.total)} · Aberto: {formatMoney(item.open)} · {item.percentage.toFixed(2)}%</b></div>
+                    {metrics.guaranteeScenario.length === 0 ? <small>Nenhuma inadimplência no mês.</small> : metrics.guaranteeScenario.map((item, index) => (
+                      <ListTooltip key={item.key} title={`Garantia · ${item.label}`} items={item.items} emptyLabel="Nenhuma inadimplência no mês">
+                        <div className="scenario-item">
+                          <div className="scenario-item-head">
+                            <span className="scenario-item-label"><i className="scenario-dot" style={{ background: scenarioColors[index % scenarioColors.length] }} />{item.label}</span>
+                            <b>{item.percentage.toFixed(2)}%</b>
+                          </div>
+                          <div className="scenario-item-bar"><span style={{ width: `${Math.min(100, item.percentage)}%`, background: scenarioColors[index % scenarioColors.length] }} /></div>
+                          <div className="scenario-item-meta">Total: {formatMoney(item.total)} · Aberto: {formatMoney(item.open)}</div>
+                        </div>
                       </ListTooltip>
                     ))}
                   </div>
