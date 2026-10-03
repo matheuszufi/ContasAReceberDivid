@@ -148,6 +148,7 @@
 
 .summary-grid { display: grid; gap: 8px; }
 .summary-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; gap: 8px; }
+.summary-row-balances { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .summary-row-featured { grid-template-columns: minmax(0, 1.7fr) minmax(240px, 0.8fr); }
 .summary-row-single { grid-template-columns: minmax(0, 1fr); }
 .summary-row > * { min-width: 0; }
@@ -208,7 +209,10 @@
 .forecast-tooltip-list strong { color: #cbd5e1; font-size: 12px; }
 .forecast-tooltip-list span { color: #f1f5f9; font-size: 11px; line-height: 1.35; }
 .forecast-source { display: block; }
+.balance-tooltip-trigger { display: block; width: 100%; margin-top: 7px; border: 0; padding: 0; background: transparent; cursor: help; font: inherit; text-align: left; }
+.balance-tooltip-hint { display: block; color: #94a3b8; font-size: 10px; }
 .balance-breakdown { display: grid; gap: 5px; margin-top: 10px; }
+.balance-tooltip-trigger .balance-breakdown { margin-top: 5px; }
 .balance-breakdown small { display: flex; justify-content: space-between; gap: 10px; color: #94a3b8; }
 .balance-breakdown b { color: #334155; font-weight: 700; }
 .summary-card.accent-blue::before { background: #2563eb; }
@@ -336,8 +340,10 @@
 .receivables-horizon-grid .forecast-tooltip-trigger { display: grid; width: auto; gap: 2px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 8px; background: #f8fafc; color: #334155; font-size: 10px; font-weight: 650; }
 .receivables-horizon-grid .forecast-tooltip-trigger b { color: #0f172a; font-size: 13px; }
 .receivables-horizon-grid .forecast-tooltip-trigger:hover { background: #f1f5f9; text-decoration: none; }
-.receivables-forecast-list { display: grid; gap: 2px; border-top: 1px solid #eef1f6; padding-top: 5px; }
-.receivable-forecast-item { display: grid; grid-template-columns: minmax(0, 1fr) 105px 105px; align-items: center; gap: 8px; border-bottom: 1px solid #f1f5f9; padding: 3px 4px; }
+.receivables-forecast-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 12px; border-top: 1px solid #eef1f6; padding-top: 5px; }
+.receivables-forecast-list > .recovery-empty-cell { grid-column: 1 / -1; }
+.receivable-forecast-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 3px 8px; border-bottom: 1px solid #f1f5f9; padding: 5px 4px; }
+.receivable-forecast-item > div { grid-column: 1 / -1; }
 .receivable-forecast-item > div { display: grid; gap: 2px; min-width: 0; }
 .receivable-forecast-item strong { overflow: hidden; color: #334155; font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .receivable-forecast-item span { overflow: hidden; color: #94a3b8; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
@@ -413,8 +419,7 @@
   .scenario-grid, .blacklist-item, .contract-anniversary-item, .case-item { grid-template-columns: 1fr; }
   .case-comment { grid-column: auto; }
   .receivables-horizon-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .receivable-forecast-item { grid-template-columns: 1fr 100px; gap: 4px 8px; }
-  .receivable-forecast-item > strong:last-child { grid-column: 2; grid-row: 1 / span 2; }
+  .receivables-forecast-list { grid-template-columns: 1fr; }
   .case-stat-row { gap: 8px; }
   .case-comment { width: 100%; }
 }

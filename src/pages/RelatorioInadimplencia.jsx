@@ -285,6 +285,33 @@ function ForecastTooltip({ label, value, items }) {
   )
 }
 
+function BalanceTooltip({ guaranteedBalance, combinedBalance }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button type="button" className="balance-tooltip-trigger" aria-label="Saldo apenas de inadimplências garantidas. Passe o mouse para ver o total geral.">
+            <span className="balance-tooltip-hint">Somente garantidas · passe para ver o total geral</span>
+            <span className="balance-breakdown">
+              <small>Total: <b>{formatMoney(guaranteedBalance.total)}</b></small>
+              <small>Recuperado: <b>{formatMoney(guaranteedBalance.recovered)}</b></small>
+              <small>Em aberto: <b>{formatMoney(guaranteedBalance.open)}</b></small>
+            </span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" align="start" className="forecast-tooltip-content">
+          <div className="forecast-tooltip-list">
+            <strong>Total geral · garantidas + não garantidas</strong>
+            <span>Total: {formatMoney(combinedBalance.total)}</span>
+            <span>Recuperado: {formatMoney(combinedBalance.recovered)}</span>
+            <span>Em aberto: {formatMoney(combinedBalance.open)}</span>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
 function ListTooltip({ children, title, items, emptyLabel }) {
   return (
     <TooltipProvider>
@@ -530,6 +557,9 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const balance = buildBalance(debits, [month])
   const previousMonth = previousMonthKey(month)
   const previousBalance = buildBalance(debits, [previousMonth])
+  const guaranteedStatusDebits = debits.filter(debit => debit.garantida !== 'nao_garantida')
+  const guaranteedBalance = buildBalance(guaranteedStatusDebits, [month])
+  const guaranteedPreviousBalance = buildBalance(guaranteedStatusDebits, [previousMonth])
   const [selectedYear, selectedMonthNumber] = month.split('-').map(Number)
   const yearMonths = Array.from({ length: selectedMonthNumber }, (_, index) => `${selectedYear}-${String(index + 1).padStart(2, '0')}`)
   const guaranteedDebits = debits.filter(debit => normalizedValue(getGuaranteeKey(debit, tenantMap)) !== 'sem_garantia')
@@ -547,6 +577,7 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const forecastWithPreviousMonth = buildForecast(debits, [month, previousMonthKey(month)], nextMonthFirst)
   const receivablesForecast = buildReceivablesForecast(debits, [month, previousMonthKey(month)])
   const balanceWithPreviousMonth = buildBalance(debits, [month, previousMonthKey(month)])
+  const guaranteedBalanceWithPreviousMonth = buildBalance(guaranteedStatusDebits, [month, previousMonthKey(month)])
   const revenue = monthlyRevenue(tenants)
   const unguaranteedMonthDebits = monthDebits.filter(debit => normalizedValue(getGuaranteeKey(debit, tenantMap)) === 'sem_garantia')
   const activeTenants = tenants.filter(tenant => tenant.status === 'Ativo')
@@ -745,6 +776,9 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
     forecastWithPreviousMonth,
     receivablesForecast,
     balance,
+    guaranteedBalance,
+    previousBalance,
+    guaranteedPreviousBalance,
     yearBalance,
     unguaranteedYearBalance,
     totalVariation: {
@@ -760,6 +794,7 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
       },
     },
     balanceWithPreviousMonth,
+    guaranteedBalanceWithPreviousMonth,
     unguaranteedTotal,
     unguaranteedOpen,
     unguaranteedRecovered,
@@ -1428,22 +1463,18 @@ export default function RelatorioInadimplencia() {
                     </div>
                   </div>
                 </div>
-                <div className="summary-row">
+                <div className="summary-row summary-row-balances">
                   <article className="summary-card accent-amber">
                     <span>Saldo ({formatMonth(selectedMonth)})</span>
-                    <div className="balance-breakdown">
-                      <small>Total: <b>{formatMoney(metrics.balance.total)}</b></small>
-                      <small>Recuperado: <b>{formatMoney(metrics.balance.recovered)}</b></small>
-                      <small>Em aberto: <b>{formatMoney(metrics.balance.open)}</b></small>
-                    </div>
+                    <BalanceTooltip guaranteedBalance={metrics.guaranteedBalance} combinedBalance={metrics.balance} />
                   </article>
                   <article className="summary-card accent-amber">
                     <span>Saldo ({formatMonth(selectedMonth)} + mês anterior)</span>
-                    <div className="balance-breakdown">
-                      <small>Total: <b>{formatMoney(metrics.balanceWithPreviousMonth.total)}</b></small>
-                      <small>Recuperado: <b>{formatMoney(metrics.balanceWithPreviousMonth.recovered)}</b></small>
-                      <small>Em aberto: <b>{formatMoney(metrics.balanceWithPreviousMonth.open)}</b></small>
-                    </div>
+                    <BalanceTooltip guaranteedBalance={metrics.guaranteedBalanceWithPreviousMonth} combinedBalance={metrics.balanceWithPreviousMonth} />
+                  </article>
+                  <article className="summary-card accent-amber">
+                    <span>Saldo (somente mês anterior: {formatMonth(previousMonthKey(selectedMonth))})</span>
+                    <BalanceTooltip guaranteedBalance={metrics.guaranteedPreviousBalance} combinedBalance={metrics.previousBalance} />
                   </article>
                 </div>
                 <div className="summary-row">
@@ -1574,7 +1605,9 @@ export default function RelatorioInadimplencia() {
                   <tfoot>
                     <tr>
                       <td className="recovery-week-label">Total geral</td>
-                      <td colSpan="4"></td>
+                      <td className="recovery-total-cell">{formatMoney(recoveryMetrics.weeks.reduce((sum, week) => sum + week.totals.activated, 0))}</td>
+                      <td className="recovery-total-cell">{formatMoney(recoveryMetrics.weeks.reduce((sum, week) => sum + week.totals.approved, 0))}</td>
+                      <td colSpan="2"></td>
                       <td className="recovery-total-cell">{formatMoney(recoveryMetrics.weeks.reduce((sum, week) => sum + week.totals.recovered + week.totals.insurerPaid, 0))}</td>
                     </tr>
                   </tfoot>
