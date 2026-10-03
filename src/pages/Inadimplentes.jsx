@@ -99,6 +99,21 @@ const podeInformarDataPagamento = d => isStatusRecuperado(d.status) || d.seguroA
 const fmtMoney = (v) =>
   'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
 
+const formatEditableMoney = value => Number(value).toLocaleString('pt-BR', {
+  useGrouping: false,
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+const parseEditableMoney = value => {
+  const normalized = String(value).trim().replace(/[^\d,.-]/g, '')
+  if (!normalized) return null
+  const parsed = Number(normalized.includes(',')
+    ? normalized.replace(/\./g, '').replace(',', '.')
+    : normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 const credpagoUrl = (nome) => {
   const nomeParam = String(nome || '').trim().replace(/\s+/g, '+')
   return `https://credpago.com/imobiliaria/contratos/relatorio.php?search=${encodeURIComponent(nomeParam).replace(/%2B/g, '+')}`
@@ -226,6 +241,8 @@ export default function Inadimplentes() {
   const [showHistoricoContatos, setShowHistoricoContatos] = useState(false)
   const [buscaHistoricoContatos, setBuscaHistoricoContatos] = useState('')
   const [editingGarantiaId, setEditingGarantiaId] = useState(null)
+  const [editingValorRecebidoId, setEditingValorRecebidoId] = useState(null)
+  const [valorRecebidoDraft, setValorRecebidoDraft] = useState('')
   const [cardsDataInicio, setCardsDataInicio] = useState(() => filtrosIniciais.cardsDataInicio || '')
   const [cardsDataFim, setCardsDataFim] = useState(() => filtrosIniciais.cardsDataFim || '')
   const [segurosCatalogo, setSegurosCatalogo] = useState([])
@@ -575,7 +592,7 @@ export default function Inadimplentes() {
   }
 
   const handleValorRecebidoChange = async (id, value) => {
-    await update(ref(db, `inadimplencias/${id}`), { valorRecebido: value === '' ? null : Number(value) })
+    await update(ref(db, `inadimplencias/${id}`), { valorRecebido: value.trim() === '' ? null : parseEditableMoney(value) })
   }
 
   const handleDataSeguroChange = async (id, value) => {
@@ -1363,12 +1380,22 @@ export default function Inadimplentes() {
                     <td><strong>{fmtMoney(d.valorTotal)}</strong></td>
                     <td>
                       <input
-                        type="number"
-                        step="0.01"
-                        placeholder="0,00"
-                        value={d.valorRecebido ?? ''}
-                        onChange={e => handleValorRecebidoChange(d.id, e.target.value)}
-                        style={{ width: 100, fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #e2e8f0' }}
+                        type="text"
+                        inputMode="decimal"
+                        aria-label={`Valor recebido de ${getInquilinoNome(d)}`}
+                        value={editingValorRecebidoId === d.id
+                          ? valorRecebidoDraft
+                          : d.valorRecebido == null ? '' : fmtMoney(d.valorRecebido)}
+                        onFocus={() => {
+                          setEditingValorRecebidoId(d.id)
+                          setValorRecebidoDraft(d.valorRecebido == null ? '' : formatEditableMoney(d.valorRecebido))
+                        }}
+                        onChange={e => {
+                          setValorRecebidoDraft(e.target.value)
+                          handleValorRecebidoChange(d.id, e.target.value)
+                        }}
+                        onBlur={() => setEditingValorRecebidoId(null)}
+                        style={{ width: 125, fontSize: 12, padding: '2px 6px', borderRadius: 6, border: '1px solid #e2e8f0', textAlign: 'right' }}
                       />
                     </td>
                     <td>{d.mesReferencia ? formatMonthShort(d.mesReferencia) : '—'}</td>
