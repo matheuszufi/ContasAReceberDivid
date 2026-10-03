@@ -302,22 +302,22 @@ function BalanceTooltip({ guaranteedBalance, combinedBalance }) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-            <button type="button" className="balance-tooltip-trigger" aria-label="Saldo total de todas as inadimplências. Passe o mouse para ver somente as garantidas.">
+            <button type="button" className="balance-tooltip-trigger" aria-label="Saldo geral de todas as inadimplências; juros calculados apenas para as garantidas. Passe o mouse para ver o saldo garantido.">
             {/* <span className="balance-tooltip-hint">Somente garantidas · passe para ver o total geral</span> */}
             <span className="balance-breakdown">
                 <small>Total: <b>{formatMoney(combinedBalance.total)}</b></small>
                 <small>Recuperado: <b>{formatMoney(combinedBalance.recovered)}</b></small>
                 <small>Em aberto: <b>{formatMoney(combinedBalance.open)}</b></small>
-                <small>Juros: <b>{formatMoney(combinedBalance.interest)}</b></small>
+                <small>Juros (garantidas): <b>{formatMoney(guaranteedBalance.interest)}</b></small>
             </span>
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" align="start" className="forecast-tooltip-content">
           <div className="forecast-tooltip-list">
               <strong>Somente inadimplências garantidas</strong>
-            <span>Total: {formatMoney(combinedBalance.total)}</span>
-            <span>Recuperado: {formatMoney(combinedBalance.recovered)}</span>
-            <span>Em aberto: {formatMoney(combinedBalance.open)}</span>
+            <span>Total: {formatMoney(guaranteedBalance.total)}</span>
+            <span>Recuperado: {formatMoney(guaranteedBalance.recovered)}</span>
+            <span>Em aberto: {formatMoney(guaranteedBalance.open)}</span>
               <span>Juros: {formatMoney(guaranteedBalance.interest)}</span>
           </div>
         </TooltipContent>
