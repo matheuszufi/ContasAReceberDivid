@@ -858,6 +858,10 @@ const emptyMonthTotals = () => ({
   acionado: 0,
 })
 
+const MONTH_STATUS_KEYS = ['inadimplente', 'recuperado', 'utilizacaoCaucao', 'pagoSeguradora', 'aprovadoSeguradora', 'reprovado', 'aguardarAcionar', 'juridico', 'acionado']
+const OPEN_STATUS_KEYS = ['inadimplente', 'aprovadoSeguradora', 'reprovado', 'aguardarAcionar', 'juridico', 'acionado']
+const sumStatusValues = (totals, statusKeys) => statusKeys.reduce((sum, key) => sum + (totals[key] || 0), 0)
+
 // Se houver valor recebido registrado no débito, contabiliza-o no lugar do "Total c/ Encargos"
 const getDebtValue = (item) => {
   const recebido = parseFloat(item.valorRecebido)
@@ -1649,10 +1653,10 @@ export default function Dashboard() {
   const monthCards = useMemo(() => MONTH_FULL_LABELS.map((label, index) => {
     const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
     const totals = yearMonthTotals[key] || emptyMonthTotals()
-    const total = totals.inadimplente + totals.recuperado + totals.utilizacaoCaucao + totals.pagoSeguradora + totals.aprovadoSeguradora + totals.aguardarAcionar + totals.juridico + totals.acionado + totals.reprovado
+    const comEncargos = totals.comEncargos || emptyMonthTotals()
+    const total = sumStatusValues(comEncargos, MONTH_STATUS_KEYS)
     // "Recuperado" no card soma tudo que já foi quitado: pago direto, uso de caução/adiantamento e pago pela seguradora
     const recuperadoTotal = totals.recuperado + totals.utilizacaoCaucao + totals.pagoSeguradora
-    const comEncargos = totals.comEncargos || emptyMonthTotals()
     // Mesmo grupo de débitos quitados, mas somando o "Total c/ Encargos" (valor bruto), para comparar com o valor efetivamente recebido
     const recuperadoComEncargos = comEncargos.recuperado + comEncargos.utilizacaoCaucao + comEncargos.pagoSeguradora
     const recoveredPercent = total > 0 ? Math.round((recuperadoTotal / total) * 100) : 0
@@ -1661,22 +1665,23 @@ export default function Dashboard() {
     const waitingPercent = total > 0 ? Math.round((totals.aguardarAcionar / total) * 100) : 0
     const juridicoPercent = total > 0 ? Math.round((totals.juridico / total) * 100) : 0
     const acionadoPercent = total > 0 ? Math.round((totals.acionado / total) * 100) : 0
-    const abertoValue = totals.inadimplente + totals.aprovadoSeguradora + totals.aguardarAcionar + totals.juridico + totals.acionado + totals.reprovado
+    const abertoValue = sumStatusValues(comEncargos, OPEN_STATUS_KEYS)
     const abertoPercent = total > 0 ? Math.round((abertoValue / total) * 100) : 0
     return {
       key,
       label,
-      inadimplente: totals.inadimplente,
-      recuperado: totals.recuperado,
+      inadimplente: comEncargos.inadimplente,
+      recuperado: comEncargos.recuperado,
       recuperadoTotal,
       recuperadoComEncargos,
-      utilizacaoCaucao: totals.utilizacaoCaucao,
-      pagoSeguradora: totals.pagoSeguradora,
-      aprovadoSeguradora: totals.aprovadoSeguradora,
-      reprovado: totals.reprovado,
-      aguardarAcionar: totals.aguardarAcionar,
-      juridico: totals.juridico,
-      acionado: totals.acionado,
+      utilizacaoCaucao: comEncargos.utilizacaoCaucao,
+      pagoSeguradora: comEncargos.pagoSeguradora,
+      aprovadoSeguradora: comEncargos.aprovadoSeguradora,
+      reprovado: comEncargos.reprovado,
+      aguardarAcionar: comEncargos.aguardarAcionar,
+      juridico: comEncargos.juridico,
+      acionado: comEncargos.acionado,
+      abertoValue,
       recoveredPercent,
       approvedPercent,
       reprovadoPercent,
@@ -1923,15 +1928,23 @@ export default function Dashboard() {
     }, emptyMonthTotals())
   }, [periodMonthKeys, yearMonthTotals])
 
+  const selectedMonthOpenTotals = useMemo(() => periodMonthKeys.reduce((sum, key) => {
+    const totals = yearMonthTotals[key]?.comEncargos || emptyMonthTotals()
+    sum.total += sumStatusValues(totals, MONTH_STATUS_KEYS)
+    sum.open += sumStatusValues(totals, OPEN_STATUS_KEYS)
+    return sum
+  }, { total: 0, open: 0 }), [periodMonthKeys, yearMonthTotals])
+  const selectedMonthOpenPercent = selectedMonthOpenTotals.total > 0
+    ? Math.round((selectedMonthOpenTotals.open / selectedMonthOpenTotals.total) * 100)
+    : 0
+
   const inadimplenciaMensalChart = useMemo(() => {
     return MONTH_LABELS.map((label, index) => {
       const key = `${selectedYear}-${String(index + 1).padStart(2, '0')}`
       const totals = yearMonthTotals[key] || emptyMonthTotals()
-      // Soma apenas os campos numéricos de status (ignora "comEncargos", que é um objeto auxiliar)
-      const total = totals.inadimplente + totals.recuperado + totals.utilizacaoCaucao + totals.pagoSeguradora +
-        totals.aprovadoSeguradora + totals.reprovado + totals.aguardarAcionar + totals.juridico + totals.acionado
-      const quitado = totals.recuperado + totals.utilizacaoCaucao + totals.pagoSeguradora
-      const emAberto = total - quitado
+      const comEncargos = totals.comEncargos || emptyMonthTotals()
+      const total = sumStatusValues(comEncargos, MONTH_STATUS_KEYS)
+      const emAberto = sumStatusValues(comEncargos, OPEN_STATUS_KEYS)
 
       return {
         key,
@@ -2108,14 +2121,23 @@ export default function Dashboard() {
       const name = inquilinoMap[d.inquilinoId]?.nome || d.inquilinoNome || 'Sem nome'
       const imovel = getCodigoImovel(d)
       const garantida = getGarantidaStatus(d)
-      const entry = { name, imovel, value, garantida }
+      const entry = { name, imovel, value, encargosValue: getDebtEncargosValue(d), garantida }
       acc[classifyDebt(d)].push(entry)
     })
     Object.values(acc).forEach(list => list.sort((a, b) => b.value - a.value))
     return acc
   }, [periodDebts, inquilinoMap, imovelMap])
 
-  const renderBreakdownTooltip = (list) => (
+  const openBreakdown = [
+    ...categoryBreakdown.inadimplente,
+    ...categoryBreakdown.aprovadoSeguradora,
+    ...categoryBreakdown.reprovado,
+    ...categoryBreakdown.aguardarAcionar,
+    ...categoryBreakdown.juridico,
+    ...categoryBreakdown.acionado,
+  ].sort((a, b) => b.encargosValue - a.encargosValue)
+
+  const renderBreakdownTooltip = (list, valueKey = 'value') => (
     list.length === 0 ? (
       <span className="recovery-status-tooltip-empty">Nenhuma inadimplência nesta categoria</span>
     ) : (
@@ -2131,7 +2153,7 @@ export default function Dashboard() {
             >
               {item.garantida === 'garantida' ? 'Garantida' : 'Não Garantida'}
             </span>
-            <span className="shrink-0 font-medium">{fmtMoney(item.value)}</span>
+            <span className="shrink-0 font-medium">{fmtMoney(item[valueKey])}</span>
           </div>
         ))}
       </div>
@@ -3754,11 +3776,11 @@ export default function Dashboard() {
                           <span>Aberto</span>
                         </span>
                         <span className="shrink-0 font-medium">
-                          {fmtMoneyWithPercent(selectedMonthTotals.inadimplente, pie.inadimplentePercent)}
+                          {fmtMoneyWithPercent(selectedMonthOpenTotals.open, selectedMonthOpenPercent)}
                         </span>
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent className="recovery-status-tooltip max-w-none">{renderBreakdownTooltip(categoryBreakdown.inadimplente)}</TooltipContent>
+                    <TooltipContent className="recovery-status-tooltip max-w-none">{renderBreakdownTooltip(openBreakdown, 'encargosValue')}</TooltipContent>
                   </Tooltip>
                 </div>
               </TooltipProvider>
@@ -3856,8 +3878,7 @@ export default function Dashboard() {
                             <span className="mc-value-label" style={{ '--dot-color': '#f97316' }}>Em aberto</span>
                             <strong>
                               {fmtMoney(
-                                card.inadimplente + card.aprovadoSeguradora + card.reprovado +
-                                card.aguardarAcionar + card.juridico + card.acionado
+                                card.abertoValue
                               )}{' '}
                               <span className="text-muted-foreground font-normal">({card.abertoPercent}%)</span>
                             </strong>
