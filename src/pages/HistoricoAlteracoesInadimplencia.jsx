@@ -24,17 +24,6 @@ const fmtDataHora = (timestamp) => {
   })
 }
 
-const toDatetimeLocal = (timestamp) => {
-  const d = timestamp ? new Date(timestamp) : new Date()
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
-const fromDatetimeLocal = (value) => {
-  const timestamp = new Date(value).getTime()
-  return Number.isFinite(timestamp) ? timestamp : null
-}
-
 const formatDateToMonthKey = (value) => {
   if (!value) return null
   const d = new Date(value)
@@ -62,6 +51,19 @@ const normalizarHistoricoValor = (valor) => String(valor ?? '')
   .toLowerCase()
 
 const somenteDigitos = (valor) => String(valor ?? '').replace(/\D/g, '')
+
+const toDatetimeLocal = (timestamp) => {
+  if (!timestamp) return ''
+  const d = new Date(timestamp)
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+const fromDatetimeLocal = (value) => {
+  if (!value) return null
+  const timestamp = new Date(value).getTime()
+  return Number.isNaN(timestamp) ? null : timestamp
+}
 
 // Mesmo critério do card "Histórico de Alterações na Inadimplência" do Dashboard.
 const isHistoricoAlteracaoVisivel = (item) => {
@@ -197,6 +199,7 @@ export default function HistoricoAlteracoesInadimplencia() {
     if (!novaData) return
     await update(ref(db, `historicoAlteracoes/${id}`), { data: novaData })
     setEditingDataId(null)
+    setDataDraft('')
   }
 
   return (
@@ -313,29 +316,50 @@ export default function HistoricoAlteracoesInadimplencia() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-2" onClick={(event) => editingDataId === item.id && event.stopPropagation()}>
                       {editingDataId === item.id ? (
-                        <div className="flex items-center gap-1" onClick={(event) => event.stopPropagation()}>
-                          <Input
+                        <>
+                          <input
                             type="datetime-local"
                             value={dataDraft}
-                            onChange={e => setDataDraft(e.target.value)}
-                            className="h-7 w-auto text-xs"
+                            onChange={(event) => setDataDraft(event.target.value)}
+                            onClick={(event) => event.stopPropagation()}
+                            className="h-7 rounded-md border border-input bg-white px-1.5 text-[11px] shadow-sm"
                           />
-                          <Button variant="ghost" size="icon" className="size-6 shrink-0 text-emerald-600" onClick={() => handleSalvarData(item.id)} aria-label="Salvar data" title="Salvar data">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 shrink-0 text-emerald-600 hover:text-emerald-700"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleSalvarData(item.id)
+                            }}
+                            aria-label="Salvar data"
+                            title="Salvar data"
+                          >
                             <Check className="size-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="size-6 shrink-0 text-muted-foreground" onClick={handleCancelarEdicaoData} aria-label="Cancelar edição" title="Cancelar edição">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="size-6 shrink-0 text-muted-foreground hover:text-destructive"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              handleCancelarEdicaoData()
+                            }}
+                            aria-label="Cancelar edição"
+                            title="Cancelar edição"
+                          >
                             <X className="size-3.5" />
                           </Button>
-                        </div>
+                        </>
                       ) : (
                         <>
                           <span className="text-muted-foreground">{fmtDataHora(item.data)}</span>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="size-6 shrink-0 text-muted-foreground opacity-100 transition-opacity hover:text-foreground sm:opacity-0 sm:group-hover:opacity-100"
+                            className="size-6 shrink-0 text-muted-foreground opacity-100 transition-opacity hover:text-primary sm:opacity-0 sm:group-hover:opacity-100"
                             onClick={(event) => {
                               event.stopPropagation()
                               handleIniciarEdicaoData(item)

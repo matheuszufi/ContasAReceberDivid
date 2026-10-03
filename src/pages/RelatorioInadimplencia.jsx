@@ -38,6 +38,41 @@ const formatMoney = value => Number(value || 0).toLocaleString('pt-BR', {
 })
 const formatSignedMoney = value => `${value >= 0 ? '+' : ''}${formatMoney(value)}`
 const variationPercentage = (current, reference) => reference > 0 ? ((current - reference) / reference) * 100 : null
+const percentualLabel = value => `${value.toFixed(2)}%`
+const trendWord = delta => (delta > 0 ? 'aumento' : delta < 0 ? 'redução' : 'estabilidade')
+const absMoney = value => formatMoney(Math.abs(value))
+
+// Textos usados tanto na tela quanto no PDF, para manter a mesma leitura do período em ambos.
+const buildPainelResumoNarrative = (metrics, selectedMonth) => (
+  `Em ${formatMonth(selectedMonth)}, a carteira de inadimplência somou ${formatMoney(metrics.balance.total)}, sendo ${formatMoney(metrics.balance.recovered)} já recuperados e ${formatMoney(metrics.balance.open)} ainda em aberto. ` +
+  `O resultado apresenta ${trendWord(metrics.totalVariation.previousMonth.delta)} de ${absMoney(metrics.totalVariation.previousMonth.delta)} frente ao mês anterior e ${trendWord(metrics.totalVariation.pastYearAverage.delta)} de ${absMoney(metrics.totalVariation.pastYearAverage.delta)} em relação à média dos meses anteriores. ` +
+  `A taxa de inadimplência atual é de ${percentualLabel(metrics.currentRate)}, contra uma meta projetada de ${percentualLabel(metrics.projectedRate)}; ` +
+  `${metrics.recoveryToProjected > 0 ? `para atingir a meta, ainda é preciso recuperar ${formatMoney(metrics.recoveryToProjected)} do faturamento de ${formatMoney(metrics.revenue)}.` : 'a meta do período já foi atingida.'}`
+)
+
+const buildForecastNarrative = (metrics, nextMonthKey) => (
+  `A expectativa é recuperar ${formatMoney(metrics.forecast.total)} até o início de ${formatMonth(nextMonthKey)}, chegando a ${formatMoney(metrics.forecastWithPreviousMonth.total)} ao somar as inadimplências do mês anterior ainda em aberto. ` +
+  `Dos ${metrics.agreementMadeCount} acordo(s) firmado(s), ${metrics.agreementPaidCount} já foram pagos, ${metrics.agreementOpenCount} seguem em aberto e ${metrics.agreementBrokenCount} foram quebrados — uma taxa de quebra de ${metrics.agreementBreakRate.toFixed(2)}%. ` +
+  `O tempo médio para recebimento está em ${metrics.averageReceivingDays.toFixed(1).replace('.', ',')} dias.`
+)
+
+const buildScenarioNarrative = metrics => {
+  const topModel = metrics.modelScenario.reduce((max, item) => (!max || item.open > max.open ? item : max), null)
+  const topGuarantee = metrics.guaranteeScenario.reduce((max, item) => (!max || item.open > max.open ? item : max), null)
+  return topModel && topGuarantee
+    ? `O modelo "${topModel.label}" concentra a maior parcela da inadimplência aberta, com ${formatMoney(topModel.open)} (${topModel.percentage.toFixed(1)}% do total). ` +
+      `Entre as garantias, "${topGuarantee.label}" representa a maior exposição, com ${formatMoney(topGuarantee.open)} (${topGuarantee.percentage.toFixed(1)}%), sinalizando onde a cobrança deve ser priorizada.`
+    : 'Não há inadimplência aberta relevante para destacar por modelo ou garantia neste mês.'
+}
+
+const buildBlacklistNarrative = metrics => {
+  const topBlacklist = metrics.blacklistItems[0]
+  const anniversaryCount = metrics.contractAnniversaryItems.length
+  return topBlacklist
+    ? `${topBlacklist.name} é o inquilino com maior volume de ocorrências, somando ${topBlacklist.recordCount} registro(s) e ${formatMoney(topBlacklist.value)} em aberto — candidato prioritário para negociação direta. ` +
+      `${anniversaryCount > 0 ? `Além disso, ${anniversaryCount} contrato(s) completam aniversário neste mês e merecem atenção redobrada na renovação.` : 'Nenhum contrato com inadimplência completa aniversário neste mês.'}`
+    : 'Não há inquilinos com registros relevantes de inadimplência neste mês.'
+}
 
 const toNumber = value => Number(value || 0)
 const totalOf = debit => toNumber(debit.valorTotal || debit.valorOriginal)
@@ -337,7 +372,7 @@ function GuaranteeValueChart({ data, total, statusKeys }) {
         <>
           <div className="scenario-guarantee-canvas">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} margin={{ top: 12, right: 8, left: 4, bottom: 8 }} barCategoryGap="28%">
+              <BarChart data={data} margin={{ top: 12, right: 8, left: 4, bottom: 8 }}>
                 <CartesianGrid vertical={false} stroke="#dbe5f0" strokeDasharray="4 4" />
                 <XAxis dataKey="garantia" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#475569', fontWeight: 600 }} interval={0} />
                 <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#64748b' }} width={58} tickFormatter={formatMoney} />
@@ -346,7 +381,7 @@ function GuaranteeValueChart({ data, total, statusKeys }) {
                   content={({ active, payload, label }) => {
                     if (!active || !payload?.length) return null
                     const guaranteeTotal = payload.reduce((sum, item) => sum + Number(item.value || 0), 0)
-                    return <div className="scenario-guarantee-tooltip"><p>Garantia: {label}</p>{payload.filter(item => Number(item.value) > 0).map(item => <span key={item.dataKey} style={{ color: item.color }}>{guaranteeStatusLabels[item.dataKey] || item.name}: {formatMoney(item.value)}</span>)}<strong>Total: {formatMoney(guaranteeTotal)}</strong></div>
+                    return <div className="scenario-guarantee-tooltip"><p>Garantia: {label}</p>{payload.map(item => <span key={item.dataKey} style={{ color: item.color }}>{guaranteeStatusLabels[item.dataKey] || item.name}: {formatMoney(item.value)}</span>)}<strong>Total: {formatMoney(guaranteeTotal)}</strong></div>
                   }}
                 />
                 {statusKeys.map((status, index) => <Bar key={status} dataKey={status} name={guaranteeStatusLabels[status]} stackId="status" fill={guaranteeStatusColors[status]} radius={index === statusKeys.length - 1 ? [4, 4, 0, 0] : undefined} />)}
@@ -590,15 +625,15 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
     groups[key].total += dashboardDebtValue(debit)
     groups[key].open += openValueOf(debit)
     groups[key].count += 1
-    groups[key].items.push(debitItem(debit))
+    groups[key].items.push({ ...debitItem(debit), value: openValueOf(debit) })
     return groups
   }, {})).map(([key, values]) => ({
     key,
     label: labels[key] || key,
     total: values.total,
     open: values.open,
+    count: values.count,
     items: values.items,
-    // Participação de todas as inadimplências do mês (pagas ou não), somando 100% no total.
     percentage: items.length > 0 ? (values.count / items.length) * 100 : 0,
   }))
   const modelScenario = scenarioGroups(monthDebits, getModel, { MA: 'MA', ML: 'ML', ME: 'ME' })
@@ -1107,9 +1142,6 @@ export default function RelatorioInadimplencia() {
       }
 
       const nextMonthKey = monthKeyFromDate(monthEndDate(selectedMonth))
-      const percentualLabel = value => `${value.toFixed(2)}%`
-      const trendWord = delta => (delta > 0 ? 'aumento' : delta < 0 ? 'redução' : 'estabilidade')
-      const absMoney = value => formatMoney(Math.abs(value))
 
       // Cabeçalho
       pdf.setFont('helvetica', 'bold')
@@ -1132,12 +1164,7 @@ export default function RelatorioInadimplencia() {
 
       // 01 · Painel resumo
       sectionTitle('01', 'Painel resumo', `Visão consolidada do mês e do acumulado de ${selectedMonth.slice(0, 4)}.`)
-      narrative(
-        `Em ${formatMonth(selectedMonth)}, a carteira de inadimplência somou ${formatMoney(metrics.balance.total)}, sendo ${formatMoney(metrics.balance.recovered)} já recuperados e ${formatMoney(metrics.balance.open)} ainda em aberto. ` +
-        `O resultado apresenta ${trendWord(metrics.totalVariation.previousMonth.delta)} de ${absMoney(metrics.totalVariation.previousMonth.delta)} frente ao mês anterior e ${trendWord(metrics.totalVariation.pastYearAverage.delta)} de ${absMoney(metrics.totalVariation.pastYearAverage.delta)} em relação à média dos meses anteriores. ` +
-        `A taxa de inadimplência atual é de ${percentualLabel(metrics.currentRate)}, contra uma meta projetada de ${percentualLabel(metrics.projectedRate)}; ` +
-        `${metrics.recoveryToProjected > 0 ? `para atingir a meta, ainda é preciso recuperar ${formatMoney(metrics.recoveryToProjected)} do faturamento de ${formatMoney(metrics.revenue)}.` : 'a meta do período já foi atingida.'}`
-      )
+      narrative(buildPainelResumoNarrative(metrics, selectedMonth))
       subheading(`Acumulado no ano (${formatYearPeriod(selectedMonth)})`)
       drawMetricGrid([
         { label: 'Total garantido', value: formatMoney(metrics.yearBalance.total), color: hexToRgb('#2563eb') },
@@ -1177,11 +1204,7 @@ export default function RelatorioInadimplencia() {
 
       // 02 · Previsão de recebimentos
       sectionTitle('02', 'Previsão de recebimentos', `Valores previstos para inadimplências de ${formatMonth(selectedMonth)} e ${formatMonth(previousMonthKey(selectedMonth))}.`)
-      narrative(
-        `A expectativa é recuperar ${formatMoney(metrics.forecast.total)} até o início de ${formatMonth(nextMonthKey)}, chegando a ${formatMoney(metrics.forecastWithPreviousMonth.total)} ao somar as inadimplências do mês anterior ainda em aberto. ` +
-        `Dos ${metrics.agreementMadeCount} acordo(s) firmado(s), ${metrics.agreementPaidCount} já foram pagos, ${metrics.agreementOpenCount} seguem em aberto e ${metrics.agreementBrokenCount} foram quebrados — uma taxa de quebra de ${metrics.agreementBreakRate.toFixed(2)}%. ` +
-        `O tempo médio para recebimento está em ${metrics.averageReceivingDays.toFixed(1).replace('.', ',')} dias.`
-      )
+      narrative(buildForecastNarrative(metrics, nextMonthKey))
       drawMetricGrid([
         { label: 'Acordos pagos', value: String(metrics.agreementPaidCount), color: hexToRgb('#15803d') },
         { label: 'Acordos em aberto', value: String(metrics.agreementOpenCount), color: hexToRgb('#b45309') },
@@ -1194,16 +1217,7 @@ export default function RelatorioInadimplencia() {
 
       // 04 · Cenários
       sectionTitle('04', 'Cenário do mês vigente', `Inadimplência aberta de ${formatMonth(selectedMonth)} por modelo e garantia.`)
-      {
-        const topModel = metrics.modelScenario.reduce((max, item) => (!max || item.open > max.open ? item : max), null)
-        const topGuarantee = metrics.guaranteeScenario.reduce((max, item) => (!max || item.open > max.open ? item : max), null)
-        narrative(
-          topModel && topGuarantee
-            ? `O modelo "${topModel.label}" concentra a maior parcela da inadimplência aberta, com ${formatMoney(topModel.open)} (${topModel.percentage.toFixed(1)}% do total). ` +
-              `Entre as garantias, "${topGuarantee.label}" representa a maior exposição, com ${formatMoney(topGuarantee.open)} (${topGuarantee.percentage.toFixed(1)}%), sinalizando onde a cobrança deve ser priorizada.`
-            : 'Não há inadimplência aberta relevante para destacar por modelo ou garantia neste mês.'
-        )
-      }
+      narrative(buildScenarioNarrative(metrics))
       subheading('Participação por modelo')
       drawHorizontalBars(metrics.modelScenario)
       subheading('Participação por garantia')
@@ -1229,16 +1243,7 @@ export default function RelatorioInadimplencia() {
 
       // 05 · BlackList
       sectionTitle('05', 'BlackList', `10 inquilinos ativos com mais registros de inadimplência e ocorrência em ${formatMonth(selectedMonth)}.`)
-      {
-        const topBlacklist = metrics.blacklistItems[0]
-        const anniversaryCount = metrics.contractAnniversaryItems.length
-        narrative(
-          topBlacklist
-            ? `${topBlacklist.name} é o inquilino com maior volume de ocorrências, somando ${topBlacklist.recordCount} registro(s) e ${formatMoney(topBlacklist.value)} em aberto — candidato prioritário para negociação direta. ` +
-              `${anniversaryCount > 0 ? `Além disso, ${anniversaryCount} contrato(s) completam aniversário neste mês e merecem atenção redobrada na renovação.` : 'Nenhum contrato com inadimplência completa aniversário neste mês.'}`
-            : 'Não há inquilinos com registros relevantes de inadimplência neste mês.'
-        )
-      }
+      narrative(buildBlacklistNarrative(metrics))
       if (metrics.blacklistItems.length === 0) {
         ensureSpace(6)
         pdf.setFont('helvetica', 'normal')
@@ -1364,6 +1369,7 @@ export default function RelatorioInadimplencia() {
                 <div><span className="section-kicker">01</span><div><h3>Painel resumo</h3><p>Visão consolidada do mês e do acumulado de {selectedMonth.slice(0, 4)}.</p></div></div>
                 <span className="debit-count">{metrics.count} {metrics.count === 1 ? 'inadimplência' : 'inadimplências'}</span>
               </div>
+              <p className="section-narrative">{buildPainelResumoNarrative(metrics, selectedMonth)}</p>
               <div className="annual-summary" aria-label={`Acumulado anual de ${selectedMonth.slice(0, 4)}`}>
                 <div className="annual-summary-heading">
                   <div><span className="annual-summary-kicker">Acumulado do ano</span><strong>{selectedMonth.slice(0, 4)}</strong></div>
@@ -1498,6 +1504,7 @@ export default function RelatorioInadimplencia() {
               <div className="section-heading">
                 <div><span className="section-kicker receivables-forecast-kicker">02</span><div><h3>Previsão de recebimentos</h3><p>Valores previstos para inadimplências de {formatMonth(selectedMonth)} e {formatMonth(previousMonthKey(selectedMonth))}.</p></div></div>
               </div>
+              <p className="section-narrative">{buildForecastNarrative(metrics, nextMonth)}</p>
               <div className="agreement-breakdown">
                 <div className="agreement-heading">
                   <span>Acordos</span>
@@ -1617,18 +1624,19 @@ export default function RelatorioInadimplencia() {
               <div className="section-heading">
                 <div><span className="section-kicker scenario-kicker">04</span><div><h3>Cenário do mês vigente</h3><p>Participação de todas as inadimplências (abertas ou pagas) de {formatMonth(selectedMonth)} por modelo e garantia.</p></div></div>
               </div>
+              <p className="section-narrative">{buildScenarioNarrative(metrics)}</p>
               <div className="scenario-grid">
                 <div className="scenario-group">
                   <h4>Por modelo</h4>
                   <div className="scenario-items">
-                    {metrics.modelScenario.length === 0 ? <small>Nenhuma inadimplência no mês.</small> : metrics.modelScenario.map((item, index) => (
-                      <ListTooltip key={item.key} title={`Modelo · ${item.label}`} items={item.items} emptyLabel="Nenhuma inadimplência no mês">
+                    {metrics.modelScenario.length === 0 ? <small>Nenhuma inadimplência registrada.</small> : metrics.modelScenario.map((item, index) => (
+                      <ListTooltip key={item.key} title={`Modelo · ${item.label}`} items={item.items} emptyLabel="Nenhuma inadimplência registrada">
                         <div className="scenario-item">
                           <div className="scenario-item-head">
-                            <span className="scenario-item-label"><i className="scenario-dot" style={{ background: scenarioColors[index % scenarioColors.length] }} />{item.label}</span>
+                            <span className="scenario-item-label"><span className="scenario-dot" style={{ background: scenarioColors[index % scenarioColors.length] }} />{item.label}</span>
                             <b>{item.percentage.toFixed(2)}%</b>
                           </div>
-                          <div className="scenario-item-bar"><span style={{ width: `${Math.min(100, item.percentage)}%`, background: scenarioColors[index % scenarioColors.length] }} /></div>
+                          <div className="scenario-item-bar"><span style={{ width: `${item.percentage}%`, background: scenarioColors[index % scenarioColors.length] }} /></div>
                           <div className="scenario-item-meta">Total: {formatMoney(item.total)} · Aberto: {formatMoney(item.open)}</div>
                         </div>
                       </ListTooltip>
@@ -1638,14 +1646,14 @@ export default function RelatorioInadimplencia() {
                 <div className="scenario-group">
                   <h4>Por garantia</h4>
                   <div className="scenario-items">
-                    {metrics.guaranteeScenario.length === 0 ? <small>Nenhuma inadimplência no mês.</small> : metrics.guaranteeScenario.map((item, index) => (
-                      <ListTooltip key={item.key} title={`Garantia · ${item.label}`} items={item.items} emptyLabel="Nenhuma inadimplência no mês">
+                    {metrics.guaranteeScenario.length === 0 ? <small>Nenhuma inadimplência registrada.</small> : metrics.guaranteeScenario.map((item, index) => (
+                      <ListTooltip key={item.key} title={`Garantia · ${item.label}`} items={item.items} emptyLabel="Nenhuma inadimplência registrada">
                         <div className="scenario-item">
                           <div className="scenario-item-head">
-                            <span className="scenario-item-label"><i className="scenario-dot" style={{ background: scenarioColors[index % scenarioColors.length] }} />{item.label}</span>
+                            <span className="scenario-item-label"><span className="scenario-dot" style={{ background: scenarioColors[index % scenarioColors.length] }} />{item.label}</span>
                             <b>{item.percentage.toFixed(2)}%</b>
                           </div>
-                          <div className="scenario-item-bar"><span style={{ width: `${Math.min(100, item.percentage)}%`, background: scenarioColors[index % scenarioColors.length] }} /></div>
+                          <div className="scenario-item-bar"><span style={{ width: `${item.percentage}%`, background: scenarioColors[index % scenarioColors.length] }} /></div>
                           <div className="scenario-item-meta">Total: {formatMoney(item.total)} · Aberto: {formatMoney(item.open)}</div>
                         </div>
                       </ListTooltip>
@@ -1659,6 +1667,7 @@ export default function RelatorioInadimplencia() {
               <div className="section-heading">
                 <div><span className="section-kicker blacklist-kicker">05</span><div><h3>BlackList</h3><p>10 inquilinos ativos com mais registros de inadimplência e ocorrência em {formatMonth(selectedMonth)}.</p></div></div>
               </div>
+              <p className="section-narrative">{buildBlacklistNarrative(metrics)}</p>
               <div className="blacklist-list">
                 {metrics.blacklistItems.length === 0 ? <div className="recovery-empty-cell">Nenhum inquilino ativo possui registro de inadimplência neste mês.</div> : metrics.blacklistItems.map(item => (
                   <div className="blacklist-item" key={item.key}>
