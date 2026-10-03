@@ -160,9 +160,8 @@ const previousMonthKey = month => {
 }
 
 const isDashboardRecovered = debit => (
-  debit.status === 'pago' ||
-  debit.status === 'pago_caucao' ||
-  debit.seguroAcionado === 'pago_pela_seguradora'
+  ['pago', 'pago_caucao', 'pago_pela_seguradora'].includes(normalizedValue(debit.status)) ||
+  normalizedValue(debit.seguroAcionado) === 'pago_pela_seguradora'
 )
 
 const buildBalance = (debits, months) => {
@@ -173,6 +172,14 @@ const buildBalance = (debits, months) => {
     .reduce((sum, debit) => sum + dashboardDebtValue(debit), 0)
 
   return { total, recovered, open: Math.max(0, total - recovered) }
+}
+
+const buildCardBalance = (debits, months) => {
+  const balance = buildBalance(debits, months)
+  const open = debits
+    .filter(debit => months.includes(debit.mesReferencia) && !isDashboardRecovered(debit))
+    .reduce((sum, debit) => sum + totalOf(debit), 0)
+  return { ...balance, open }
 }
 
 const monthlyRevenue = tenants => tenants
@@ -286,25 +293,30 @@ function ForecastTooltip({ label, value, items }) {
 }
 
 function BalanceTooltip({ guaranteedBalance, combinedBalance }) {
+  const guaranteedInterest = guaranteedBalance.open - (guaranteedBalance.total - guaranteedBalance.recovered)
+  const combinedInterest = combinedBalance.open - (combinedBalance.total - combinedBalance.recovered)
+
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button type="button" className="balance-tooltip-trigger" aria-label="Saldo apenas de inadimplências garantidas. Passe o mouse para ver o total geral.">
+          <button type="button" className="balance-tooltip-trigger" aria-label="Saldo total de todas as inadimplências. Passe o mouse para ver somente as garantidas.">
             {/* <span className="balance-tooltip-hint">Somente garantidas · passe para ver o total geral</span> */}
             <span className="balance-breakdown">
-              <small>Total: <b>{formatMoney(guaranteedBalance.total)}</b></small>
-              <small>Recuperado: <b>{formatMoney(guaranteedBalance.recovered)}</b></small>
-              <small>Em aberto: <b>{formatMoney(guaranteedBalance.open)}</b></small>
+              <small>Total: <b>{formatMoney(combinedBalance.total)}</b></small>
+              <small>Recuperado: <b>{formatMoney(combinedBalance.recovered)}</b></small>
+              <small>Em aberto: <b>{formatMoney(combinedBalance.open)}</b></small>
+              <small>Juros: <b>{formatMoney(combinedInterest)}</b></small>
             </span>
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" align="start" className="forecast-tooltip-content">
           <div className="forecast-tooltip-list">
-            <strong>Total geral · garantidas + não garantidas</strong>
-            <span>Total: {formatMoney(combinedBalance.total)}</span>
-            <span>Recuperado: {formatMoney(combinedBalance.recovered)}</span>
-            <span>Em aberto: {formatMoney(combinedBalance.open)}</span>
+            <strong>Somente inadimplências garantidas</strong>
+            <span>Total: {formatMoney(guaranteedBalance.total)}</span>
+            <span>Recuperado: {formatMoney(guaranteedBalance.recovered)}</span>
+            <span>Em aberto: {formatMoney(guaranteedBalance.open)}</span>
+            <span>Juros: {formatMoney(guaranteedInterest)}</span>
           </div>
         </TooltipContent>
       </Tooltip>
@@ -578,11 +590,15 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const propertyMap = Object.fromEntries(properties.map(property => [property.id, property]))
   const monthDebits = debits.filter(debit => debit.mesReferencia === month)
   const balance = buildBalance(debits, [month])
+  const balanceForCards = buildCardBalance(debits, [month])
   const previousMonth = previousMonthKey(month)
   const previousBalance = buildBalance(debits, [previousMonth])
+  const previousBalanceForCards = buildCardBalance(debits, [previousMonth])
   const guaranteedStatusDebits = debits.filter(debit => debit.garantida !== 'nao_garantida')
   const guaranteedBalance = buildBalance(guaranteedStatusDebits, [month])
+  const guaranteedBalanceForCards = buildCardBalance(guaranteedStatusDebits, [month])
   const guaranteedPreviousBalance = buildBalance(guaranteedStatusDebits, [previousMonth])
+  const guaranteedPreviousBalanceForCards = buildCardBalance(guaranteedStatusDebits, [previousMonth])
   const [selectedYear, selectedMonthNumber] = month.split('-').map(Number)
   const yearMonths = Array.from({ length: selectedMonthNumber }, (_, index) => `${selectedYear}-${String(index + 1).padStart(2, '0')}`)
   const guaranteedDebits = debits.filter(debit => normalizedValue(getGuaranteeKey(debit, tenantMap)) !== 'sem_garantia')
@@ -600,7 +616,9 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
   const forecastWithPreviousMonth = buildForecast(debits, [month, previousMonthKey(month)], nextMonthFirst)
   const receivablesForecast = buildReceivablesForecast(debits, [month, previousMonthKey(month)])
   const balanceWithPreviousMonth = buildBalance(debits, [month, previousMonthKey(month)])
+  const balanceWithPreviousMonthForCards = buildCardBalance(debits, [month, previousMonthKey(month)])
   const guaranteedBalanceWithPreviousMonth = buildBalance(guaranteedStatusDebits, [month, previousMonthKey(month)])
+  const guaranteedBalanceWithPreviousMonthForCards = buildCardBalance(guaranteedStatusDebits, [month, previousMonthKey(month)])
   const revenue = monthlyRevenue(tenants)
   const unguaranteedMonthDebits = monthDebits.filter(debit => normalizedValue(getGuaranteeKey(debit, tenantMap)) === 'sem_garantia')
   const activeTenants = tenants.filter(tenant => tenant.status === 'Ativo')
@@ -799,9 +817,13 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
     forecastWithPreviousMonth,
     receivablesForecast,
     balance,
+    balanceForCards,
     guaranteedBalance,
+    guaranteedBalanceForCards,
     previousBalance,
+    previousBalanceForCards,
     guaranteedPreviousBalance,
+    guaranteedPreviousBalanceForCards,
     yearBalance,
     unguaranteedYearBalance,
     totalVariation: {
@@ -817,7 +839,9 @@ const calculateMetrics = (debits, tenants, properties, month, percentage) => {
       },
     },
     balanceWithPreviousMonth,
+    balanceWithPreviousMonthForCards,
     guaranteedBalanceWithPreviousMonth,
+    guaranteedBalanceWithPreviousMonthForCards,
     unguaranteedTotal,
     unguaranteedOpen,
     unguaranteedRecovered,
@@ -1486,15 +1510,15 @@ export default function RelatorioInadimplencia() {
                 <div className="summary-row summary-row-balances">
                   <article className="summary-card accent-amber">
                     <span>Saldo ({formatMonth(selectedMonth)})</span>
-                    <BalanceTooltip guaranteedBalance={metrics.guaranteedBalance} combinedBalance={metrics.balance} />
+                    <BalanceTooltip guaranteedBalance={metrics.guaranteedBalanceForCards} combinedBalance={metrics.balanceForCards} />
                   </article>
                   <article className="summary-card accent-amber">
                     <span>Saldo ({formatMonth(selectedMonth)} + mês anterior)</span>
-                    <BalanceTooltip guaranteedBalance={metrics.guaranteedBalanceWithPreviousMonth} combinedBalance={metrics.balanceWithPreviousMonth} />
+                    <BalanceTooltip guaranteedBalance={metrics.guaranteedBalanceWithPreviousMonthForCards} combinedBalance={metrics.balanceWithPreviousMonthForCards} />
                   </article>
                   <article className="summary-card accent-amber">
                     <span>Saldo (somente mês anterior: {formatMonth(previousMonthKey(selectedMonth))})</span>
-                    <BalanceTooltip guaranteedBalance={metrics.guaranteedPreviousBalance} combinedBalance={metrics.previousBalance} />
+                    <BalanceTooltip guaranteedBalance={metrics.guaranteedPreviousBalanceForCards} combinedBalance={metrics.previousBalanceForCards} />
                   </article>
                 </div>
                 <div className="summary-row">
