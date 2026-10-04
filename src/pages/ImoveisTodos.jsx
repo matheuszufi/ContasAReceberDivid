@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ref, onValue, update, push, set, remove } from 'firebase/database'
+import { ref, get, update, push, set, remove } from 'firebase/database'
 import * as XLSX from 'xlsx'
 import { db } from '../firebase'
 import { useAuth } from '../auth'
@@ -8,7 +8,7 @@ import Layout from '../components/Layout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { House, ChevronLeft, ChevronRight, Plus, UserPlus, CircleCheck, TriangleAlert, Wallet, ListFilter, X, Repeat, Trash2, History, Download } from 'lucide-react'
+import { House, ChevronLeft, ChevronRight, Plus, UserPlus, CircleCheck, TriangleAlert, Wallet, ListFilter, X, Repeat, Trash2, History, Download, RefreshCw } from 'lucide-react'
 import './ImoveisTodos.css'
  
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
@@ -194,11 +194,10 @@ export default function ImoveisTodos() {
   const [imoveis, setImoveis]       = useState([])
   const [inquilinos, setInquilinos] = useState([])
   const [inadimplencias, setInadimplencias] = useState([])
-  const [loadedIm,  setLoadedIm]  = useState(false)
-  const [loadedInq, setLoadedInq] = useState(false)
-  const [loadedInad, setLoadedInad] = useState(false)
+  const [dataLoaded, setDataLoaded] = useState(false)
+  const [isFetching, setIsFetching] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [valoresVariaveis, setValoresVariaveis] = useState({})
-  const [loadedVV,  setLoadedVV]  = useState(false)
   const [contasCatalogo, setContasCatalogo] = useState([])
   const [modal, setModal]           = useState(null)
   const [varValues, setVarValues]   = useState({})
@@ -256,7 +255,6 @@ export default function ImoveisTodos() {
 
   // ---- Cobranças parceladas ----
   const [cobrancasParceladas, setCobrancasParceladas] = useState([])
-  const [loadedCP, setLoadedCP] = useState(false)
   const [modalParcela, setModalParcela] = useState(false)
   const [parcelaForm, setParcelaForm] = useState({ inquilinoId: '', descricao: '', valorParcela: '', mesInicio: '', mesFim: '' })
   const [parcelaSaving, setParcelaSaving] = useState(false)
@@ -285,43 +283,41 @@ export default function ImoveisTodos() {
   const goInquilino = (inquilinoId) => navigate(`/inquilinos/editar/${inquilinoId}`)
   const goImovel = (imovelId) => navigate(`/imoveis/editar/${imovelId}`)
  
-  const loading = !loadedIm || !loadedInq || !loadedInad || !loadedVV || !loadedCP
- 
-  useEffect(() => {
-    const u1 = onValue(ref(db, 'imoveis'), s => {
-      const d = s.val()
-      setImoveis(d ? Object.entries(d).map(([id, v]) => ({ id, ...v })) : [])
-      setLoadedIm(true)
-    })
-    const u2 = onValue(ref(db, 'inquilinos'), s => {
-      const d = s.val()
-      setInquilinos(d ? Object.entries(d).map(([id, v]) => ({ id, ...v })) : [])
-      setLoadedInq(true)
-    })
-    const u3 = onValue(ref(db, 'inadimplencias'), s => {
-      const d = s.val()
-      setInadimplencias(d ? Object.entries(d).map(([id, v]) => ({ id, ...v })) : [])
-      setLoadedInad(true)
-    })
-    const u4 = onValue(ref(db, 'valoresVariaveis'), s => {
-      setValoresVariaveis(s.val() || {})
-      setLoadedVV(true)
-    })
-    const u5 = onValue(ref(db, 'contas'), s => {
-      const d = s.val()
-      setContasCatalogo(d ? Object.entries(d).map(([id, v]) => ({ id, ...v })) : [])
-    })
-    const u6 = onValue(ref(db, 'cobrancasParceladas'), s => {
-      const d = s.val()
-      setCobrancasParceladas(d ? Object.entries(d).map(([id, v]) => ({ id, ...v })) : [])
-      setLoadedCP(true)
-    }, err => {
-      console.error('Erro ao carregar cobrancasParceladas (verifique as regras do Firebase):', err)
-      setCobrancasParceladas([])
-      setLoadedCP(true)
-    })
-    return () => { u1(); u2(); u3(); u4(); u5(); u6() }
-  }, [])
+  const loading = !dataLoaded
+
+  const loadPlanilha = async () => {
+    setIsFetching(true)
+    setLoadError('')
+    try {
+      const [imoveisSnap, inquilinosSnap, inadimplenciasSnap, valoresSnap, contasSnap, parcelasSnap] = await Promise.all([
+        get(ref(db, 'imoveis')),
+        get(ref(db, 'inquilinos')),
+        get(ref(db, 'inadimplencias')),
+        get(ref(db, 'valoresVariaveis')),
+        get(ref(db, 'contas')),
+        get(ref(db, 'cobrancasParceladas')).catch(err => {
+          console.error('Erro ao carregar cobrancasParceladas (verifique as regras do Firebase):', err)
+          return null
+        }),
+      ])
+      const toList = snapshot => {
+        const data = snapshot.val()
+        return data ? Object.entries(data).map(([id, value]) => ({ id, ...value })) : []
+      }
+      setImoveis(toList(imoveisSnap))
+      setInquilinos(toList(inquilinosSnap))
+      setInadimplencias(toList(inadimplenciasSnap))
+      setValoresVariaveis(valoresSnap.val() || {})
+      setContasCatalogo(toList(contasSnap))
+      setCobrancasParceladas(parcelasSnap ? toList(parcelasSnap) : [])
+      setDataLoaded(true)
+    } catch (err) {
+      console.error('Erro ao carregar dados da planilha:', err)
+      setLoadError('Não foi possível carregar os dados. Verifique sua conexão e tente novamente.')
+    } finally {
+      setIsFetching(false)
+    }
+  }
 
   const getContaMeta = (k) => {
     const catalogConta = contasCatalogo.find(c => c.id === k)
@@ -1437,10 +1433,15 @@ export default function ImoveisTodos() {
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-2 border-b pb-3">
           <CardTitle className="text-lg">Planilha de Pagamentos — {year}</CardTitle>
-          <Badge variant="secondary">Todos</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">Todos</Badge>
+            <Button onClick={loadPlanilha} disabled={isFetching}>
+              <RefreshCw className={isFetching ? 'animate-spin' : ''} />
+              {isFetching ? 'Carregando...' : dataLoaded ? 'Atualizar planilha' : 'Carregar planilha'}
+            </Button>
+          </div>
         </CardHeader>
-        {!loading && rows.length > 0 && (
-          <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '10px 16px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '10px 16px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4 }}><ListFilter size={14} /> Filtros</span>
             <input
               type="text"
@@ -1520,14 +1521,16 @@ export default function ImoveisTodos() {
                 className="ml-auto text-muted-foreground"
                 onClick={() => { setFilterNome(''); setFilterProprietario(''); setFilterImovel(''); setFilterModelo(''); setFilterInadimplentes(false); setFilterContasVariaveis(false); setFilterDesocupacao(false); setFilterEstrangeiro(false); setFilterInativos(false) }}
               >
-                <X /> Limpar ({filteredRows.length}/{rows.length})
+                <X /> Limpar{dataLoaded ? ` (${filteredRows.length}/${rows.length})` : ''}
               </Button>
             )}
-          </div>
-        )}
+        </div>
         <CardContent className="p-0">
           {loading ? (
-            <div className="empty-state"><div className="es-icon">⏳</div><p>Carregando...</p></div>
+            <div className="empty-state">
+              <div className="es-icon">{isFetching ? '⏳' : loadError ? '⚠️' : '🔎'}</div>
+              <p>{isFetching ? 'Carregando...' : loadError || 'Preencha os filtros e clique em "Carregar planilha".'}</p>
+            </div>
           ) : rows.length === 0 ? (
             <div className="empty-state">
               <div className="es-icon">🏠</div>
