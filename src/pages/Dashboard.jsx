@@ -3461,9 +3461,9 @@ export default function Dashboard() {
       </motion.div>
 
       <motion.div variants={staggerContainerVariants} initial="hidden" whileInView="visible" viewport={{ once: true, amount: 0.15 }}>
-      <Card className="mb-3 border border-blue-100/70 bg-[linear-gradient(130deg,#fffdf7_0%,#f5f7f4_100%)] shadow-md">
+      <Card className="mb-3 border border-blue-100/70 bg-[linear-gradient(130deg,#ffffff_0%,#ffffff_100%)] shadow-md">
         <motion.div variants={staggerItemVariants}>
-        <CardHeader className="flex w-full flex-row items-center justify-between gap-3 border-b py-2 ">
+        <CardHeader className="flex w-full flex-row items-center justify-between gap-3 border-b py-2">
           <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
             <CardTitle className="shrink-0 text-lg ">Inadimplência por Período</CardTitle>
             <CardDescription className="truncate text-xs text-muted-foreground">
@@ -3789,17 +3789,7 @@ export default function Dashboard() {
               <div className="recovery-total flex items-center justify-between gap-2 text-xs">
                 <span className="text-muted-foreground">Total</span>
                 <strong className="shrink-0">
-                  {fmtMoney(
-                    selectedMonthTotals.recuperado +
-                    selectedMonthTotals.utilizacaoCaucao +
-                    selectedMonthTotals.pagoSeguradora +
-                    selectedMonthTotals.aprovadoSeguradora +
-                    selectedMonthTotals.reprovado +
-                    selectedMonthTotals.aguardarAcionar +
-                    selectedMonthTotals.juridico +
-                    selectedMonthTotals.acionado +
-                    selectedMonthTotals.inadimplente
-                  )}
+                  {fmtMoney(selectedMonthOpenTotals.total)}
                 </strong>
               </div>
               </motion.div>

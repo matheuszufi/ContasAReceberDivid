@@ -175,8 +175,11 @@ const buildBalance = (debits, months) => {
 }
 
 const buildCardBalance = (debits, months) => {
-  const balance = buildBalance(debits, months)
   const periodDebits = debits.filter(debit => months.includes(debit.mesReferencia))
+  const total = periodDebits.reduce((sum, debit) => sum + totalOf(debit), 0)
+  const recovered = periodDebits
+    .filter(isDashboardRecovered)
+    .reduce((sum, debit) => sum + dashboardDebtValue(debit), 0)
   const open = periodDebits
     .filter(debit => !isDashboardRecovered(debit))
     .reduce((sum, debit) => sum + totalOf(debit), 0)
@@ -184,7 +187,7 @@ const buildCardBalance = (debits, months) => {
     .filter(isDashboardRecovered)
     .reduce((sum, debit) => sum + toNumber(debit.valorRecebido) - totalOf(debit), 0)
 
-  return { ...balance, open, interest }
+  return { total, recovered, open, interest }
 }
 
 const monthlyRevenue = tenants => tenants
@@ -302,23 +305,23 @@ function BalanceTooltip({ guaranteedBalance, combinedBalance }) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-            <button type="button" className="balance-tooltip-trigger" aria-label="Saldo geral de todas as inadimplências; juros calculados apenas para as garantidas. Passe o mouse para ver o saldo garantido.">
+            <button type="button" className="balance-tooltip-trigger" aria-label="Saldo apenas de inadimplências garantidas. Passe o mouse para ver garantidas e não garantidas.">
             {/* <span className="balance-tooltip-hint">Somente garantidas · passe para ver o total geral</span> */}
             <span className="balance-breakdown">
-                <small>Total: <b>{formatMoney(combinedBalance.total)}</b></small>
-                <small>Recuperado: <b>{formatMoney(combinedBalance.recovered)}</b></small>
-                <small>Em aberto: <b>{formatMoney(combinedBalance.open)}</b></small>
-                <small>Juros (garantidas): <b>{formatMoney(guaranteedBalance.interest)}</b></small>
+                <small>Total: <b>{formatMoney(guaranteedBalance.total)}</b></small>
+                <small>Recuperado: <b>{formatMoney(guaranteedBalance.recovered)}</b></small>
+                <small>Em aberto: <b>{formatMoney(guaranteedBalance.open)}</b></small>
+                <small>Juros: <b>{formatMoney(guaranteedBalance.interest)}</b></small>
             </span>
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" align="start" className="forecast-tooltip-content">
           <div className="forecast-tooltip-list">
-              <strong>Somente inadimplências garantidas</strong>
-            <span>Total: {formatMoney(guaranteedBalance.total)}</span>
-            <span>Recuperado: {formatMoney(guaranteedBalance.recovered)}</span>
-            <span>Em aberto: {formatMoney(guaranteedBalance.open)}</span>
-              <span>Juros: {formatMoney(guaranteedBalance.interest)}</span>
+              <strong>Total · garantidas + não garantidas</strong>
+            <span>Total: {formatMoney(combinedBalance.total)}</span>
+            <span>Recuperado: {formatMoney(combinedBalance.recovered)}</span>
+            <span>Em aberto: {formatMoney(combinedBalance.open)}</span>
+              <span>Juros (apenas garantidas): {formatMoney(guaranteedBalance.interest)}</span>
           </div>
         </TooltipContent>
       </Tooltip>
