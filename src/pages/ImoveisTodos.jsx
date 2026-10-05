@@ -116,6 +116,12 @@ const getMesRange = (inquilino) => {
   const mesFim    = inquilino?.dataSaida   ? addMonths(inquilino.dataSaida.substring(0, 7), shift)   : undefined
   return { mesInicio, mesFim }
 }
+
+const getUltimoMesReajuste = (inquilino) =>
+  Object.values(inquilino?.historicoAluguel || {}).reduce(
+    (ultimoMes, reajuste) => reajuste?.mes && (!ultimoMes || reajuste.mes > ultimoMes) ? reajuste.mes : ultimoMes,
+    ''
+  )
  
 // Fração do mês de entrada efetivamente ocupada pelo inquilino, para cobrança proporcional do 1º aluguel
 const getFracaoEntrada = (inquilino) => {
@@ -1676,10 +1682,14 @@ export default function ImoveisTodos() {
                         const totalMes    = aluguel + despesas + valorSeguro + valorGaragem + valorGarantia + extrasTotal + parcelasTotal + boletosTotal - garantiaUsoPagamento
  
                         let isReajuste = false
-                        if (mesInicio) {
-                          const [eY, eM] = mesInicio.split('-').map(Number)
+                        const ultimoMesReajuste = getUltimoMesReajuste(inquilino)
+                        const mesBaseReajuste = ultimoMesReajuste || mesInicio
+                        if (mesBaseReajuste) {
+                          const [eY, eM] = mesBaseReajuste.split('-').map(Number)
                           const elapsed = (year - eY) * 12 + ((mi + 1) - eM)
-                          isReajuste = elapsed >= 0 && elapsed % 12 === 11
+                          isReajuste = ultimoMesReajuste
+                            ? elapsed > 0 && elapsed % 12 === 0
+                            : elapsed >= 0 && elapsed % 12 === 11
                         }
  
                         const contasVariaveisKeys = (imovel.contasInclusas || inquilino.contasInclusas || []).filter(k => (inquilino.contasVariavel?.[k] || imovel.contasVariavel?.[k]) && !isContaPagaImobiliaria(inquilino, k))
