@@ -1471,23 +1471,25 @@ export default function RelatorioInadimplencia() {
               <div className="summary-grid">
                 <div className="summary-row summary-row-featured">
                   <article className="summary-card summary-card-featured accent-blue">
-                    <div className="projected-card-heading">
-                      <span>Meta de inadimplencia</span>
-                      {editingPercentage && !isLocked ? (
-                        <div className="percentage-editor">
-                          <Input autoFocus type="number" min="0" max="100" step="0.01" value={percentageDraft} onChange={event => setPercentageDraft(event.target.value)} aria-label="Taxa projetada" />
-                          <span>%</span>
-                          <Button type="button" size="sm" onClick={savePercentage} disabled={savingPercentage}>{savingPercentage ? 'Salvando' : 'Salvar'}</Button>
-                        </div>
-                      ) : (
-                        <button type="button" className="rate-edit-button projected-rate-control" onClick={() => !isLocked && setEditingPercentage(true)} disabled={isLocked}>
-                          <span>Taxa projetada</span> <b>{metrics.projectedRate.toFixed(2)}%</b>
-                        </button>
-                      )}
-                    </div>
-                    <div className="projected-revenue">
-                      <span>Faturamento do mês</span>
-                      <strong>{formatMoney(metrics.revenue)}</strong>
+                    <div className="projected-card-main">
+                      <div className="projected-card-heading">
+                        <span>Meta de inadimplencia</span>
+                        {editingPercentage && !isLocked ? (
+                          <div className="percentage-editor">
+                            <Input autoFocus type="number" min="0" max="100" step="0.01" value={percentageDraft} onChange={event => setPercentageDraft(event.target.value)} aria-label="Taxa projetada" />
+                            <span>%</span>
+                            <Button type="button" size="sm" onClick={savePercentage} disabled={savingPercentage}>{savingPercentage ? 'Salvando' : 'Salvar'}</Button>
+                          </div>
+                        ) : (
+                          <button type="button" className="rate-edit-button projected-rate-control" onClick={() => !isLocked && setEditingPercentage(true)} disabled={isLocked}>
+                            <span>Taxa projetada</span> <b>{metrics.projectedRate.toFixed(2)}%</b>
+                          </button>
+                        )}
+                      </div>
+                      <div className="projected-revenue">
+                        <span>Faturamento do mês</span>
+                        <strong>{formatMoney(metrics.revenue)}</strong>
+                      </div>
                     </div>
                     <div className="rate-summary">
                       <span className="rate-item">Taxa atual de inadimplência <b>{metrics.currentRate.toFixed(2)}%</b></span>

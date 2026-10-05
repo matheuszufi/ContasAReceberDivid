@@ -580,7 +580,7 @@ body {
   }
 
 .dashboard-page .payment-platform-panel {
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    background: linear-gradient(180deg, #ffffff 0%, #efefef 100%);
     border: 1px solid rgba(148, 163, 184, 0.18);
     border-radius: 22px;
     box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
@@ -673,9 +673,9 @@ body {
     flex-shrink: 0;
     padding: 14px 14px 12px;
     border-radius: 18px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    background: linear-gradient(40deg, #ffffff 0%, #f2f2f2 100%);
     border: 1px solid rgba(148, 163, 184, 0.18);
-    box-shadow: 0 12px 22px rgba(15, 23, 42, 0.05);
+    box-shadow: 0 4px 12px rgba(3, 3, 3, 0.2);
     overflow: hidden;
   }
 

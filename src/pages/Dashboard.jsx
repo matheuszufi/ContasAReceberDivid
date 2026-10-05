@@ -4256,7 +4256,7 @@ export default function Dashboard() {
               </div>
               <div>
                 <CardTitle className="text-sm">Próximos pagamentos</CardTitle>
-                <CardDescription className="text-xs text-muted-foreground">Pagamentos da seguradora agendados para o futuro.</CardDescription>
+                <CardDescription className="text-xs text-muted-foreground">Pagamentos da seguradora agendados.</CardDescription>
               </div>
             </div>
             <div className="payment-platform-summary">

@@ -179,6 +179,8 @@
 .projected-revenue { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 15px; padding-bottom: 9px; border-bottom: 1px solid #eef1f6; }
 .projected-revenue span { color: #64748b; font-size: 10.5px; }
 .summary-card .projected-revenue strong { margin: 0; color: #1e3a5f; font-size: 17px; }
+.summary-card-featured { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr); align-items: center; gap: 18px; }
+.projected-card-main { min-width: 0; }
 .summary-variation-panel { display: grid; align-content: center; gap: 9px; }
 .summary-variation-panel::before { background: #94a3b8; }
 .summary-variation-panel .summary-variation span { display: block; color: #64748b; font-size: 10px; font-weight: 650; line-height: 1.3; white-space: normal; }
@@ -195,6 +197,8 @@
 .rate-pair { display: flex; align-items: center; flex-wrap: wrap; gap: 20px; }
 .rate-item { display: inline-flex; align-items: baseline; gap: 6px; }
 .rate-summary b { color: #0f172a; font-size: 16px; font-weight: 700; }
+.summary-card-featured .rate-summary { align-content: center; min-height: 100%; margin: 0; border-left: 1px solid #eef1f6; padding-left: 18px; }
+.summary-card-featured .rate-breakdown { grid-template-columns: 1fr; gap: 8px; }
 .rate-edit-button { width: fit-content; border: 0; border-bottom: 1px dashed #94a3b8; padding: 0 0 2px; background: transparent; color: #475569; cursor: pointer; font: inherit; text-align: left; }
 .rate-edit-button:hover { color: #0f172a; border-bottom-color: #334155; }
 .rate-breakdown { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 24px; margin-top: 2px; }
@@ -408,6 +412,8 @@
   .summary-variations { justify-content: flex-start; flex-wrap: wrap; gap: 8px 14px; }
   .summary-variation { text-align: left; }
   .summary-row-featured { grid-template-columns: 1fr; }
+  .summary-card-featured { grid-template-columns: 1fr; gap: 12px; }
+  .summary-card-featured .rate-summary { min-height: 0; border-top: 1px solid #eef1f6; border-left: 0; padding: 12px 0 0; }
   .summary-variation-panel { gap: 8px; }
   .summary-grid { grid-template-columns: 1fr; }
   .summary-card { min-height: 142px; }
