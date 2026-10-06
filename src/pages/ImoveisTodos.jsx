@@ -1202,6 +1202,22 @@ export default function ImoveisTodos() {
   // a valores explícitos (`k in cellVarVals`) sobre os valores recalculados a partir do
   // cadastro, isso "congela" a célula: futuras alterações no aluguel/contas do inquilino ou
   // imóvel não afetam mais um mês travado.
+  const atualizarEstadoTravamento = (inquilinoId, cellKey, patch) => {
+    setValoresVariaveis(prev => ({
+      ...prev,
+      [inquilinoId]: {
+        ...(prev[inquilinoId] || {}),
+        [cellKey]: {
+          ...(prev[inquilinoId]?.[cellKey] || {}),
+          ...patch,
+        },
+      },
+    }))
+    setModal(current => current?.inquilino?.id === inquilinoId && current.key === cellKey
+      ? { ...current, travado: !!patch._travado }
+      : current)
+  }
+
   const handleLockCell = async (imovel, inquilino, mi) => {
     const cellKey = monthKey(mi)
     const vv = valoresVariaveis[inquilino.id]?.[cellKey] || {}
@@ -1209,7 +1225,9 @@ export default function ImoveisTodos() {
 
     if (jaTravado) {
       try {
-        await update(ref(db, `valoresVariaveis/${inquilino.id}/${cellKey}`), { _travado: false })
+        const patch = { _travado: false }
+        await update(ref(db, `valoresVariaveis/${inquilino.id}/${cellKey}`), patch)
+        atualizarEstadoTravamento(inquilino.id, cellKey, patch)
       } catch (err) {
         console.error('Erro ao destravar célula:', err)
         setSaveError(`Erro ao destravar célula: ${err.message}`)
@@ -1252,6 +1270,7 @@ export default function ImoveisTodos() {
 
     try {
       await update(ref(db, `valoresVariaveis/${inquilino.id}/${cellKey}`), payload)
+      atualizarEstadoTravamento(inquilino.id, cellKey, payload)
     } catch (err) {
       console.error('Erro ao travar célula:', err)
       setSaveError(`Erro ao travar célula: ${err.message}`)
