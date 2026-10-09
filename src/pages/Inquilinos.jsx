@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Users, UserCheck, UserX, Plus, Upload, Download, RotateCcw, Search, Pencil, Trash2, DoorOpen } from 'lucide-react'
-import { normalizeText } from '@/lib/utils'
+import { formatInternationalPhone, normalizeText } from '@/lib/utils'
 import './Inquilinos.css'
 
 const modeloBadge = { MA: 'badge-green', ME: 'badge-blue', ML: 'badge-yellow' }
@@ -611,8 +611,10 @@ export default function Inquilinos() {
     await update(ref(db, `inquilinos/${id}`), { cpf: formatCPF(valor) })
   }
 
-  const handleTelefoneChange = async (id, valor) => {
-    await update(ref(db, `inquilinos/${id}`), { telefone: formatPhone(valor) })
+  const handleTelefoneChange = async (id, valor, estrangeiro) => {
+    await update(ref(db, `inquilinos/${id}`), {
+      telefone: estrangeiro ? formatInternationalPhone(valor) : formatPhone(valor),
+    })
   }
 
   const handleNumeroChange = async (id, campo, valor, isInt = false) => {
@@ -865,7 +867,7 @@ export default function Inquilinos() {
               </a>
             ) : undefined
           }
-          onSave={v => handleTelefoneChange(inq.id, v)}
+          onSave={v => handleTelefoneChange(inq.id, v, inq.estrangeiro)}
         />
       ),
       imovel: (

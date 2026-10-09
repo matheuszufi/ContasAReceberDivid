@@ -5,7 +5,7 @@ import { ref, push, onValue, get, update, set } from 'firebase/database'
 import { db } from '../firebase'
 import Layout from '../components/Layout'
 import { MapaImoveis, buildEnderecoQuery, geocodeEndereco } from '../components/MapaImoveis'
-import { normalizeText } from '../lib/utils'
+import { formatInternationalPhone, normalizeText } from '../lib/utils'
 import './CadastrarInquilino.css'
 
 const GARANTIA_OPCOES = [
@@ -245,7 +245,10 @@ export default function CadastrarInquilino() {
     } else if (name === 'cpf') {
       setForm(prev => ({ ...prev, cpf: formatCPF(value) }))
     } else if (name === 'telefone') {
-      setForm(prev => ({ ...prev, telefone: formatPhone(value) }))
+      setForm(prev => ({
+        ...prev,
+        telefone: prev.estrangeiro ? formatInternationalPhone(value) : formatPhone(value),
+      }))
     } else if (name === 'garantia') {
       setForm(prev => ({
         ...prev,
@@ -592,7 +595,8 @@ export default function CadastrarInquilino() {
                 <label>Telefone</label>
                 <input
                   name="telefone" value={form.telefone} onChange={handleChange}
-                  placeholder="(00) 00000-0000" maxLength={15}
+                  placeholder={form.estrangeiro ? '+49 162 8485807' : '(00) 00000-0000'}
+                  maxLength={form.estrangeiro ? 16 : 15}
                 />
               </div>
             </div>

@@ -12,3 +12,9 @@ export function normalizeText(value) {
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
 }
+
+export function formatInternationalPhone(value) {
+  const phone = String(value || '')
+  const prefix = phone.trimStart().startsWith('+') ? '+' : ''
+  return prefix + phone.replace(/\D/g, '').slice(0, 15)
+}
