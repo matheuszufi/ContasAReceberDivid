@@ -21,6 +21,7 @@ import {
   FileText,
   Clock,
   Search,
+  Copy,
   MessageCircle,
   Pencil,
   X,
@@ -625,7 +626,16 @@ export default function Inadimplentes() {
     if (d.seguro !== undefined) await update(ref(db, `inadimplencias/${d.id}`), { seguro: novoSeguro })
   }
 
-  const abrirWhatsApp = (d) => {
+  const copiarTexto = async (texto, descricao) => {
+    try {
+      await navigator.clipboard.writeText(texto)
+    } catch (error) {
+      console.error(`Não foi possível copiar ${descricao}.`, error)
+      alert(`Não foi possível copiar ${descricao}.`)
+    }
+  }
+
+  const copiarTelefone = (d) => {
     const inquilino = inquilinos.find(i => i.id === d.inquilinoId)
 
     if (!inquilino?.telefone) {
@@ -633,12 +643,7 @@ export default function Inadimplentes() {
       return
     }
 
-    const telefone = inquilino.telefone.replace(/\D/g, '')
-    const mensagem = encodeURIComponent(
-      `Olá, ${inquilino.nome}! Tudo bem? Sou Matheus, da equipe financeira da Divid. Estou entrando em contato sobre um débito em aberto.`
-    )
-
-    window.open(`https://wa.me/55${telefone}?text=${mensagem}`, '_blank')
+    return copiarTexto(inquilino.telefone, 'o número do inquilino')
   }
 
 
@@ -1355,14 +1360,27 @@ export default function Inadimplentes() {
                 ) : sortedFiltered.map(d => (
                   <tr key={d.id}>
                     <td>
-                      <strong
-                        className="link-btn"
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => goInquilino(d)}
-                        title="Abrir cadastro do inquilino"
-                      >
-                        {getInquilinoNome(d)}
-                      </strong>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <strong
+                          className="link-btn"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => goInquilino(d)}
+                          title="Abrir cadastro do inquilino"
+                        >
+                          {getInquilinoNome(d)}
+                        </strong>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-7"
+                          onClick={() => copiarTexto(getInquilinoNome(d), 'o nome do inquilino')}
+                          aria-label={`Copiar nome de ${getInquilinoNome(d)}`}
+                          title="Copiar nome do inquilino"
+                        >
+                          <Copy />
+                        </Button>
+                      </div>
                     </td>
                     <td>
                       {getCodigoImovel(d) ? (
@@ -1559,8 +1577,15 @@ export default function Inadimplentes() {
                     </td>
                     <td>
                       <div className="flex gap-1.5">
-                        <Button size="sm" className="bg-[#25d366] text-white hover:bg-[#1fb057]" onClick={() => abrirWhatsApp(d)}>
-                          <MessageCircle /> 
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="bg-[#25d366] text-white hover:bg-[#1fb057]"
+                          onClick={() => copiarTelefone(d)}
+                          aria-label={`Copiar telefone de ${getInquilinoNome(d)}`}
+                          title="Copiar número do inquilino"
+                        >
+                          <Copy />
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => navigate(`/inadimplentes/editar/${d.id}`)}>
                           <Pencil />
