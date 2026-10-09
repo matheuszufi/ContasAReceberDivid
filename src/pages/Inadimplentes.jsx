@@ -23,6 +23,7 @@ import {
   Search,
   Copy,
   MessageCircle,
+  MessageSquareText,
   Pencil,
   X,
 } from 'lucide-react'
@@ -241,6 +242,8 @@ export default function Inadimplentes() {
   const [showRankingModal, setShowRankingModal] = useState(false)
   const [showHistoricoContatos, setShowHistoricoContatos] = useState(false)
   const [buscaHistoricoContatos, setBuscaHistoricoContatos] = useState('')
+  const [mensagensPadraoMenu, setMensagensPadraoMenu] = useState(null)
+  const mensagensPadraoMenuRef = useRef(null)
   const [editingGarantiaId, setEditingGarantiaId] = useState(null)
   const [editingValorRecebidoId, setEditingValorRecebidoId] = useState(null)
   const [valorRecebidoDraft, setValorRecebidoDraft] = useState('')
@@ -277,6 +280,30 @@ export default function Inadimplentes() {
       pagamentoFim: saved.pagamentoFim ?? saved.pagamento ?? '',
     }
   })
+
+  useEffect(() => {
+    if (!mensagensPadraoMenu) return
+
+    const fecharMenuFora = event => {
+      if (event.target instanceof Element && event.target.closest('[data-mensagens-menu-trigger]')) return
+      if (!mensagensPadraoMenuRef.current?.contains(event.target)) setMensagensPadraoMenu(null)
+    }
+    const fecharMenuTecla = event => {
+      if (event.key === 'Escape') setMensagensPadraoMenu(null)
+    }
+    const fecharMenuAoMover = () => setMensagensPadraoMenu(null)
+
+    document.addEventListener('pointerdown', fecharMenuFora)
+    document.addEventListener('keydown', fecharMenuTecla)
+    window.addEventListener('scroll', fecharMenuAoMover, true)
+    window.addEventListener('resize', fecharMenuAoMover)
+    return () => {
+      document.removeEventListener('pointerdown', fecharMenuFora)
+      document.removeEventListener('keydown', fecharMenuTecla)
+      window.removeEventListener('scroll', fecharMenuAoMover, true)
+      window.removeEventListener('resize', fecharMenuAoMover)
+    }
+  }, [mensagensPadraoMenu])
 
   // Persiste os filtros/ordenação assim que o usuário os altera, para restaurar na próxima visita
   useEffect(() => {
@@ -644,6 +671,64 @@ export default function Inadimplentes() {
     }
 
     return copiarTexto(inquilino.telefone, 'o número do inquilino')
+  }
+
+  const abrirMenuMensagensPadrao = (event, d) => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const menuWidth = 240
+    const left = Math.max(8, Math.min(rect.left, window.innerWidth - menuWidth - 8))
+    const menuHeight = 100
+    const top = rect.bottom + menuHeight + 4 > window.innerHeight
+      ? Math.max(8, rect.top - menuHeight - 4)
+      : rect.bottom + 4
+    setMensagensPadraoMenu(current => current?.id === d.id
+      ? null
+      : { id: d.id, top, left, debito: d })
+  }
+
+  const copiarMensagemPadrao = async (d, tipo) => {
+    const nomeCompleto = (inquilinos.find(i => i.id === d.inquilinoId)?.nome || d.inquilinoNome || '').trim()
+    const primeiroNome = nomeCompleto.split(/\s+/)[0]
+    if (!primeiroNome) {
+      alert('Este inquilino não possui nome cadastrado.')
+      return
+    }
+
+    let mensagem
+    if (tipo === 'vencimento') {
+      mensagem = `Olá ${primeiroNome}! Tudo bem? 😊
+
+Passando para lembrar que o boleto referente ao aluguel deste mês está próximo do vencimento.
+
+Pedimos, por gentileza, que se programe para realizar o pagamento até a data de vencimento, evitando a incidência de multa e juros previstos em contrato.
+
+Caso já tenha realizado o pagamento, desconsidere esta mensagem.
+
+Obrigado pela atenção!
+Equipe Financeira — Divid`
+    } else {
+      if (!d.dataVencimento) {
+        alert('Este débito não possui data de vencimento cadastrada.')
+        return
+      }
+      const dataVencimento = new Date(`${d.dataVencimento}T00:00:00`)
+      if (Number.isNaN(dataVencimento.getTime())) {
+        alert('A data de vencimento cadastrada é inválida.')
+        return
+      }
+      const dataFormatada = dataVencimento.toLocaleDateString('pt-BR')
+      mensagem = `Olá ${primeiroNome}, tudo bem? 😊
+
+Passando para lembrar que o boleto do seu aluguel venceu dia ${dataFormatada}.
+
+Se já realizou hoje, favor desconsiderar esta mensagem.
+
+Obrigado pela atenção!
+Equipe Financeira — Divid`
+    }
+
+    await copiarTexto(mensagem, 'a mensagem padrão')
+    setMensagensPadraoMenu(null)
   }
 
 
@@ -1587,6 +1672,20 @@ export default function Inadimplentes() {
                         >
                           <Copy />
                         </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="size-8"
+                          onClick={event => abrirMenuMensagensPadrao(event, d)}
+                          data-mensagens-menu-trigger
+                          aria-label={`Mensagens padrão para ${getInquilinoNome(d)}`}
+                          aria-haspopup="menu"
+                          aria-expanded={mensagensPadraoMenu?.id === d.id}
+                          title="Copiar mensagem padrão"
+                        >
+                          <MessageSquareText />
+                        </Button>
                         <Button variant="outline" size="sm" onClick={() => navigate(`/inadimplentes/editar/${d.id}`)}>
                           <Pencil />
                         </Button>
@@ -1603,6 +1702,44 @@ export default function Inadimplentes() {
         </div>
         </CardContent>
       </Card>
+
+      {mensagensPadraoMenu && createPortal(
+        <div
+          ref={mensagensPadraoMenuRef}
+          role="menu"
+          aria-label="Mensagens padrão"
+          style={{
+            position: 'fixed',
+            top: mensagensPadraoMenu.top,
+            left: mensagensPadraoMenu.left,
+            zIndex: 10001,
+            width: 240,
+            padding: 4,
+            background: '#fff',
+            border: '1px solid #e2e8f0',
+            borderRadius: 8,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+          }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            className="w-full rounded px-3 py-2 text-left text-sm hover:bg-slate-100 focus:bg-slate-100"
+            onClick={() => copiarMensagemPadrao(mensagensPadraoMenu.debito, 'vencimento')}
+          >
+            Alerta de vencimento
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="w-full rounded px-3 py-2 text-left text-sm hover:bg-slate-100 focus:bg-slate-100"
+            onClick={() => copiarMensagemPadrao(mensagensPadraoMenu.debito, 'vencido')}
+          >
+            Boleto vencido
+          </button>
+        </div>,
+        document.body
+      )}
 
       {/* ── Modal: ranking completo de inadimplentes ── */}
       {showRankingModal && (
