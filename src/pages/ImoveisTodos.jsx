@@ -182,7 +182,7 @@ const EditableValorRow = ({
           onChange={e => handleVarValue(vKey, e.target.value)}
           style={{ width: 110, padding: '4px 8px', border: `1.5px solid ${bc}`, borderRadius: 6, fontSize: 13, textAlign: 'right', outline: 'none', background: isModified ? '#fffbeb' : '#fff', color: isModified ? '#92400e' : '#334155', fontWeight: 600 }}
           onFocus={e => { setValorFocadoKey(vKey); e.target.style.borderColor = '#f59e0b' }}
-          onBlur={e  => { e.target.style.borderColor = bc; handleVarValueBlur(vKey); setValorFocadoKey(null) }}
+          onBlur={e  => { e.target.style.borderColor = bc; handleVarValueBlur(vKey, e.currentTarget.value); setValorFocadoKey(null) }}
         />
         {isModified && (
           <button onClick={() => handleRemoveVarValue(vKey)} title="Reverter" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 15, padding: '0 2px', lineHeight: 1 }}>↺</button>
@@ -323,6 +323,32 @@ export default function ImoveisTodos() {
     } finally {
       setIsFetching(false)
     }
+  }
+
+  const atualizarValoresVariaveisLocal = (inquilinoId, mesKey, patch) => {
+    setValoresVariaveis(prev => {
+      const valoresDoMes = { ...(prev[inquilinoId]?.[mesKey] || {}) }
+      Object.entries(patch).forEach(([key, value]) => {
+        if (value == null) delete valoresDoMes[key]
+        else if (value && typeof value === 'object' && !Array.isArray(value)) {
+          const valoresAninhados = { ...(valoresDoMes[key] || {}) }
+          Object.entries(value).forEach(([subKey, subValue]) => {
+            if (subValue == null) delete valoresAninhados[subKey]
+            else valoresAninhados[subKey] = subValue
+          })
+          if (Object.keys(valoresAninhados).length) valoresDoMes[key] = valoresAninhados
+          else delete valoresDoMes[key]
+        }
+        else valoresDoMes[key] = value
+      })
+      return {
+        ...prev,
+        [inquilinoId]: {
+          ...(prev[inquilinoId] || {}),
+          [mesKey]: valoresDoMes,
+        },
+      }
+    })
   }
 
   const getContaMeta = (k) => {
@@ -698,20 +724,29 @@ export default function ImoveisTodos() {
     setVarValues(prev => ({ ...prev, [contaKey]: valorDigitado }))
   }
 
-  const handleVarValueBlur = (contaKey) => {
-    if (!(contaKey in varValues)) return
-    if (modal?.inquilino?.id && modal?.key) {
-      const valorAnterior = varValuesSavedRef.current[contaKey]
-      const valorDigitado = varValues[contaKey] ?? ''
-      const novoValor = Math.round(parseMoney(valorDigitado) * 100) / 100
-      update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), {
+  const handleVarValueBlur = async (contaKey, rawValue) => {
+    const valorDigitado = rawValue ?? varValues[contaKey]
+    if (valorDigitado === undefined || !modal?.inquilino?.id || !modal?.key) return
+
+    const inquilinoId = modal.inquilino.id
+    const mesKey = modal.key
+    const valorAnterior = varValuesSavedRef.current[contaKey]
+    const novoValor = Math.round(parseMoney(valorDigitado) * 100) / 100
+
+    try {
+      await update(ref(db, `valoresVariaveis/${inquilinoId}/${mesKey}`), {
         [contaKey]: novoValor,
-      }).catch(err => { console.error('Erro ao salvar valor:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
-      if (parseMoney(valorAnterior) !== novoValor) {
-        registrarAlteracaoConta(modal, modal.key, contaKey, fmtBRL(valorAnterior ?? getBaseValorConta(contaKey)), fmtBRL(novoValor))
-        varValuesSavedRef.current[contaKey] = novoValor
-      }
+      })
+      atualizarValoresVariaveisLocal(inquilinoId, mesKey, { [contaKey]: novoValor })
       setCommittedVarValues(prev => ({ ...prev, [contaKey]: novoValor }))
+      varValuesSavedRef.current[contaKey] = novoValor
+
+      if (parseMoney(valorAnterior) !== novoValor) {
+        registrarAlteracaoConta(modal, mesKey, contaKey, fmtBRL(valorAnterior ?? getBaseValorConta(contaKey)), fmtBRL(novoValor))
+      }
+    } catch (err) {
+      console.error('Erro ao salvar valor:', err)
+      setSaveError(`Erro ao salvar: ${err.message}`)
     }
   }
  
@@ -721,6 +756,7 @@ export default function ImoveisTodos() {
     setCommittedVarValues(prev => { const n = { ...prev }; delete n[contaKey]; return n })
     if (modal?.inquilino?.id && modal?.key) {
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), { [contaKey]: null })
+        .then(() => atualizarValoresVariaveisLocal(modal.inquilino.id, modal.key, { [contaKey]: null }))
         .catch(err => { console.error('Erro ao reverter valor:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
       registrarAlteracaoConta(modal, modal.key, contaKey, fmtBRL(valorAnterior ?? getBaseValorConta(contaKey)), 'Valor padrão (revertido)')
       delete varValuesSavedRef.current[contaKey]
@@ -731,6 +767,7 @@ export default function ImoveisTodos() {
         const patch = { _contasProporcionais: next.length ? next : null }
         if (next.length === 0) { setDiaSaidaModal(''); patch._diaSaida = null }
         update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), patch)
+          .then(() => atualizarValoresVariaveisLocal(modal.inquilino.id, modal.key, patch))
           .catch(err => console.error('Erro ao atualizar contas proporcionais:', err))
       }
     }
@@ -790,6 +827,7 @@ export default function ImoveisTodos() {
       const patch = { _diaSaida: null, _contasProporcionais: null }
       anteriores.forEach(k => { patch[k] = null })
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), patch)
+        .then(() => atualizarValoresVariaveisLocal(modal.inquilino.id, modal.key, patch))
         .catch(err => { console.error('Erro ao limpar rateio proporcional:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
       return
     }
@@ -818,6 +856,7 @@ export default function ImoveisTodos() {
     })
 
     update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}`), patch)
+      .then(() => atualizarValoresVariaveisLocal(modal.inquilino.id, modal.key, patch))
       .catch(err => { console.error('Erro ao salvar rateio proporcional:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
   }
 
@@ -906,6 +945,7 @@ export default function ImoveisTodos() {
     console.log('[saveExtra] gravando em', `${basePath}/${finalId}`, payload)
     try {
       await set(ref(db, `${basePath}/${finalId}`), payload)
+      atualizarValoresVariaveisLocal(modal.inquilino.id, modal.key, { extras: { [finalId]: payload } })
       console.log('[saveExtra] gravado com sucesso em', `${basePath}/${finalId}`)
       setSaveError('')
       if (finalId !== extra.id) {
@@ -947,6 +987,7 @@ export default function ImoveisTodos() {
       const salva = extraSavedRef.current[extra.id]
       try {
         await remove(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/extras/${extra.id}`))
+        atualizarValoresVariaveisLocal(modal.inquilino.id, modal.key, { extras: { [extra.id]: null } })
         delete extraSavedRef.current[extra.id]
         if (salva) {
           const label = salva.nome || salva.contaId || 'Conta extra'
@@ -1029,6 +1070,7 @@ export default function ImoveisTodos() {
     const payload = { descricao: boleto.descricao || '', valor: numVal, vencimento: boleto.vencimento || '', registrado: !!boleto.registrado }
     try {
       await set(ref(db, `${basePath}/${finalId}`), payload)
+      atualizarValoresVariaveisLocal(modal.inquilino.id, modal.key, { boletos: { [finalId]: payload } })
       setSaveError('')
       const anterior = boletoSavedRef.current[finalId]
       const prevNum = !anterior || anterior.valor === '' || anterior.valor === undefined || anterior.valor === null
@@ -1059,6 +1101,7 @@ export default function ImoveisTodos() {
       const salvo = boletoSavedRef.current[boleto.id]
       try {
         await remove(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/boletos/${boleto.id}`))
+        atualizarValoresVariaveisLocal(modal.inquilino.id, modal.key, { boletos: { [boleto.id]: null } })
         delete boletoSavedRef.current[boleto.id]
         if (salvo) {
           const label = salvo.descricao || 'Boleto avulso'
@@ -1083,6 +1126,7 @@ export default function ImoveisTodos() {
     setRegistradoVar(prev => ({ ...prev, [k]: novo }))
     if (modal?.inquilino?.id && modal?.key) {
       update(ref(db, `valoresVariaveis/${modal.inquilino.id}/${modal.key}/_registrado`), { [k]: novo })
+        .then(() => atualizarValoresVariaveisLocal(modal.inquilino.id, modal.key, { _registrado: { ...registradoVar, [k]: novo } }))
         .catch(err => { console.error('Erro ao registrar conta:', err); setSaveError(`Erro ao salvar: ${err.message}`) })
     }
   }
@@ -1127,6 +1171,11 @@ export default function ImoveisTodos() {
 
     try {
       await update(ref(db), patch)
+      mesesAfetados.forEach(mes => {
+        atualizarValoresVariaveisLocal(inquilino.id, mes, {
+          _garantiaUsoPagamento: novosMeses.includes(mes) ? (valoresPorMes[mes] || 0) : null,
+        })
+      })
       setVarValues(prev => {
         const n = { ...prev }
         if (novosMeses.includes(modal.key)) n._garantiaUsoPagamento = valoresPorMes[modal.key] || 0
@@ -1460,10 +1509,12 @@ export default function ImoveisTodos() {
           <CardTitle className="text-lg">Planilha de Pagamentos — {year}</CardTitle>
           <div className="flex items-center gap-2">
             <Badge variant="secondary">Todos</Badge>
-            <Button onClick={loadPlanilha} disabled={isFetching}>
-              <RefreshCw className={isFetching ? 'animate-spin' : ''} />
-              {isFetching ? 'Carregando...' : dataLoaded ? 'Atualizar planilha' : 'Carregar planilha'}
-            </Button>
+            {!dataLoaded && (
+              <Button onClick={loadPlanilha} disabled={isFetching}>
+                <RefreshCw className={isFetching ? 'animate-spin' : ''} />
+                {isFetching ? 'Carregando...' : 'Carregar planilha'}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <div style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '10px 16px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -2105,7 +2156,7 @@ export default function ImoveisTodos() {
                                   background: bgColor, color: txtColor, fontWeight: 600,
                                 }}
                                 onFocus={e => (e.target.style.borderColor = isVariavel ? '#7c3aed' : '#f59e0b')}
-                                onBlur={e  => { e.target.style.borderColor = borderColor; handleVarValueBlur(key) }}
+                                onBlur={e  => { e.target.style.borderColor = borderColor; handleVarValueBlur(key, e.currentTarget.value) }}
                               />
                               {!isVariavel && isModified && (
                                 <button
