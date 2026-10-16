@@ -22,6 +22,8 @@ export default function SeguroIncendio() {
   const [contasCatalogo, setContasCatalogo] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
 
   // Filtros por coluna
   const [filtroNome, setFiltroNome] = useState('')
@@ -146,6 +148,50 @@ export default function SeguroIncendio() {
     filtroMesFim
   ])
 
+  const toggleSort = (field) => {
+    if (sortBy === field) setSortDir(dir => dir === 'asc' ? 'desc' : 'asc')
+    else {
+      setSortBy(field)
+      setSortDir('asc')
+    }
+  }
+
+  const sortArrow = (field) => sortBy === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
+
+  const getSortValue = (inquilino, field) => {
+    const imovel = imovelMap[inquilino.imovelId]
+    const contaId = findSeguroIncendioContaId(imovel)
+    switch (field) {
+      case 'nome': return inquilino.nome || ''
+      case 'status': return inquilino.status || ''
+      case 'imovel': return imovel?.codigo || inquilino.codigoImovel || ''
+      case 'modelo': return imovel?.modelo || ''
+      case 'valor':
+        return imovel?.contasVariavel?.[contaId]
+          ? 'Variável'
+          : Number(inquilino.contasValores?.[contaId] ?? inquilino.contasValores?.seguro_incendio) || 0
+      case 'mesInicio': return inquilino.seguroIncendioMesInicio || ''
+      case 'mesFim': return inquilino.seguroIncendioMesFim || ''
+      default: return ''
+    }
+  }
+
+  const sortedFiltered = useMemo(() => {
+    if (!sortBy) return filtered
+    return [...filtered].sort((a, b) => {
+      const valueA = getSortValue(a, sortBy)
+      const valueB = getSortValue(b, sortBy)
+      const comparison = typeof valueA === 'number' && typeof valueB === 'number'
+        ? valueA - valueB
+        : typeof valueA === 'number'
+          ? -1
+          : typeof valueB === 'number'
+            ? 1
+            : String(valueA).localeCompare(String(valueB), 'pt-BR', { sensitivity: 'base', numeric: true })
+      return sortDir === 'asc' ? comparison : -comparison
+    })
+  }, [filtered, imovelMap, isSeguroIncendioKey, sortBy, sortDir])
+
   const ativos = comSeguroIncendio.filter(i => i.status === 'Ativo').length
   const totalMensal = comSeguroIncendio.reduce((s, i) => {
     const contaId = findSeguroIncendioContaId(imovelMap[i.imovelId])
@@ -262,13 +308,26 @@ export default function SeguroIncendio() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Nome</th>
-                  <th>Status</th>
-                  <th>Imóvel</th>
-                  <th>Modelo</th>
-                  <th>Valor</th>
-                  <th>1º Mês de Cobrança</th>
-                  <th>Último Mês de Cobrança</th>
+                  {[
+                    ['nome', 'Nome'],
+                    ['status', 'Status'],
+                    ['imovel', 'Imóvel'],
+                    ['modelo', 'Modelo'],
+                    ['valor', 'Valor'],
+                    ['mesInicio', '1º Mês de Cobrança'],
+                    ['mesFim', 'Último Mês de Cobrança'],
+                  ].map(([field, label]) => (
+                    <th key={field}>
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(field)}
+                        aria-label={`Ordenar por ${label}`}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, border: 0, background: 'none', color: 'inherit', font: 'inherit', textTransform: 'inherit', letterSpacing: 'inherit', cursor: 'pointer' }}
+                      >
+                        {label}<span aria-hidden="true">{sortArrow(field)}</span>
+                      </button>
+                    </th>
+                  ))}
                   <th>Ações</th>
                 </tr>
                 <tr className="filter-row">
@@ -349,7 +408,7 @@ export default function SeguroIncendio() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr><td colSpan={8}><div className="empty-state">Nenhum inquilino com seguro incêndio encontrado.</div></td></tr>
-                ) : filtered.map(inq => {
+                ) : sortedFiltered.map(inq => {
                   const imovel = imovelMap[inq.imovelId]
                   const contaId = findSeguroIncendioContaId(imovel)
                   const variavel = !!imovel?.contasVariavel?.[contaId]

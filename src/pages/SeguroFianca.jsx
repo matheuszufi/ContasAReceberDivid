@@ -51,6 +51,8 @@ export default function SeguroFianca() {
   const [imoveis, setImoveis] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [sortBy, setSortBy] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
 
   // Filtros por coluna
   const [filtroNome, setFiltroNome] = useState('')
@@ -177,6 +179,44 @@ export default function SeguroFianca() {
     filtroMesInicio,
     filtroMesFim
   ])
+
+  const toggleSort = (field) => {
+    if (sortBy === field) setSortDir(dir => dir === 'asc' ? 'desc' : 'asc')
+    else {
+      setSortBy(field)
+      setSortDir('asc')
+    }
+  }
+
+  const sortArrow = (field) => sortBy === field ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''
+
+  const getSortValue = (inquilino, field) => {
+    const imovel = imovelMap[ inquilino.imovelId ]
+    switch (field) {
+      case 'nome': return inquilino.nome || ''
+      case 'status': return inquilino.status || ''
+      case 'imovel': return imovel?.codigo || inquilino.codigoImovel || ''
+      case 'modelo': return imovel?.modelo || ''
+      case 'seguradora': return SEGURO_LABELS[inquilino.seguro] || inquilino.seguro || ''
+      case 'valor': return Number(inquilino.valorSeguro) || 0
+      case 'boleto': return inquilino.seguroCobradoBoleto ? 'Sim' : 'Não'
+      case 'mesInicio': return inquilino.seguroFiancaMesInicio || ''
+      case 'mesFim': return inquilino.seguroFiancaMesFim || ''
+      default: return ''
+    }
+  }
+
+  const sortedFiltered = useMemo(() => {
+    if (!sortBy) return filtered
+    return [...filtered].sort((a, b) => {
+      const valueA = getSortValue(a, sortBy)
+      const valueB = getSortValue(b, sortBy)
+      const comparison = typeof valueA === 'number' && typeof valueB === 'number'
+        ? valueA - valueB
+        : String(valueA).localeCompare(String(valueB), 'pt-BR', { sensitivity: 'base', numeric: true })
+      return sortDir === 'asc' ? comparison : -comparison
+    })
+  }, [filtered, imovelMap, sortBy, sortDir])
 
   const totalMensal = seguradosFianca.reduce((s, i) => s + (Number(i.valorSeguro) || 0), 0)
   const ativos = seguradosFianca.filter(i => i.status === 'Ativo').length
@@ -316,15 +356,28 @@ export default function SeguroFianca() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Nome</th>
-                  <th>Status</th>
-                  <th>Imóvel</th>
-                  <th>Modelo</th>
-                  <th>Seguradora</th>
-                  <th>Valor do Seguro</th>
-                  <th>Cobrado no boleto do inquilino</th>
-                  <th>1º Mês de Cobrança</th>
-                  <th>Último Mês de Cobrança</th>
+                  {[
+                    ['nome', 'Nome'],
+                    ['status', 'Status'],
+                    ['imovel', 'Imóvel'],
+                    ['modelo', 'Modelo'],
+                    ['seguradora', 'Seguradora'],
+                    ['valor', 'Valor do Seguro'],
+                    ['boleto', 'Cobrado no boleto do inquilino'],
+                    ['mesInicio', '1º Mês de Cobrança'],
+                    ['mesFim', 'Último Mês de Cobrança'],
+                  ].map(([field, label]) => (
+                    <th key={field}>
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(field)}
+                        aria-label={`Ordenar por ${label}`}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 2, padding: 0, border: 0, background: 'none', color: 'inherit', font: 'inherit', textTransform: 'inherit', letterSpacing: 'inherit', cursor: 'pointer' }}
+                      >
+                        {label}<span aria-hidden="true">{sortArrow(field)}</span>
+                      </button>
+                    </th>
+                  ))}
                   <th>Ações</th>
                 </tr>
                 <tr className="filter-row">
@@ -425,7 +478,7 @@ export default function SeguroFianca() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr><td colSpan={10}><div className="empty-state">Nenhum inquilino com seguro fiança encontrado.</div></td></tr>
-                ) : filtered.map(inq => {
+                ) : sortedFiltered.map(inq => {
                   const imovel = imovelMap[inq.imovelId]
                   const cs = { cursor: 'pointer' }
                   const inputSt = { fontSize: 13, padding: '2px 6px', borderRadius: 6, border: '1px solid #93c5fd', width: '100%', outline: 'none' }
